@@ -1,0 +1,68 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: ["main"]
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'  # Enable npm cache
+
+      - name: Install dependencies
+        run: npm ci  # Use ci instead of install for reproducibility
+
+      - name: Lint code
+        run: npm run lint
+        continue-on-error: true  # Don't block deployment on lint warnings
+
+      - name: Build application
+        run: npm run build
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          source: "dist,Dockerfile,package*.json"
+          target: "/home/ubuntu/siteguard/frontend"
+          strip_components: 0
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e  # Exit on error
+            cd /home/ubuntu/siteguard/frontend
+            
+            # Build and deploy Docker image
+            docker build \
+              --tag siteguard-frontend:latest \
+              --tag siteguard-frontend:$(date +%s) \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              .
+            
+            # Deploy with docker-compose
+            cd /home/ubuntu/siteguard
+            docker-compose up -d frontend
+            
+            # Verify deployment
+            sleep 5
+            docker ps | grep siteguard-frontend && echo "✓ Deployment successful"
