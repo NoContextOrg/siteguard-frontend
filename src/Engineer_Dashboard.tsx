@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -115,7 +115,8 @@ const EngineerDashboard = () => {
                 <input 
                   type="date" 
                   className="text-xs font-bold text-slate-600 outline-none" 
-                  defaultValue="2026-01-19"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
                 />
             </div>
           </div>

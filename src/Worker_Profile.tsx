@@ -1,14 +1,17 @@
-import React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard,  Users, BellRing,  LogOut, Search, Bell, ChevronDown, SquarePen, X, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, BellRing, LogOut, Bell, ChevronDown, SquarePen, X, ShieldAlert } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
 
 const WorkerProfile = () => {
   const navigate = useNavigate();
+  const { userEmail, logout } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
@@ -33,7 +36,7 @@ const WorkerProfile = () => {
             </button>
           </nav>
   
-          <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
+          <button onClick={handleLogout} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
             <LogOut size={20} /> <span className="font-semibold">Logout</span>
           </button>
         </aside>  
@@ -43,15 +46,15 @@ const WorkerProfile = () => {
         {/* ========== Header ========== */}
         <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Logo" className="w-8 h-8 invert" />
+            <img src="/lock_shield.png" alt="Logo" className="w-8 h-8 invert" />
             <span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span>
           </div>
           <div className="flex items-center gap-6">
             <Bell size={20} className="cursor-pointer" />
             <div className="flex items-center gap-3 border-l border-white/20 pl-6">
               <div className="text-right">
-                <p className="text-xs font-bold">Ysa Dela Fuente</p>
-                <p className="text-[10px] opacity-70">ysadelafuente@gmail.com</p>
+                <p className="text-xs font-bold">{userEmail?.split('@')[0] || 'User'}</p>
+                <p className="text-[10px] opacity-70">{userEmail}</p>
               </div>
               <div className="w-10 h-10 bg-slate-300 rounded-full overflow-hidden border-2 border-white/50">
                  <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100" alt="User" />

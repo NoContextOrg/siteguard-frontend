@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { 
   loginUser, 
@@ -14,6 +15,7 @@ import {
   storeAuthData,
   verifyToken,
   getAuthToken,
+  getDashboardRoute,
 } from '../api/auth';
 
 interface AuthContextType {
@@ -30,6 +32,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
@@ -74,6 +77,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(true);
       setUserEmail(response.username);
       setRoles(response.roles);
+      // Redirect to appropriate dashboard based on role
+      const dashboardRoute = getDashboardRoute();
+      navigate(dashboardRoute);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);

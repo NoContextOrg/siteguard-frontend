@@ -139,3 +139,43 @@ export const getAuthHeader = (): Record<string, string> => {
   const token = getAuthToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
+
+/**
+ * Get primary user role (first role from list)
+ */
+export const getPrimaryRole = (): string | null => {
+  const roles = getUserRoles();
+  if (roles.length === 0) return null;
+  
+  // Extract role name from "ROLE_ADMIN" format
+  const primaryRole = roles[0];
+  return primaryRole.replace('ROLE_', '').toLowerCase();
+};
+
+/**
+ * Get dashboard route based on user role
+ */
+export const getDashboardRoute = (): string => {
+  const role = getPrimaryRole();
+  
+  switch (role) {
+    case 'admin':
+      return '/admin_dashboard';
+    case 'engineer':
+      return '/engineer_dashboard';
+    case 'nurse':
+      return '/dashboard';
+    case 'staff':
+      return '/dashboard';
+    default:
+      return '/dashboard';
+  }
+};
+
+/**
+ * Check if user is a specific role
+ */
+export const isRole = (role: string): boolean => {
+  const roles = getUserRoles();
+  return roles.some(r => r.toUpperCase().includes(role.toUpperCase()));
+};

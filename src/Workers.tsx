@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Users, Bell, LogOut, Menu, Search, UserCircle, Calendar, Filter, X, Save,  BellRing} from 'lucide-react';
-import { useNavigate, useLocation  } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // ========== Types ==========
 interface Worker {
@@ -29,7 +29,6 @@ export default function WorkersPage() {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
-  const location = useLocation();
 
   // ========== Filter workers based on search ==========
   const filteredWorkers = workers.filter(w => 
@@ -148,12 +147,18 @@ export default function WorkersPage() {
                           {worker.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center space-x-2">
+                        <button 
+                          onClick={() => navigate(`/worker-profile?id=${worker.id}`)}
+                          className="text-green-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                        >
+                          Profile
+                        </button>
                         <button 
                           onClick={() => setEditingWorker(worker)}
-                          className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-4 py-2"
+                          className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
                         >
-                          View/Edit
+                          Edit
                         </button>
                       </td>
                     </tr>
@@ -239,13 +244,3 @@ export default function WorkersPage() {
     </div>
   );
 }
-
-// ========== Sidebar Item Toolkit ==========
-const SidebarItem = ({ icon: Icon, label, isOpen, active = false }: any) => (
-  <div className={`flex items-center gap-3 px-6 py-4 cursor-pointer transition-all border-l-4 ${
-    active ? 'bg-blue-500/10 text-white border-blue-500' : 'text-slate-500 border-transparent hover:text-white hover:bg-slate-800'
-  }`}>
-    <Icon size={22} />
-    {isOpen && <span className="text-[11px] font-black uppercase tracking-[0.2em]">{label}</span>}
-  </div>
-);

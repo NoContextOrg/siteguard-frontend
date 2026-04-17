@@ -361,14 +361,6 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/landingpage" element={<LandingPage />} />
           <Route 
-            path="/worker-profile" 
-            element={
-              <ProtectedRoute>
-                <WorkerProfile />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute>
@@ -421,6 +413,14 @@ function App() {
             element={
               <ProtectedRoute requiredRoles={['engineer']}>
                 <EngineerTeam />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/worker-profile" 
+            element={
+              <ProtectedRoute>
+                <WorkerProfile />
               </ProtectedRoute>
             } 
           />
