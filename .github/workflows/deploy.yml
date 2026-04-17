@@ -17,4 +17,4 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /home/ec2-user/siteguard
-            ./deploy.sh
+            ./deploy.sh 
