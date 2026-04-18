@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { 
   loginUser, 
@@ -33,7 +33,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
@@ -54,12 +53,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const userRoles = getUserRoles();
             setUserEmail(email);
             setRoles(userRoles);
-
-            // Auto-redirect to dashboard on refresh if not already there
-            if (location.pathname === '/' || location.pathname === '/landingpage') {
-              const dashboardRoute = getDashboardRoute();
-              navigate(dashboardRoute, { replace: true });
-            }
           } else {
             logoutUser();
             setIsAuthenticated(false);
@@ -78,7 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     checkAuthentication();
-  }, [navigate, location.pathname]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);

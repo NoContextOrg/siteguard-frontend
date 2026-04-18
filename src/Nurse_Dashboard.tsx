@@ -1,35 +1,75 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { DashboardNavbar } from './components/DashboardNavbar';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, BellRing, UserCheck, UserX, HardHat, Calendar, Filter, List, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-
-// ========== DUMMY DATA FOR CHARTS (ayoko na) ========== //
-const attendanceData = [
-  { name: 'Jan 1', Hotlist: 21, Workers: 15, Engineers: 4 },
-  { name: 'Jan 2', Hotlist: 30, Workers: 10, Engineers: 9 },
-  { name: 'Jan 3', Hotlist: 42, Workers: 8, Engineers: 11 },
-  { name: 'Jan 4', Hotlist: 21, Workers: 3, Engineers: 2 },
-  { name: 'Jan 5', Hotlist: 45, Workers: 6, Engineers: 1 },
-];
-
-const hotlistTeamData = [
-  { name: 'Jan 6', 'Line & Grade': 25, MEPF: 13, Finishing: 25, Structural: 15, Masonry: 15 },
-  { name: 'Jan 7', 'Line & Grade': 28, MEPF: 25, Finishing: 24, Structural: 30, Masonry: 24 },
-  { name: 'Jan 8', 'Line & Grade': 15, MEPF: 13, Finishing: 15, Structural: 19, Masonry: 19 },
-];
-
-const teamAttendancePie = [
-  { name: 'Present', value: 340, color: '#818cf8' },
-  { name: 'Absent', value: 45, color: '#f87171' },
-  { name: 'On Leave', value: 21, color: '#2dd4bf' },
-  { name: 'Overtime', value: 94, color: '#fb923c' },
-];
+import type { 
+  SystemStats,
+  DashboardOverview,
+  HotlistOverview,
+  TeamAttendance,
+} from './api/analytics';
+import { 
+  getSystemStats, 
+  getDashboardOverview, 
+  getAttendancePlot, 
+  getHotlistOverview,
+  getTeamAttendance,
+} from './api/analytics';
 
 const NurseDashboard = () => {
   const { userEmail } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
+  const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
+  const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch all data in parallel
+        const [stats, overview, attendance, hotlist, teamAttend] = await Promise.all([
+          getSystemStats(),
+          getDashboardOverview(),
+          getAttendancePlot(),
+          getHotlistOverview(),
+          getTeamAttendance(),
+        ]);
+
+        setSystemStats(stats);
+        setDashboardOverview(overview);
+        setAttendanceData(attendance.data || []);
+        setHotlistOverview(hotlist);
+        setTeamAttendanceData(teamAttend);
+
+        // Format team attendance pie data
+        if (teamAttend.length > 0) {
+          const firstTeam = teamAttend[0];
+          const pieData = [
+            { name: 'Present', value: firstTeam.present, color: '#818cf8' },
+            { name: 'Absent', value: firstTeam.absent, color: '#f87171' },
+            { name: 'On Leave', value: firstTeam.on_leave, color: '#2dd4bf' },
+            { name: 'Overtime', value: firstTeam.overtime, color: '#fb923c' },
+          ];
+          setTeamAttendancePie(pieData);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
   const sidebarItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Users size={20} />, label: 'Workers', path: '/workers' },
@@ -52,12 +92,18 @@ const NurseDashboard = () => {
 
           {/* ========== TOP STAT CARDS ========== */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <StatCard label="Total Workers" value="530" icon={<Users className="text-blue-400" size={28}/>} borderColor="border-l-blue-500" />
-            <StatCard label="Onsite Workers" value="450" icon={<UserCheck className="text-teal-400" size={28}/>} borderColor="border-l-teal-500" />
-            <StatCard label="Site Engineers" value="35" icon={<HardHat className="text-blue-300" size={28}/>} borderColor="border-l-blue-300" />
-            <StatCard label="Hotlist Workers" value="210" icon={<UserX className="text-red-400" size={28}/>} borderColor="border-l-red-500" />
-            <StatCard label="Workers Admitted" value="23" icon={<Users size={28}/>} borderColor="border-l-purple-500" />
-            <StatCard label="Site Engineers Admitted" value="4" icon={<HardHat size={28}/>} borderColor="border-l-indigo-500" />
+            {loading ? (
+              <div className="col-span-full text-center py-8">Loading...</div>
+            ) : (
+              <>
+                <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} icon={<Users className="text-blue-400" size={28}/>} borderColor="border-l-blue-500" />
+                <StatCard label="Onsite Workers" value={(dashboardOverview?.todays_attendance ?? 0).toString()} icon={<UserCheck className="text-teal-400" size={28}/>} borderColor="border-l-teal-500" />
+                <StatCard label="Site Engineers" value={(systemStats?.engineers ?? 0).toString()} icon={<HardHat className="text-blue-300" size={28}/>} borderColor="border-l-blue-300" />
+                <StatCard label="Hotlist Workers" value={(dashboardOverview?.todays_hotlist_alerts ?? 0).toString()} icon={<UserX className="text-red-400" size={28}/>} borderColor="border-l-red-500" />
+                <StatCard label="Total Nurses" value={(systemStats?.nurses ?? 0).toString()} icon={<Users size={28}/>} borderColor="border-l-purple-500" />
+                <StatCard label="Total Persons" value={(systemStats?.total_persons ?? 0).toString()} icon={<HardHat size={28}/>} borderColor="border-l-indigo-500" />
+              </>
+            )}
           </div>   
 
           {/* ========== MAIN GRID SECTION ========== */}
@@ -126,19 +172,22 @@ const NurseDashboard = () => {
               </ChartContainer>
 
               {/* Hotlist Attendance Overview Chart */}
-              <ChartContainer title="Hotlist Attendance Overview" subtitle="This bar graph shows how many hotlist per team is present.">
+              <ChartContainer title="Hotlist Attendance Overview" subtitle="This bar graph shows recent hotlist alerts by team.">
                 <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={hotlistTeamData}>
+                    <BarChart data={(Array.isArray(teamAttendanceData) ? teamAttendanceData : []).slice(0, 5).map((t, i) => ({
+                      name: `Team ${i + 1}`,
+                      present: t.present,
+                      absent: t.absent,
+                      leave: t.on_leave,
+                    }))}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                         <Tooltip />
                         <Legend iconType="rect" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                        <Bar dataKey="Line & Grade" stackId="a" fill="#818cf8" />
-                        <Bar dataKey="MEPF" stackId="a" fill="#f472b6" />
-                        <Bar dataKey="Finishing" stackId="a" fill="#2dd4bf" />
-                        <Bar dataKey="Structural" stackId="a" fill="#fb923c" />
-                        <Bar dataKey="Masonry" stackId="a" fill="#94a3b8" />
+                        <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
+                        <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
+                        <Bar dataKey="leave" stackId="a" fill="#2dd4bf" name="On Leave" />
                     </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -174,23 +223,18 @@ const NurseDashboard = () => {
                         </div>
                     </div>
                     <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                        {[
-                            { name: 'Maria Lopez', status: 'Offsite', color: 'bg-blue-500' },
-                            { name: 'Karlito Pelaez', status: 'Onsite', color: 'bg-green-500' },
-                            { name: 'Gilbert Ilurado', status: 'Offsite', color: 'bg-blue-500' },
-                            { name: 'Maybelline Delgado', status: 'Offsite', color: 'bg-blue-500' },
-                            { name: 'Albert Mejorao', status: 'Offsite', color: 'bg-blue-500' },
-                        ].map((worker, i) => (
+                        {hotlistOverview?.recent_alerts && hotlistOverview.recent_alerts.length > 0 ? (
+                          hotlistOverview.recent_alerts.map((alert, i) => (
                             <div key={i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
                                         <Users size={16} className="text-slate-400" />
                                     </div>
                                     <div>
-                                        <p className="text-[11px] font-bold text-slate-700">{worker.name}</p>
+                                        <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
                                         <div className="flex items-center gap-1">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${worker.color}`} />
-                                            <span className="text-[9px] font-bold text-slate-400 italic">{worker.status}</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                            <span className="text-[9px] font-bold text-slate-400 italic">{alert.alert_type}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -201,7 +245,10 @@ const NurseDashboard = () => {
                                     See profile
                                 </button>
                             </div>
-                        ))}
+                          ))
+                        ) : (
+                          <div className="text-center py-4 text-slate-400 text-[12px]">No hotlist alerts</div>
+                        )}
                     </div>
                 </div>
 
@@ -232,7 +279,9 @@ const NurseDashboard = () => {
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-3xl font-black text-slate-800">500</span>
+                            <span className="text-3xl font-black text-slate-800">
+                              {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
+                            </span>
                         </div>
                     </div>
 
@@ -256,8 +305,6 @@ const NurseDashboard = () => {
     </div>
   );
 };
-
-// ========== SUB-COMPONENTS ========== //
 
 const StatCard = ({ label, value, icon, borderColor }: any) => (
   <div className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm flex items-center justify-between hover:scale-[1.02] transition cursor-pointer`}>

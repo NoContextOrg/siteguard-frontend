@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Users, BellRing, Calendar, Filter, List, X, UserCheck, UserX, UserPlus 
@@ -10,37 +10,58 @@ import {
 import { useAuth } from './context/AuthContext';
 import { DashboardNavbar } from './components/DashboardNavbar';
 import { DashboardSidebar } from './components/DashboardSidebar';
-
-// ========== Dummy Data ========== //
-const hotlistAttendanceData = [
-  { name: 'Jan 6', 'Line & Grade': 15, MEPF: 13, Finishing: 25, Structural: 30, Masonry: 15 },
-  { name: 'Jan 7', 'Line & Grade': 24, MEPF: 25, Finishing: 24, Structural: 30, Masonry: 24 },
-  { name: 'Jan 8', 'Line & Grade': 30, MEPF: 19, Finishing: 13, Structural: 15, Masonry: 19 },
-  { name: 'Jan 9', 'Line & Grade': 24, MEPF: 30, Finishing: 25, Structural: 15, Masonry: 13 },
-  { name: 'Jan 10', 'Line & Grade': 30, MEPF: 24, Finishing: 25, Structural: 19, Masonry: 30 },
-];
-
-const generalTrendData = [
-  { name: 'Jan 01', Hotlist: 60, Workers: 85, Engineers: 40 },
-  { name: 'Jan 03', Hotlist: 78, Workers: 110, Engineers: 90 },
-  { name: 'Jan 05', Hotlist: 40, Workers: 82, Engineers: 50 },
-  { name: 'Jan 08', Hotlist: 55, Workers: 90, Engineers: 100 },
-  { name: 'Jan 10', Hotlist: 35, Workers: 70, Engineers: 45 },
-  { name: 'Jan 12', Hotlist: 75, Workers: 145, Engineers: 110 },
-];
-
-const workerList = [
-  { name: 'Marion Delos Santos', lastAdmitted: '01/19/2026', status: 'On-Site', type: 'Hotlist' },
-  { name: 'Kaloy Samonte', lastAdmitted: '01/11/2026', status: 'On-Site', type: 'Hotlist' },
-  { name: 'Orlito Macapuno', lastAdmitted: '12/5/2025', status: 'Off-Site', type: 'Hotlist' },
-  { name: 'Pedro Tangkay', lastAdmitted: '01/20/2026', status: 'On-Site', type: 'Normal' },
-  { name: 'Salvi Kapuno', lastAdmitted: '01/15/2026', status: 'Off-Site', type: 'Normal' },
-];
+import type { 
+  SystemStats,
+  DashboardOverview,
+  HotlistOverview,
+  TeamAttendance,
+} from './api/analytics';
+import { 
+  getSystemStats, 
+  getDashboardOverview, 
+  getAttendancePlot, 
+  getHotlistOverview,
+  getTeamAttendance,
+} from './api/analytics';
 
 const EngineerDashboard = () => {
   const { userEmail } = useAuth();
   const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
-  const [selectedDate, setSelectedDate] = useState('01/19/26');
+  const [loading, setLoading] = useState(true);
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
+  const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch all data in parallel
+        const [stats, overview, attendance, hotlist, teamAttend] = await Promise.all([
+          getSystemStats(),
+          getDashboardOverview(),
+          getAttendancePlot(),
+          getHotlistOverview(),
+          getTeamAttendance(),
+        ]);
+
+        setSystemStats(stats);
+        setDashboardOverview(overview);
+        setAttendanceData(attendance.data || []);
+        setHotlistOverview(hotlist);
+        setTeamAttendanceData(teamAttend);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const sidebarItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/engineer_dashboard' },
@@ -78,23 +99,20 @@ const EngineerDashboard = () => {
         >
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Engineer Dashboard</h1>
-            <div className="flex items-center gap-3 bg-white p-2 rounded-lg border shadow-sm">
-                <Calendar size={18} className="text-blue-600" />
-                <input 
-                  type="date" 
-                  className="text-xs font-bold text-slate-600 outline-none" 
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-            </div>
           </div>
 
           {/* ========== Stat Cards ========== */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StatCard label="Total Workers" value="100" color="border-l-blue-400" icon={<Users size={28}/>} />
-            <StatCard label="Onsite Workers" value="70" color="border-l-teal-400" icon={<UserCheck size={28}/>} />
-            <StatCard label="Hotlist Workers" value="25" color="border-l-red-400" icon={<UserX size={28}/>} />
-            <StatCard label="Workers Admitted" value="8" color="border-l-purple-400" icon={<UserPlus size={28}/>} />
+            {loading ? (
+              <div className="col-span-full text-center py-8">Loading...</div>
+            ) : (
+              <>
+                <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} color="border-l-blue-400" icon={<Users size={28}/>} />
+                <StatCard label="Total Admins" value={(systemStats?.admins ?? 0).toString()} color="border-l-teal-400" icon={<UserCheck size={28}/>} />
+                <StatCard label="Hotlist Count" value={(dashboardOverview?.todays_hotlist_alerts ?? 0).toString()} color="border-l-red-400" icon={<UserX size={28}/>} />
+                <StatCard label="Today's Attendance" value={(dashboardOverview?.todays_attendance ?? 0).toString()} color="border-l-purple-400" icon={<UserPlus size={28}/>} />
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -154,19 +172,22 @@ const EngineerDashboard = () => {
 
               {/* ========== Charts for Hotlist Attendance ========== */}
               <motion.div variants={itemVars} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <h3 className="text-sm font-black text-slate-800 uppercase mb-6">Hotlist Attendance Overview</h3>
+                <h3 className="text-sm font-black text-slate-800 uppercase mb-6">Team Attendance Overview</h3>
                 <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={hotlistAttendanceData}>
+                  <BarChart data={(Array.isArray(teamAttendanceData) ? teamAttendanceData : []).slice(0, 5).map((t, i) => ({
+                    name: `Team ${i + 1}`,
+                    present: t.present,
+                    absent: t.absent,
+                    leave: t.on_leave,
+                  }))}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                     <Tooltip cursor={{fill: '#f8fafc'}} />
                     <Legend iconType="rect" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                    <Bar dataKey="Line & Grade" stackId="a" fill="#818cf8" />
-                    <Bar dataKey="MEPF" stackId="a" fill="#f472b6" />
-                    <Bar dataKey="Finishing" stackId="a" fill="#2dd4bf" />
-                    <Bar dataKey="Structural" stackId="a" fill="#fb923c" />
-                    <Bar dataKey="Masonry" stackId="a" fill="#94a3b8" />
+                    <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
+                    <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
+                    <Bar dataKey="leave" stackId="a" fill="#2dd4bf" name="On Leave" />
                   </BarChart>
                 </ResponsiveContainer>
               </motion.div>
@@ -174,23 +195,68 @@ const EngineerDashboard = () => {
               <motion.div variants={itemVars} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <h3 className="text-sm font-black text-slate-800 uppercase mb-6">Attendance Overview Trend</h3>
                 <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={generalTrendData}>
+                  <LineChart data={attendanceData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                     <Tooltip />
                     <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 'bold'}} />
-                    <Line type="monotone" dataKey="Hotlist" stroke="#818cf8" strokeWidth={3} dot={{r: 4}} />
-                    <Line type="monotone" dataKey="Workers" stroke="#f87171" strokeWidth={3} dot={{r: 4}} />
-                    <Line type="monotone" dataKey="Engineers" stroke="#2dd4bf" strokeWidth={3} dot={{r: 4}} />
+                    <Line type="monotone" dataKey="hotlist" stroke="#818cf8" strokeWidth={3} dot={{r: 4}} />
+                    <Line type="monotone" dataKey="workers" stroke="#f87171" strokeWidth={3} dot={{r: 4}} />
+                    <Line type="monotone" dataKey="engineers" stroke="#2dd4bf" strokeWidth={3} dot={{r: 4}} />
                   </LineChart>
                 </ResponsiveContainer>
               </motion.div>
             </div>
 
             <div className="space-y-8">
-              <WorkerSidebarList title="Hotlist Workers" list={workerList.filter(w => w.type === 'Hotlist')} onSeeList={() => setModalType('hotlist')} />
-              <WorkerSidebarList title="Normal Workers" list={workerList.filter(w => w.type === 'Normal')} onSeeList={() => setModalType('normal')} />
+              {hotlistOverview && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Recent Hotlist Alerts</h3>
+                    <button className="text-[10px] font-black text-blue-600 hover:underline uppercase">See All →</button>
+                  </div>
+                  <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
+                    {hotlistOverview.recent_alerts && hotlistOverview.recent_alerts.slice(0, 5).map((alert, i) => (
+                      <div key={i} className="p-4 border border-slate-100 rounded-xl flex justify-between items-center hover:border-blue-200 transition bg-white shadow-sm cursor-pointer group">
+                        <div>
+                          <p className="text-[12px] font-bold text-slate-700">{alert.name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">Alert: {alert.alert_type}</p>
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 italic group-hover:text-blue-500">{alert.team}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {systemStats && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                  <h3 className="text-sm font-black text-slate-800 uppercase mb-4">System Summary</h3>
+                  <div className="space-y-2 text-[12px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Total Workers:</span>
+                      <span className="font-bold">{systemStats.workers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Admins:</span>
+                      <span className="font-bold">{systemStats.admins}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Engineers:</span>
+                      <span className="font-bold">{systemStats.engineers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Nurses:</span>
+                      <span className="font-bold">{systemStats.nurses}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Staff:</span>
+                      <span className="font-bold">{systemStats.staff}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -216,14 +282,17 @@ const EngineerDashboard = () => {
               <div className="p-8 max-h-[70vh] overflow-y-auto">
                 <table className="w-full text-left font-bold text-sm">
                   <thead className="text-[10px] text-slate-400 uppercase tracking-widest border-b">
-                    <tr><th className="py-4">Worker Name</th><th className="py-4">Last Admitted</th><th className="py-4">Status</th></tr>
+                    <tr><th className="py-4">Alert Type</th><th className="py-4">Count</th></tr>
                   </thead>
                   <tbody>
-                    {workerList.map((w, i) => (
-                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
-                        <td className="py-4">{w.name}</td>
-                        <td className="py-4 text-slate-400">{w.lastAdmitted}</td>
-                        <td className="py-4 text-blue-600 italic">{w.status}</td>
+                    {hotlistOverview && Object.entries({
+                      'Overtime': hotlistOverview.recent_alerts?.filter(a => a.alert_type === 'Overtime').length || 0,
+                      'Medical': hotlistOverview.recent_alerts?.filter(a => a.alert_type === 'Medical').length || 0,
+                      'Other': hotlistOverview.recent_alerts?.filter(a => !['Overtime', 'Medical'].includes(a.alert_type)).length || 0,
+                    }).map(([type, count]) => (
+                      <tr key={type} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="py-4">{type}</td>
+                        <td className="py-4 text-blue-600 font-black">{count}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -249,26 +318,6 @@ const StatCard = ({ label, value, color, icon }: any) => (
       <p className="text-4xl font-black text-slate-800">{value}</p>
     </div>
     <div className="text-slate-200 group-hover:text-slate-300 transition">{icon}</div>
-  </motion.div>
-);
-
-const WorkerSidebarList = ({ title, list, onSeeList }: any) => (
-  <motion.div variants={{ hidden: { x: 20, opacity: 0 }, show: { x: 0, opacity: 1 } }} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
-      <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">{title}</h3>
-      <button onClick={onSeeList} className="text-[10px] font-black text-blue-600 hover:underline uppercase">See List →</button>
-    </div>
-    <div className="p-4 space-y-3">
-      {list.map((w: any, i: number) => (
-        <div key={i} className="p-4 border border-slate-100 rounded-xl flex justify-between items-center hover:border-blue-200 transition bg-white shadow-sm cursor-pointer group">
-          <div>
-            <p className="text-[12px] font-bold text-slate-700">{w.name}</p>
-            <p className="text-[9px] text-slate-400 font-medium">Last Admitted: {w.lastAdmitted}</p>
-          </div>
-          <span className="text-[10px] font-black text-slate-400 italic group-hover:text-blue-500">{w.status}</span>
-        </div>
-      ))}
-    </div>
   </motion.div>
 );
 
