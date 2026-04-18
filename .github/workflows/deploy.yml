@@ -9,12 +9,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger EC2 deployment
+      - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_KEY }}
           script: |
-            cd /home/ec2-user/siteguard
-            ./deploy.sh 
+            echo "🚀 Running deploy script"
+            chmod +x /home/ec2-user/siteguard/deploy.sh
+            /home/ec2-user/siteguard/deploy.sh 
