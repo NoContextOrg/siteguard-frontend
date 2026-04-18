@@ -11,6 +11,8 @@ import AdminTeam from './Admin_Team';
 import AdminTeamDetail from './Admin_Team_Detail';
 import EngineerDashboard from './Engineer_Dashboard';
 import EngineerTeam from './Engineer_Team';
+import PersonManagement from './components/PersonManagement';
+import TeamManagement from './components/TeamManagement';
 import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send, Moon } from 'lucide-react';
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -435,6 +437,22 @@ function AppContent() {
         element={
           <ProtectedRoute requiredRoles={['engineer']}>
             <EngineerTeam />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/persons" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <PersonManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/teams" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <TeamManagement />
           </ProtectedRoute>
         } 
       />
