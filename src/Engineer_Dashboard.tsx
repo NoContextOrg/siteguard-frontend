@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LayoutDashboard, Users, BellRing, LogOut, Bell, ChevronDown, 
-  Search, Calendar, Filter, List, X, UserCheck, UserX, UserPlus 
+  LayoutDashboard, Users, BellRing, Calendar, Filter, List, X, UserCheck, UserX, UserPlus 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, LineChart, Line 
 } from 'recharts';
+import { useAuth } from './context/AuthContext';
+import { DashboardNavbar } from './components/DashboardNavbar';
+import { DashboardSidebar } from './components/DashboardSidebar';
 
 // ========== Dummy Data ========== //
 const hotlistAttendanceData = [
@@ -37,9 +38,16 @@ const workerList = [
 ];
 
 const EngineerDashboard = () => {
-  const navigate = useNavigate();
+  const { userEmail } = useAuth();
   const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
   const [selectedDate, setSelectedDate] = useState('01/19/26');
+
+  const sidebarItems = [
+    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/engineer_dashboard' },
+    { icon: <Users size={20} />, label: 'Workers', path: '/workers' },
+    { icon: <BellRing size={20} />, label: 'Alerts', onClick: () => {} },
+    { icon: <Users size={20} />, label: 'Team', path: '/engineer_team' },
+  ];
 
   const containerVars = {
     hidden: { opacity: 0 },
@@ -53,54 +61,14 @@ const EngineerDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
-      {/* ========== Sidebar ========== */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20 shadow-2xl">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg border shadow-sm">
-             <img src="/logo.png" alt="SG" className="w-6 h-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button className="flex items-center gap-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <BellRing size={20} /> <span className="text-sm font-semibold uppercase">Alerts</span>
-          </button>
-          <button onClick={() => navigate('/engineer_team')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Team</span>
-          </button>
-        </nav>
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white mt-auto border-t border-slate-700">
-          <LogOut size={20} /> <span className="font-semibold">Logout</span>
-        </button>
-      </aside>
+      <DashboardSidebar navItems={sidebarItems} />
 
       {/* ========== Main Content ========== */}
       <main className="flex-1 ml-64">
-        <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30 shadow-md">
-          <div className="flex items-center gap-2">
-             <div className="bg-white/10 p-1.5 rounded-lg border border-white/20">
-                <Search size={20} />
-            </div>
-            <span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Bell size={20} className="cursor-pointer hover:scale-110 transition" />
-            <div className="flex items-center gap-3 border-l border-white/20 pl-6 cursor-pointer group">
-              <div className="text-right">
-                <p className="text-xs font-bold">Ysa Dela Fuente</p>
-                <p className="text-[10px] opacity-70 italic">Engineer View</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-300 rounded-full border-2 border-white/50 group-hover:border-blue-300 transition" />
-              <ChevronDown size={16} />
-            </div>
-          </div>
-        </header>
+        <DashboardNavbar 
+          title="Engineer Dashboard"
+          userEmail={userEmail || undefined}
+        />
 
         <motion.div 
           className="p-8"

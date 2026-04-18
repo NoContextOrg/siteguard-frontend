@@ -1,5 +1,8 @@
+import { useAuth } from './context/AuthContext';
+import { DashboardNavbar } from './components/DashboardNavbar';
+import { DashboardSidebar } from './components/DashboardSidebar';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, BellRing, LogOut, Search, Bell, ChevronDown, UserCheck, UserX, HardHat, ShieldAlert, Calendar, Filter, List } from 'lucide-react';
+import { LayoutDashboard, Users, BellRing, UserCheck, UserX, HardHat, Calendar, Filter, List, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 // ========== DUMMY DATA FOR CHARTS (ayoko na) ========== //
@@ -25,60 +28,24 @@ const teamAttendancePie = [
 ];
 
 const NurseDashboard = () => {
+  const { userEmail } = useAuth();
   const navigate = useNavigate();
+  const sidebarItems = [
+    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
+    { icon: <Users size={20} />, label: 'Workers', path: '/workers' },
+    { icon: <BellRing size={20} />, label: 'Alerts', onClick: () => {} },
+  ];
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
-      {/* ========== SIDEBAR ========== */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg">
-            <ShieldAlert className="text-blue-600 w-6 h-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button className="flex items-center gap-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <BellRing size={20} /> <span className="text-sm font-semibold uppercase">Alerts</span>
-          </button>
-        </nav>
-
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
-          <LogOut size={20} /> <span className="font-semibold">Logout</span>
-        </button>
-      </aside>
+      <DashboardSidebar navItems={sidebarItems} />
 
       {/* ========== MAIN CONTENT ========== */}
       <main className="flex-1 ml-64">
-        {/* Header */}
-        <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-             <div className="bg-white/10 p-1.5 rounded-lg border border-white/20">
-                <Search size={20} />
-            </div>
-            <span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Bell size={20} className="cursor-pointer" />
-            <div className="flex items-center gap-3 border-l border-white/20 pl-6">
-              <div className="text-right">
-                <p className="text-xs font-bold">Ysa Dela Fuente</p>
-                <p className="text-[12px] opacity-70">ysadelafuente@gmail.com</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-300 rounded-full overflow-hidden border-2 border-white/50">
-                 <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100" alt="Admin" />
-              </div>
-              <ChevronDown size={16} />
-            </div>
-          </div>
-        </header>
+        <DashboardNavbar 
+          title="Nurse Dashboard"
+          userEmail={userEmail || undefined}
+        />
 
         <div className="p-8">
           <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>

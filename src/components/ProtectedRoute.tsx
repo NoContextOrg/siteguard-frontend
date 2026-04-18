@@ -1,11 +1,12 @@
 /**
  * Protected Route Component
- * Guards routes that require authentication
+ * Guards routes that require authentication and optionally specific roles
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardRoute } from '../api/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,7 +18,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRoles 
 }) => {
   const { isAuthenticated, roles, loading } = useAuth();
+  const [hasAccess, setHasAccess] = useState(false);
 
+  useEffect(() => {
+    if (!loading && isAuthenticated && requiredRoles && requiredRoles.length > 0) {
+      const userHasRole = requiredRoles.some(requiredRole =>
+        roles.some(userRole => userRole.toUpperCase().includes(requiredRole.toUpperCase()))
+      );
+      setHasAccess(userHasRole);
+    }
+  }, [isAuthenticated, roles, requiredRoles, loading]);
+
+  // Show loading spinner while checking auth
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -29,19 +41,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
+  // Not authenticated - redirect to landing page
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  if (requiredRoles && requiredRoles.length > 0) {
-    const hasRequiredRole = requiredRoles.some(requiredRole =>
-      roles.some(userRole => userRole.includes(requiredRole.toUpperCase()))
-    );
-
-    if (!hasRequiredRole) {
-      return <Navigate to="/" replace />;
-    }
+  // Has required roles or no specific roles required
+  if (!requiredRoles || requiredRoles.length === 0 || hasAccess) {
+    return <>{children}</>;
   }
 
-  return <>{children}</>;
+  // Has role restriction but user doesn't have required role - redirect to their dashboard
+  const userDashboard = getDashboardRoute();
+  return <Navigate to={userDashboard} replace />;
 };

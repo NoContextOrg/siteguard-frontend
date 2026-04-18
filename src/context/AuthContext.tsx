@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { 
   loginUser, 
@@ -33,13 +33,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check authentication on mount
+  // Check authentication on mount and redirect if necessary
   useEffect(() => {
     const checkAuthentication = async () => {
       setLoading(true);
@@ -49,12 +50,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const isValid = await verifyToken(token);
           if (isValid) {
             setIsAuthenticated(true);
-            setUserEmail(getStoredUserEmail());
-            setRoles(getUserRoles());
+            const email = getStoredUserEmail();
+            const userRoles = getUserRoles();
+            setUserEmail(email);
+            setRoles(userRoles);
+
+            // Auto-redirect to dashboard on refresh if not already there
+            if (location.pathname === '/' || location.pathname === '/landingpage') {
+              const dashboardRoute = getDashboardRoute();
+              navigate(dashboardRoute, { replace: true });
+            }
           } else {
             logoutUser();
             setIsAuthenticated(false);
           }
+        } else {
+          // No valid token, stay on landing page
+          setIsAuthenticated(false);
         }
       } catch (err) {
         console.error('Auth check failed:', err);
@@ -66,7 +78,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     checkAuthentication();
-  }, []);
+  }, [navigate, location.pathname]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -77,9 +89,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(true);
       setUserEmail(response.username);
       setRoles(response.roles);
+      
       // Redirect to appropriate dashboard based on role
       const dashboardRoute = getDashboardRoute();
-      navigate(dashboardRoute);
+      navigate(dashboardRoute, { replace: true });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);
@@ -95,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUserEmail(null);
     setRoles([]);
     setError(null);
+    navigate('/', { replace: true });
   };
 
   const clearError = () => {

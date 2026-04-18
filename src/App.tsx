@@ -13,7 +13,7 @@ import EngineerDashboard from './Engineer_Dashboard';
 import EngineerTeam from './Engineer_Team';
 import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send, Moon } from 'lucide-react';
 import './App.css'
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // ========== Sub-Components ========== //
@@ -74,8 +74,43 @@ const TeamMember = ({ name, role, img }: { name: string, role: string, img: stri
   </div>
 );
 
-const SignInModal = ({ isOpen, onClose, onLoginSuccess }: { isOpen: boolean; onClose: () => void; onLoginSuccess: () => void }) => {
+interface SignInModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onLoginSuccess?: () => void;
+}
+
+const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
+  const { login, loading, error, clearError } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState('');
+
   if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLocalError('');
+    clearError();
+
+    if (!email || !password) {
+      setLocalError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      await login(email, password);
+      setEmail('');
+      setPassword('');
+      onClose();
+      onLoginSuccess?.();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Login failed';
+      setLocalError(errorMsg);
+    }
+  };
+
+  const displayError = localError || error;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -90,17 +125,50 @@ const SignInModal = ({ isOpen, onClose, onLoginSuccess }: { isOpen: boolean; onC
         </div>
 
         <div className="p-8">
-          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); onLoginSuccess(); }}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {displayError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-medium text-red-800">{displayError}</p>
+              </div>
+            )}
+            
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
-              <input type="email" placeholder="name@construction.com" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition"/>
+              <input 
+                type="email" 
+                placeholder="name@construction.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+              />
             </div>
+            
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
-              <input type="password" placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition"/>
+              <input 
+                type="password" 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+              />
             </div>
-            <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all">
-              Sign In
+            
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-4 rounded-xl text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
@@ -117,15 +185,23 @@ const SignInModal = ({ isOpen, onClose, onLoginSuccess }: { isOpen: boolean; onC
 
 const LandingPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
   }, []);
 
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLoginSuccess = () => {
     setIsModalOpen(false);
-    navigate('/dashboard'); 
+    // Navigation is handled by AuthContext.login()
   };
 
   return (
@@ -287,78 +363,84 @@ const LandingPage = () => {
 
 // ========== Router Configuration (The App) ========== //
 
+function AppContent() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/landingpage" element={<LandingPage />} />
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <NurseDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/workers" 
+        element={
+          <ProtectedRoute>
+            <Workers />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin_dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin_team" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminTeam />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin_team_detail" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminTeamDetail />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/engineer_dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['engineer']}>
+            <EngineerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/engineer_team" 
+        element={
+          <ProtectedRoute requiredRoles={['engineer']}>
+            <EngineerTeam />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/worker-profile" 
+        element={
+          <ProtectedRoute>
+            <WorkerProfile />
+          </ProtectedRoute>
+        } 
+      />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/landingpage" element={<LandingPage />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <NurseDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/workers" 
-            element={
-              <ProtectedRoute>
-                <Workers />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin_dashboard" 
-            element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin_team" 
-            element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AdminTeam />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin_team_detail" 
-            element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AdminTeamDetail />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/engineer_dashboard" 
-            element={
-              <ProtectedRoute requiredRoles={['engineer']}>
-                <EngineerDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/engineer_team" 
-            element={
-              <ProtectedRoute requiredRoles={['engineer']}>
-                <EngineerTeam />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/worker-profile" 
-            element={
-              <ProtectedRoute>
-                <WorkerProfile />
-              </ProtectedRoute>
-            } 
-          />
-        </Routes>
+        <AppContent />
       </AuthProvider>
     </BrowserRouter>
   );
