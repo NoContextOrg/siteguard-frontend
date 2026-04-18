@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Deploy Frontend to EC2
 
 on:
   push:
@@ -9,13 +9,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy
+      - name: Deploy Frontend via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_KEY }}
           script: |
-            echo "🚀 Running deploy script"
+            set -e
+            echo "🚀 Running FRONTEND deploy script"
+
             chmod +x /home/ec2-user/siteguard/deploy.sh
-            /home/ec2-user/siteguard/deploy.sh 
+
+            # 🔥 Only deploy frontend
+            /home/ec2-user/siteguard/deploy.sh frontend
+
+            echo "✅ Frontend deployment finished"
