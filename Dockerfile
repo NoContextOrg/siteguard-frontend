@@ -7,12 +7,14 @@ WORKDIR /app
 
 # Install ALL dependencies (needed for build)
 COPY package*.json ./
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
 RUN npm ci
 
 # Copy source
 COPY . .
 
-# Build app
+# Build app (vite build handles TS warnings gracefully)
 RUN npm run build
 
 

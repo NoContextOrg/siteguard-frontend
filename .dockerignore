@@ -54,5 +54,3 @@ docker-compose*.yml
 # Other
 .prettierrc
 .eslintrc.*
-tsconfig*.json
-vite.config.ts

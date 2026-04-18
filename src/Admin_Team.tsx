@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, BellRing, LogOut, Search, Bell, 
-  ChevronDown, UserPlus, Users2, PlusCircle, X, HardHat, Briefcase
+  ChevronDown, UserPlus, Users2, X
 } from 'lucide-react';
 
 // ========== Types & Sub-Components ========== //
