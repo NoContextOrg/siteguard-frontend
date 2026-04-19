@@ -19,6 +19,8 @@ import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send, Moon } from 
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { getPrimaryRole, initAuthListener } from './api/auth';
+import { initStorageDebugger } from './utils/storageDebugger';
 
 // ========== Sub-Components ========== //
 
@@ -189,19 +191,59 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
 
 const LandingPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated: contextAuth } = useAuth();
   const navigate = useNavigate();
+
+  // Check if token is valid even outside AuthContext
+  const [isTokenValid, setIsTokenValid] = useState(false);
 
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
   }, []);
 
-  // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    // Check authentication state on mount and when it changes
+    const checkAuthState = () => {
+      const token = localStorage.getItem('accessToken');
+      const expiry = localStorage.getItem('tokenExpiry');
+      
+      if (token && expiry) {
+        const isExpired = new Date().getTime() >= parseInt(expiry);
+        
+        if (isExpired) {
+          // Token is expired, clear it
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userRoles');
+          localStorage.removeItem('tokenExpiry');
+          setIsTokenValid(false);
+        } else {
+          // Token is still valid
+          setIsTokenValid(true);
+        }
+      } else {
+        setIsTokenValid(false);
+      }
+    };
+
+    checkAuthState();
+  }, [contextAuth]);
+
+  // Redirect to dashboard if already authenticated with valid token
+  useEffect(() => {
+    if (contextAuth && isTokenValid) {
+      const primaryRole = getPrimaryRole();
+      let dashboardRoute = '/nurse_dashboard';
+      
+      if (primaryRole === 'admin') {
+        dashboardRoute = '/admin_dashboard';
+      } else if (primaryRole === 'engineer') {
+        dashboardRoute = '/engineer_dashboard';
+      }
+      
+      navigate(dashboardRoute);
     }
-  }, [isAuthenticated, navigate]);
+  }, [contextAuth, isTokenValid, navigate]);
 
   const handleLoginSuccess = () => {
     setIsModalOpen(false);
@@ -367,6 +409,43 @@ const LandingPage = () => {
 
 // ========== Router Configuration (The App) ========== //
 
+// Smart dashboard router that redirects to the correct dashboard based on user role
+const DashboardRouter = () => {
+  const { roles } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Determine the primary role and redirect to appropriate dashboard
+    if (roles && roles.length > 0) {
+      const primaryRole = roles[0].replace('ROLE_', '').toLowerCase();
+      
+      switch (primaryRole) {
+        case 'admin':
+          navigate('/admin_dashboard', { replace: true });
+          break;
+        case 'engineer':
+          navigate('/engineer_dashboard', { replace: true });
+          break;
+        case 'nurse':
+        case 'staff':
+        default:
+          navigate('/nurse_dashboard', { replace: true });
+          break;
+      }
+    }
+  }, [roles, navigate]);
+
+  // Show loading while redirecting
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-slate-600">Redirecting to your dashboard...</p>
+      </div>
+    </div>
+  );
+};
+
 function AppContent() {
   const { loading } = useAuth();
 
@@ -386,11 +465,12 @@ function AppContent() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/landingpage" element={<LandingPage />} />
+      {/* Smart dashboard route that redirects based on user role */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <NurseDashboard />
+            <DashboardRouter />
           </ProtectedRoute>
         } 
       />
@@ -402,6 +482,7 @@ function AppContent() {
           </ProtectedRoute>
         } 
       />
+      {/* Admin Dashboard Routes */}
       <Route 
         path="/admin_dashboard" 
         element={
@@ -426,6 +507,16 @@ function AppContent() {
           </ProtectedRoute>
         } 
       />
+      {/* Nurse/Staff Dashboard Route */}
+      <Route 
+        path="/nurse_dashboard" 
+        element={
+          <ProtectedRoute>
+            <NurseDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      {/* Engineer Dashboard Route */}
       <Route 
         path="/engineer_dashboard" 
         element={
@@ -469,7 +560,7 @@ function AppContent() {
       <Route 
         path="/alerts" 
         element={
-          <ProtectedRoute requiredRoles={['admin']}>
+          <ProtectedRoute requiredRoles={['admin', 'engineer', 'nurse', 'staff']}>
             <AlertManagement />
           </ProtectedRoute>
         } 
@@ -490,10 +581,37 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppContent />
+        <AppWithAuth />
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+/**
+ * Component that wraps AppContent with auth initialization
+ * Must be inside AuthProvider to use useAuth hook
+ */
+function AppWithAuth() {
+  // Initialize auth listener ONCE when component mounts
+  React.useEffect(() => {
+    console.log('🚀 App mounted - initializing auth listener');
+    
+    const isDev = import.meta.env.DEV;
+    if (isDev) {
+      initStorageDebugger();
+    }
+
+    // Initialize cross-tab auth listener - keep it active throughout app lifetime
+    const cleanup = initAuthListener();
+    
+    // Cleanup listener only when app unmounts
+    return () => {
+      console.log('🛑 App unmounting, cleaning up listeners');
+      cleanup();
+    };
+  }, []); // Empty dependency - run only once on mount
+
+  return <AppContent />;
 }
 
 export default App;

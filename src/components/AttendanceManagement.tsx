@@ -10,6 +10,7 @@ import {
   type AttendanceStats,
 } from '../api/attendance';
 import { getAllPersons, type PersonResponse } from '../api/person';
+import DashboardLayout from './DashboardLayout';
 
 const AttendanceManagement: React.FC = () => {
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
@@ -142,8 +143,8 @@ const AttendanceManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout title="Attendance Management">
+      <div className="p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
@@ -419,7 +420,7 @@ const AttendanceManagement: React.FC = () => {
           </form>
         </Modal>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 

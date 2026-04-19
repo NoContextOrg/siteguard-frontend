@@ -9,6 +9,7 @@ import {
   type Person,
   type PersonResponse
 } from '../api/person';
+import DashboardLayout from './DashboardLayout';
 
 interface FormData {
   name: string;
@@ -161,8 +162,8 @@ const PersonManagement: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout title="Person Management">
+      <div className="p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
@@ -349,7 +350,7 @@ const PersonManagement: React.FC = () => {
           />
         </Modal>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 

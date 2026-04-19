@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from './context/AuthContext';
-import { DashboardNavbar } from './components/DashboardNavbar';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, BellRing, UserCheck, UserX, HardHat, Calendar, Filter, List, Bell } from 'lucide-react';
+import { UserCheck, UserX, HardHat, Calendar, Filter, List, Bell, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { useSidebarTabs } from './hooks/useSidebarTabs';
+import { mapTabsToNavItems } from './config/sidebarConfig.tsx';
+import type { SidebarTab } from './config/sidebarConfig.tsx';
 import type { 
   SystemStats,
   DashboardOverview,
@@ -18,10 +19,16 @@ import {
   getHotlistOverview,
   getTeamAttendance,
 } from './api/analytics';
+import DashboardNavbar from './components/DashboardNavbar';
+import { getPrimaryRole } from './api/auth';
 
 const NurseDashboard = () => {
-  const { userEmail } = useAuth();
   const navigate = useNavigate();
+  const sidebarTabs: SidebarTab[] = useSidebarTabs();
+
+  // Get user role information
+  const userRole = getPrimaryRole();
+
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
@@ -70,11 +77,9 @@ const NurseDashboard = () => {
 
     fetchDashboardData();
   }, []);
-  const sidebarItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
-    { icon: <Users size={20} />, label: 'Workers', path: '/workers' },
-    { icon: <BellRing size={20} />, label: 'Alerts', onClick: () => {} },
-  ];
+  
+  // Convert SidebarTab objects to NavItem format for DashboardSidebar
+  const sidebarItems = mapTabsToNavItems(sidebarTabs);
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -82,10 +87,7 @@ const NurseDashboard = () => {
 
       {/* ========== MAIN CONTENT ========== */}
       <main className="flex-1 ml-64">
-        <DashboardNavbar 
-          title="Nurse Dashboard"
-          userEmail={userEmail || undefined}
-        />
+        <DashboardNavbar title={`Nurse Dashboard - ${userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Nurse'}`} />
 
         <div className="p-8">
           <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>

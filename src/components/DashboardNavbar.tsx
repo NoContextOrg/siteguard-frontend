@@ -4,8 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { Search, Bell, ChevronDown, LogOut, User, Settings } from 'lucide-react';
+import { Search, Bell, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { User, Settings, LogOut } from 'lucide-react';
+import { getPrimaryRole } from '../api/auth';
 
 interface DashboardNavbarProps {
   title: string;
@@ -22,13 +25,27 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
 }) => {
   const { logout, userEmail: authEmail } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Clear all auth data from localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRoles');
+    localStorage.removeItem('tokenExpiry');
+
+    // Call context logout
     logout();
+
+    // Navigate to landing page
+    navigate('/', { replace: true });
   };
 
   const displayEmail = userEmail || authEmail || 'user@example.com';
   const displayName = userName || displayEmail.split('@')[0];
+
+  // Get user role information
+  const userRole = getPrimaryRole();
 
   return (
     <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30 shadow-lg">
@@ -67,24 +84,36 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
                 <p className="text-xs text-slate-400">{displayEmail}</p>
               </div>
 
-              <button className="w-full flex items-center gap-3 px-4 py-2 text-slate-300 hover:bg-slate-800 transition">
-                <User size={16} />
-                <span className="text-sm">Profile</span>
-              </button>
+              <div className="flex items-center space-x-4">
+                {/* Role Badge */}
+                {userRole && (
+                  <div className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                  </div>
+                )}
 
-              <button className="w-full flex items-center gap-3 px-4 py-2 text-slate-300 hover:bg-slate-800 transition">
+                {/* Profile */}
+                <div className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 cursor-pointer">
+                  <User size={16} />
+                  <span className="text-sm font-medium">{userEmail || 'User'}</span>
+                </div>
+              </div>
+
+              {/* Settings */}
+              <button className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 p-2 rounded-md hover:bg-gray-100">
                 <Settings size={16} />
-                <span className="text-sm">Settings</span>
+                <span className="text-sm font-medium">Settings</span>
               </button>
 
               <div className="border-t border-slate-700 my-1"></div>
 
+              {/* Logout */}
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-red-500/10 transition"
+                className="flex items-center space-x-2 text-red-600 hover:text-red-700 p-2 rounded-md hover:bg-red-50"
               >
                 <LogOut size={16} />
-                <span className="text-sm font-semibold">Logout</span>
+                <span className="text-sm font-medium">Logout</span>
               </button>
             </div>
           )}
@@ -101,3 +130,5 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
     </header>
   );
 };
+
+export default DashboardNavbar;

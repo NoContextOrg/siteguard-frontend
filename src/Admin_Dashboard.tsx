@@ -1,28 +1,18 @@
 // Admin Dashboard Component
 import { useState, useEffect } from 'react';
+import DashboardLayout from './components/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, BellRing, UserCheck, UserX, HardHat, ArrowUpRight, Users2, Calendar, Filter, List, Bell } from 'lucide-react';
+import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { useAuth } from './context/AuthContext';
-import { DashboardNavbar } from './components/DashboardNavbar';
-import { DashboardSidebar } from './components/DashboardSidebar';
-import type { 
-  SystemStats,
-  DashboardOverview,
-  HotlistOverview,
-  TeamAttendance,
-} from './api/analytics';
-import { 
-  getSystemStats, 
-  getDashboardOverview, 
-  getAttendancePlot, 
-  getHotlistOverview,
-  getTeamAttendance,
-} from './api/analytics';
+import { getSystemStats, getDashboardOverview, getAttendancePlot, getHotlistOverview, getTeamAttendance } from './api/analytics';
+import { getPrimaryRole, getUserRoles } from './api/auth';
+import { useSidebarTabs } from './hooks/useSidebarTabs';
+import { mapTabsToNavItems } from './config/sidebarConfig.tsx';
+import type { SidebarTab } from './config/sidebarConfig.tsx';
+import type { SystemStats, DashboardOverview, HotlistOverview, TeamAttendance } from './api/analytics';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { userEmail } = useAuth();
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
@@ -72,25 +62,9 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const sidebarItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/admin_dashboard' },
-    { icon: <Users size={20} />, label: 'Workers', path: '/workers' },
-    { icon: <BellRing size={20} />, label: 'Alerts', onClick: () => {} },
-    { icon: <Users2 size={20} />, label: 'Team', path: '/admin_team' },
-  ];
-
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      <DashboardSidebar navItems={sidebarItems} />
-
-      {/* ========== MAIN CONTENT ========== */}
-      <main className="flex-1 ml-64">
-        <DashboardNavbar 
-          title="Admin Dashboard"
-          userEmail={userEmail || undefined}
-        />
-
-        <div className="p-8">
+    <DashboardLayout title="Admin Dashboard">
+      <div className="p-8">
           <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Admin Dashboard</h2>
 
           {/* ========== TOP STAT CARDS ========== */}
@@ -363,8 +337,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </DashboardLayout>
   );
 };
 

@@ -83,6 +83,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUserEmail(response.username);
       setRoles(response.roles);
       
+      // Store roles in localStorage for sidebar configuration
+      localStorage.setItem('userRoles', JSON.stringify(response.roles));
+      
       // Redirect to appropriate dashboard based on role
       const dashboardRoute = getDashboardRoute();
       navigate(dashboardRoute, { replace: true });

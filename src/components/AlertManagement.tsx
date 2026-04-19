@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DashboardLayout from './DashboardLayout';
 import { AlertTriangle, CheckCircle, Trash2, Search, X, AlertCircle } from 'lucide-react';
 import {
   getActiveAlerts,
@@ -39,22 +40,44 @@ const AlertManagement: React.FC = () => {
 
   // Load data on component mount
   useEffect(() => {
+    console.log('🚀 AlertManagement mounted');
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
+      console.log('📊 Loading alert data...');
       setLoading(true);
       setError(null);
-      const [alertsData, hotlistedData, activeCount] = await Promise.all([
-        getActiveAlerts(),
-        getAllHotlistedPersons().catch(() => []),
-        getActiveAlertCount().catch(() => 0),
-      ]);
-      setAlerts(alertsData);
-      setHotlistedPersons(hotlistedData);
-      setActiveAlertCount(activeCount);
+      
+      // Load all data - don't let one failure stop the others
+      const alertsResult = await getActiveAlerts().catch(err => {
+        console.error('❌ Failed to load alerts:', err);
+        setError('Failed to load alerts. You may have been logged out.');
+        return [];
+      });
+      
+      const hotlistedResult = await getAllHotlistedPersons().catch(err => {
+        console.error('❌ Failed to load hotlisted persons:', err);
+        return [];
+      });
+      
+      const countResult = await getActiveAlertCount().catch(err => {
+        console.error('❌ Failed to load alert count:', err);
+        return 0;
+      });
+
+      console.log('✅ Alert data loaded successfully:', {
+        alertsCount: alertsResult.length,
+        hotlistedCount: hotlistedResult.length,
+        activeCount: countResult,
+      });
+      
+      setAlerts(alertsResult);
+      setHotlistedPersons(hotlistedResult);
+      setActiveAlertCount(countResult);
     } catch (err) {
+      console.error('❌ Error loading alert data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
@@ -63,12 +86,15 @@ const AlertManagement: React.FC = () => {
 
   const handleAcknowledgeAlert = async (alertId: number) => {
     try {
+      console.log('⏳ Acknowledging alert:', alertId);
       setError(null);
       await acknowledgeAlert(alertId);
+      console.log('✅ Alert acknowledged');
       setSuccess('Alert acknowledged successfully');
       await loadData();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
+      console.error('❌ Error acknowledging alert:', err);
       setError(err instanceof Error ? err.message : 'Failed to acknowledge alert');
     }
   };
@@ -79,12 +105,15 @@ const AlertManagement: React.FC = () => {
     }
 
     try {
+      console.log('🗑️ Deleting alert:', alertId);
       setError(null);
       await deleteAlert(alertId);
+      console.log('✅ Alert deleted');
       setSuccess('Alert deleted successfully');
       await loadData();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
+      console.error('❌ Error deleting alert:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete alert');
     }
   };
@@ -121,8 +150,8 @@ const AlertManagement: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout title="Alert & Hotlist Management">
+      <div className="p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
@@ -479,7 +508,7 @@ const AlertManagement: React.FC = () => {
           </form>
         </Modal>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 
@@ -504,7 +533,7 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
             <X size={24} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6">{children}        </div>
       </div>
     </div>
   );
