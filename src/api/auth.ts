@@ -137,21 +137,6 @@ export const hasRole = (role: string): boolean => {
 };
 
 /**
- * Debug all localStorage operations
- * Log the complete state before and after each operation
- */
-const logStorageState = (operation: string) => {
-  const state = {
-    accessToken: localStorage.getItem('accessToken') ? `EXISTS (${localStorage.getItem('accessToken')!.length} chars)` : 'MISSING',
-    userEmail: localStorage.getItem('userEmail') || 'MISSING',
-    userRoles: localStorage.getItem('userRoles') || 'MISSING',
-    tokenExpiry: localStorage.getItem('tokenExpiry') || 'MISSING',
-  };
-  console.log(`[${operation}] localStorage state:`, state);
-  return state;
-};
-
-/**
  * Store auth data in local storage with STRICT validation
  * CRITICAL: This MUST save the JWT to localStorage
  */

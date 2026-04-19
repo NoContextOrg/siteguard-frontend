@@ -1,31 +1,27 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Calendar, Filter, List, X, UserCheck, UserX, UserPlus, Users
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, LineChart, Line 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, LineChart, Line
 } from 'recharts';
-import { DashboardSidebar } from './components/DashboardSidebar';
 import { useSidebarTabs } from './hooks/useSidebarTabs';
-import { mapTabsToNavItems } from './config/sidebarConfig.tsx';
 import type { SidebarTab } from './config/sidebarConfig.tsx';
-import type { 
+import type {
   SystemStats,
   DashboardOverview,
   HotlistOverview,
   TeamAttendance,
 } from './api/analytics';
-import { 
-  getSystemStats, 
-  getDashboardOverview, 
-  getAttendancePlot, 
+import {
+  getSystemStats,
+  getDashboardOverview,
+  getAttendancePlot,
   getHotlistOverview,
   getTeamAttendance,
 } from './api/analytics';
-import DashboardNavbar from './components/DashboardNavbar';
-import { getPrimaryRole } from './api/auth';
 import DashboardLayout from './components/DashboardLayout';
 
 const EngineerDashboard = () => {
@@ -37,9 +33,6 @@ const EngineerDashboard = () => {
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
   const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
-
-  // Get user role information
-  const userRole = getPrimaryRole();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -70,8 +63,8 @@ const EngineerDashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // Convert SidebarTab objects to NavItem format for DashboardSidebar
-  const sidebarItems = mapTabsToNavItems(sidebarTabs);
+  // Sidebar tabs are used by `DashboardLayout` via the shared hook/config
+  void sidebarTabs;
 
   const containerVars = {
     hidden: { opacity: 0 },
@@ -85,7 +78,7 @@ const EngineerDashboard = () => {
 
   return (
     <DashboardLayout>
-      <motion.div 
+      <motion.div
         className="p-8"
         variants={containerVars}
         initial="hidden"

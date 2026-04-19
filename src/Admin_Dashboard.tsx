@@ -5,10 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { getSystemStats, getDashboardOverview, getAttendancePlot, getHotlistOverview, getTeamAttendance } from './api/analytics';
-import { getPrimaryRole, getUserRoles } from './api/auth';
-import { useSidebarTabs } from './hooks/useSidebarTabs';
-import { mapTabsToNavItems } from './config/sidebarConfig.tsx';
-import type { SidebarTab } from './config/sidebarConfig.tsx';
 import type { SystemStats, DashboardOverview, HotlistOverview, TeamAttendance } from './api/analytics';
 
 const AdminDashboard = () => {
