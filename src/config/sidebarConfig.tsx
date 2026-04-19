@@ -14,13 +14,13 @@ export type SidebarIconType = 'dashboard' | 'workers' | 'alerts' | 'teams';
 
 // ========== Interface Exports ==========
 /**
- * Navigation item for sidebar
+ * Navigation item for sidebar (data-only; UI renders icons/styles)
  */
 export interface NavItem {
   id: string;
   label: string;
   path: string;
-  icon: React.ReactNode;
+  iconType: SidebarIconType;
 }
 
 /**
@@ -147,26 +147,15 @@ export const getSidebarTabsForRole = (role: UserRole | null): SidebarTab[] => {
 
 /**
  * Map SidebarTab objects to NavItem format for DashboardSidebar
- * NO onClick handlers - routing only through Link component
+ * Data-only: NO React nodes, NO handlers
  */
-export const mapTabsToNavItems = (tabs: SidebarTab[]): NavItem[] => {
-  return tabs.map((tab) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      'DASHBOARD': <LayoutDashboard size={20} />,
-      'WORKERS': <Users size={20} />,
-      'ALERTS': <BellRing size={20} />,
-      'TEAMS': <Users2 size={20} />,
-    };
-
-    return {
-      id: tab.id,
-      label: tab.label,
-      path: tab.path,
-      icon: iconMap[tab.id] || <LayoutDashboard size={20} />,
-      // NO onClick or other handlers - Link handles navigation
-    };
-  });
-};
+export const mapTabsToNavItems = (tabs: SidebarTab[]): NavItem[] =>
+  tabs.map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+    path: tab.path,
+    iconType: tab.iconType,
+  }));
 
 /**
  * Get sidebar tabs from localStorage roles

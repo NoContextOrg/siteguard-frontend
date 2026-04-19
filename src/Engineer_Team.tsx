@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, BellRing, LogOut, Search, Bell, 
-  ChevronDown, X, List, Calendar
+import {
+  Users,
+  X,
+  List,
+  Calendar,
+  Search
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Legend 
 } from 'recharts';
+import DashboardLayout from './components/DashboardLayout';
+import { Link } from 'react-router-dom';
 
 // ========== Dummy Data for the Chart ========== //
 const overtimeData = [
@@ -40,7 +44,6 @@ const workersData = [
 ];
 
 const EngineerTeam = () => {
-  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [modalType, setModalType] = useState<'list' | 'add' | null>(null);
 
@@ -49,60 +52,8 @@ const EngineerTeam = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans">
-      
-      {/* ========== SIDEBAR ========== */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg">
-             <img src="/logo.png" alt="SG" className="w-6 h-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button onClick={() => navigate('/engineer_dashboard')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <BellRing size={20} /> <span className="text-sm font-semibold uppercase">Alerts</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Team</span>
-          </button>
-        </nav>
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
-          <LogOut size={20} /> <span className="font-semibold">Logout</span>
-        </button>
-      </aside>
-
-      {/* ========== MAIN CONTENT ========== */}
-      <main className="flex-1 ml-64">
-        
-        {/* ========== Header ========== */}
-        <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30 shadow-md">
-          <div className="flex items-center gap-2">
-             <div className="bg-white/10 p-1.5 rounded-lg border border-white/20">
-                <Search size={20} />
-            </div>
-            <span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Bell size={20} className="cursor-pointer" />
-            <div className="flex items-center gap-3 border-l border-white/20 pl-6">
-              <div className="text-right">
-                <p className="text-xs font-bold">Ysa Dela Fuente</p>
-                <p className="text-[10px] opacity-70">ysadelafuente@gmail.com</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-300 rounded-full border-2 border-white/50"></div>
-              <ChevronDown size={16} />
-            </div>
-          </div>
-        </header>
-
-        <div className="p-10">
+    <DashboardLayout title="Team">
+      <div className="p-10">
 
           {/* ========== MEPF Summary Section ========== */}
           <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
@@ -218,7 +169,7 @@ const EngineerTeam = () => {
                         {worker.status}
                       </td>
                       <td className="px-6 py-4">
-                        <button onClick={() => navigate('/worker-profile')} className="text-blue-500 font-black uppercase hover:underline flex items-center gap-1 justify-center"> View</button>
+                        <Link to="/worker-profile" className="text-blue-500 font-black uppercase hover:underline flex items-center gap-1 justify-center">View</Link>
                       </td>
                     </tr>
                   ))}
@@ -227,7 +178,6 @@ const EngineerTeam = () => {
             </div>
           </div>
         </div>
-      </main>
 
       {/* ========== OVERLAY MODALS ========== */}
       {modalType && (
@@ -256,7 +206,7 @@ const EngineerTeam = () => {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 

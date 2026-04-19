@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, BellRing, LogOut, Search, Bell, 
-  ChevronDown, UserPlus, Users2, X
+import {
+  Users,
+  UserPlus,
+  X
 } from 'lucide-react';
+import DashboardLayout from './components/DashboardLayout';
 
 // ========== Types & Sub-Components ========== //
 
@@ -64,7 +65,7 @@ const TeamCard = ({ title, engineer, count, borderColor, onAddWorker }: { title:
 // ========== Main Page Component ========== //
 
 const Team = () => {
-  const navigate = useNavigate();
+  // Remove navigate-based sidebar routing; DashboardLayout handles navigation
   
   // Modal States
   const [modalType, setModalType] = useState<'account' | 'team' | 'worker' | null>(null);
@@ -72,95 +73,48 @@ const Team = () => {
   const closeModal = () => setModalType(null);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      
-      {/* ========== SIDEBAR ========== */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg">
-             <img src="/logo.png" alt="SG" className="w-6 h-6" />
+    <DashboardLayout title="Team">
+      <div className="max-w-7xl mx-auto px-6">
+
+        {/* ACCOUNTS SECTION */}
+        <section className="mt-8">
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">ACCOUNTS</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <AccountCard title="Workers" count="1,000" onAdd={() => setModalType('account')} />
+            <AccountCard title="Site Engineers" count="50" onAdd={() => setModalType('account')} />
+            <AccountCard title="Nurses" count="15" onAdd={() => setModalType('account')} />
           </div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button onClick={() => navigate('/admin_dashboard')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <BellRing size={20} /> <span className="text-sm font-semibold uppercase">Alerts</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg">
-            <Users2 size={20} /> <span className="text-sm font-semibold uppercase">Team</span>
-          </button>
-        </nav>
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
-          <LogOut size={20} /> <span className="font-semibold">Logout</span>
-        </button>
-      </aside>
+        </section>
 
-      {/* ========== MAIN CONTENT ========== */}
-      <main className="flex-1 ml-64">
-        {/* Header */}
-        <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <Search size={20} className="opacity-50" />
-            <span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Bell size={20} className="cursor-pointer" />
-            <div className="flex items-center gap-3 border-l border-white/20 pl-6">
-              <div className="text-right">
-                <p className="text-xs font-bold">Ysa Dela Fuente</p>
-                <p className="text-[10px] opacity-70">ysadelafuente@gmail.com</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-300 rounded-full border-2 border-white/50"></div>
-              <ChevronDown size={16} />
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-7xl mx-auto px-6">
-
-          {/* ACCOUNTS SECTION */}
-          <section className="mt-8">
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">ACCOUNTS</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <AccountCard title="Workers" count="1,000" onAdd={() => setModalType('account')} />
-              <AccountCard title="Site Engineers" count="50" onAdd={() => setModalType('account')} />
-              <AccountCard title="Nurses" count="15" onAdd={() => setModalType('account')} />
-            </div>
-          </section>
-
-          {/* TEAMS SECTION */}
-          <section className="mt-12">
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">TEAMS</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Add New Team Trigger */}
-              <div className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-orange-900 flex flex-col justify-center items-center h-52 relative group cursor-pointer" onClick={() => setModalType('team')}>
-                <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-4">
-                        <span className="text-md font-black text-slate-800 uppercase tracking-tighter">ADD NEW TEAM</span>
-                        <UserPlus size={28} className="text-slate-800" />
-                    </div>
+        {/* TEAMS SECTION */}
+        <section className="mt-12">
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">TEAMS</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Add New Team Trigger */}
+            <div
+              className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-orange-900 flex flex-col justify-center items-center h-52 relative group cursor-pointer"
+              onClick={() => setModalType('team')}
+            >
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-4">
+                  <span className="text-md font-black text-slate-800 uppercase tracking-tighter">ADD NEW TEAM</span>
+                  <UserPlus size={28} className="text-slate-800" />
                 </div>
-                <button className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter">
-                  Create Team <span className="text-lg">→</span>
-                </button>
               </div>
-
-              <TeamCard title="MASONRY" engineer="ALBERT SANTOS" count="80" borderColor="border-l-green-700" onAddWorker={() => setModalType('worker')} />
-              <TeamCard title="MEPF" engineer="MELVIN MACASPAC" count="45" borderColor="border-l-red-900" onAddWorker={() => setModalType('worker')} />
-              <TeamCard title="FINISHING" engineer="BERNADETTE CRUZ" count="60" borderColor="border-l-slate-300" onAddWorker={() => setModalType('worker')} />
-              <TeamCard title="LINE & GRADE" engineer="OSCAR LIMUNOZ" count="150" borderColor="border-l-blue-500" onAddWorker={() => setModalType('worker')} />
-              <TeamCard title="STRUCTURAL" engineer="SARAH FLORES" count="30" borderColor="border-l-red-500" onAddWorker={() => setModalType('worker')} />
+              <button className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter">
+                Create Team <span className="text-lg">→</span>
+              </button>
             </div>
-          </section>
-        </div>
-      </main>
+
+            <TeamCard title="MASONRY" engineer="ALBERT SANTOS" count="80" borderColor="border-l-green-700" onAddWorker={() => setModalType('worker')} />
+            <TeamCard title="MEPF" engineer="MELVIN MACASPAC" count="45" borderColor="border-l-red-900" onAddWorker={() => setModalType('worker')} />
+            <TeamCard title="FINISHING" engineer="BERNADETTE CRUZ" count="60" borderColor="border-l-slate-300" onAddWorker={() => setModalType('worker')} />
+            <TeamCard title="LINE & GRADE" engineer="OSCAR LIMUNOZ" count="150" borderColor="border-l-blue-500" onAddWorker={() => setModalType('worker')} />
+            <TeamCard title="STRUCTURAL" engineer="SARAH FLORES" count="30" borderColor="border-l-red-500" onAddWorker={() => setModalType('worker')} />
+          </div>
+        </section>
+      </div>
 
       {/* ========== MODAL FORMS ========== */}
 
@@ -209,8 +163,7 @@ const Team = () => {
             <button onClick={closeModal} className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition">Add to Team</button>
         </form>
       </Modal>
-
-    </div>
+    </DashboardLayout>
   );
 };
 

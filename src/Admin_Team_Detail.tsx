@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, LogOut, Bell, ChevronDown, X, Download,  Search 
+import {
+  Users,
+  X,
+  Download
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import DashboardLayout from './components/DashboardLayout';
 
 // ========== Mock Data ========== //
 const overtimeData = [
@@ -32,7 +34,6 @@ const teamMembers = [
 ];
 
 const AdminTeamDetail = () => {
-  const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState<'list' | 'add' | null>(null);
 
   // ========== PDF GENERATION LOGIC ========== //
@@ -63,36 +64,8 @@ const AdminTeamDetail = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans relative">
-      
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg"><Search className="text-blue-600 w-6 h-6" /></div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button onClick={() => navigate('/admin_dashboard')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button onClick={() => navigate('/team')} className="flex items-center gap-4 w-full px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Team</span>
-          </button>
-        </nav>
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white mt-auto"><LogOut size={20} /> <span className="font-semibold">Logout</span></button>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 ml-64">
-        <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-2"><img src="/logo.png" alt="Logo" className="w-8 h-8 invert" /><span className="text-xl font-bold uppercase tracking-widest">SiteGuard</span></div>
-          <div className="flex items-center gap-6"><Bell size={20} /><div className="flex items-center gap-3 border-l border-white/20 pl-6"><div className="text-right"><p className="text-xs font-bold">Ysa Dela Fuente</p></div><div className="w-10 h-10 bg-slate-300 rounded-full"></div><ChevronDown size={16} /></div></div>
-        </header>
-
-        <div className="p-8">
+    <DashboardLayout title="Team">
+      <div className="p-8">
           <h1 className="text-3xl font-black text-slate-800 mb-8 uppercase tracking-tight">TEAM</h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -148,7 +121,7 @@ const AdminTeamDetail = () => {
             {/* Right Sidebar List */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[700px]">
               <div className="p-6">
-                <button 
+                <button
                   onClick={downloadAttendancePDF}
                   className="w-full bg-[#1e3a8a] text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-blue-900 transition"
                 >
@@ -183,8 +156,7 @@ const AdminTeamDetail = () => {
               </div>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
 
       {/* ========== MODALS ========== */}
 
@@ -240,8 +212,7 @@ const AdminTeamDetail = () => {
           </div>
         </div>
       )}
-
-    </div>
+    </DashboardLayout>
   );
 };
 

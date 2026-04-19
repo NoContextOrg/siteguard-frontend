@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getTabIcon } from '../config/sidebarConfig.tsx';
 import type { NavItem } from '../config/sidebarConfig.tsx';
 
 interface DashboardSidebarProps {
@@ -21,6 +22,7 @@ interface DashboardSidebarProps {
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ navItems }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { logout } = useAuth();
+  const location = useLocation();
 
   return (
     <aside
@@ -45,19 +47,29 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ navItems }) 
 
       {/* Navigation - ONLY Link components */}
       <nav className="p-4 space-y-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.id}
-            to={item.path}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors text-slate-300 hover:text-white"
-            title={item.label}
-          >
-            <div className="flex-shrink-0 w-5 h-5">{item.icon}</div>
-            {!isCollapsed && (
-              <span className="text-sm font-medium truncate">{item.label}</span>
-            )}
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+
+          return (
+            <Link
+              key={item.id}
+              to={item.path}
+              className={
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ` +
+                // Uniform look for ALL tabs; active only slightly highlighted
+                (isActive
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white')
+              }
+              title={item.label}
+            >
+              <div className="flex-shrink-0 w-5 h-5">{getTabIcon(item.iconType)}</div>
+              {!isCollapsed && (
+                <span className="text-sm font-medium truncate">{item.label}</span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* Spacer */}

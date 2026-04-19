@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Users, Bell, LogOut, Menu, Search, UserCircle, Calendar, Filter, X, Save,  BellRing} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Search, Calendar, Filter, X, Save } from 'lucide-react';
+import DashboardLayout from './components/DashboardLayout';
 
 // ========== Types ==========
 interface Worker {
@@ -25,10 +26,8 @@ const initialWorkers: Worker[] = [
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
 
   // ========== Filter workers based on search ==========
   const filteredWorkers = workers.filter(w => 
@@ -46,129 +45,82 @@ export default function WorkersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
-      
-      {/* ========== Sidebar ========== */}
-      <aside className="w-64 bg-[#1e293b] text-white flex flex-col fixed h-full z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-white p-1 rounded-lg">
-             <img src="/logo.png" alt="SG" className="w-6 h-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">SiteGuard</span>
-        </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <LayoutDashboard size={20} /> <span className="text-sm font-semibold uppercase">Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/workers')} className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <Users size={20} /> <span className="text-sm font-semibold uppercase">Workers</span>
-          </button>
-          <button className="flex items-center gap-4 w-full px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition">
-            <BellRing size={20} /> <span className="text-sm font-semibold uppercase">Alerts</span>
-          </button>
-        </nav>
-        <button onClick={() => navigate('/')} className="p-6 flex items-center gap-4 text-slate-400 hover:text-white transition mt-auto border-t border-slate-700">
-          <LogOut size={20} /> <span className="font-semibold">Logout</span>
-        </button>
-      </aside>
-
-      <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
-        {/* ========== Top Navigation Bar ========== */}
-        <header className="bg-[#1e293b] text-white px-8 py-3 flex items-center justify-between sticky top-0 z-40">
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="hover:bg-slate-700 p-1 rounded transition">
-            <Menu size={24} />
-          </button>
-          <div className="flex items-center gap-6">
-            <div className="relative cursor-pointer hover:opacity-80 transition">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 bg-red-500 w-2 h-2 rounded-full border-2 border-[#1e293b]"></span>
+    <DashboardLayout title="Workers">
+      <div className="p-10">
+        <h2 className="text-4xl font-black text-gray-800 mb-10 tracking-tight">WORKERS</h2>
+        <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
+          <div className="p-4 border-b flex flex-wrap gap-4 items-center justify-between bg-white">
+            <div className="relative w-full max-w-xl">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search workers by name or team..." 
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            <div className="flex items-center gap-3 border-l border-slate-700 pl-6 cursor-pointer group">
-              <div className="text-right">
-                <p className="text-xs font-bold group-hover:text-blue-300 transition">Ysa Dela Fuente</p>
-                <p className="text-[10px] text-gray-400">ysadelafuente@gmail.com</p>
-              </div>
-              <UserCircle size={32} className="text-gray-400" />
+            <div className="flex gap-3">
+              <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"><Calendar size={20}/></button>
+              <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"><Filter size={20}/></button>
             </div>
           </div>
-        </header>
 
-        <div className="p-10">
-          <h2 className="text-4xl font-black text-gray-800 mb-10 tracking-tight">WORKERS</h2>
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
-            <div className="p-4 border-b flex flex-wrap gap-4 items-center justify-between bg-white">
-              <div className="relative w-full max-w-xl">
-                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Search workers by name or team..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-3">
-                <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"><Calendar size={20}/></button>
-                <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"><Filter size={20}/></button>
-              </div>
-            </div>
-
-            {/* ========== Table ========== */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-white text-slate-400 text-[11px] font-black uppercase tracking-widest border-b">
-                    <th className="px-6 py-4 border-r border-slate-100">Name</th>
-                    <th className="px-6 py-4 border-r border-slate-100">Assigned Team</th>
-                    <th className="px-6 py-4 border-r border-slate-100">Attendance</th>
-                    <th className="px-6 py-4 border-r border-slate-100">Assigned Engineer</th>
-                    <th className="px-6 py-4 border-r border-slate-100 text-center">Last Admitted</th>
-                    <th className="px-6 py-4 border-r border-slate-100 text-center">Status</th>
-                    <th className="px-6 py-4 text-center">Action</th>
+          {/* ========== Table ========== */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white text-slate-400 text-[11px] font-black uppercase tracking-widest border-b">
+                  <th className="px-6 py-4 border-r border-slate-100">Name</th>
+                  <th className="px-6 py-4 border-r border-slate-100">Assigned Team</th>
+                  <th className="px-6 py-4 border-r border-slate-100">Attendance</th>
+                  <th className="px-6 py-4 border-r border-slate-100">Assigned Engineer</th>
+                  <th className="px-6 py-4 border-r border-slate-100 text-center">Last Admitted</th>
+                  <th className="px-6 py-4 border-r border-slate-100 text-center">Status</th>
+                  <th className="px-6 py-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredWorkers.map((worker) => (
+                  <tr key={worker.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4 font-bold text-slate-700 text-sm">{worker.name}</td>
+                    <td className="px-6 py-4 text-slate-500 text-xs font-bold uppercase">{worker.team}</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
+                        worker.attendance === 'PRESENT' ? 'text-green-600 bg-green-50' : 
+                        worker.attendance === 'ABSENT' ? 'text-red-600 bg-red-50' : 'text-orange-600 bg-orange-50'
+                      }`}>
+                        {worker.attendance}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 text-xs font-bold">{worker.engineer}</td>
+                    <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST' ? 'text-red-500' : 'text-slate-500'}`}>
+                        {worker.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center space-x-2">
+                      <Link
+                        to={`/worker-profile?id=${worker.id}`}
+                        className="text-green-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                      >
+                        Profile
+                      </Link>
+                      <button 
+                        onClick={() => setEditingWorker(worker)}
+                        className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredWorkers.map((worker) => (
-                    <tr key={worker.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4 font-bold text-slate-700 text-sm">{worker.name}</td>
-                      <td className="px-6 py-4 text-slate-500 text-xs font-bold uppercase">{worker.team}</td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
-                          worker.attendance === 'PRESENT' ? 'text-green-600 bg-green-50' : 
-                          worker.attendance === 'ABSENT' ? 'text-red-600 bg-red-50' : 'text-orange-600 bg-orange-50'
-                        }`}>
-                          {worker.attendance}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-500 text-xs font-bold">{worker.engineer}</td>
-                      <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST' ? 'text-red-500' : 'text-slate-500'}`}>
-                          {worker.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center space-x-2">
-                        <button 
-                          onClick={() => navigate(`/worker-profile?id=${worker.id}`)}
-                          className="text-green-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
-                        >
-                          Profile
-                        </button>
-                        <button 
-                          onClick={() => setEditingWorker(worker)}
-                          className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* ========== EDIT MODAL ========== */}
       {editingWorker && (
@@ -241,6 +193,6 @@ export default function WorkersPage() {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 }
