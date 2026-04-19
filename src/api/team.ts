@@ -3,7 +3,7 @@
  * Handles all team-related CRUD operations
  */
 
-import { authenticatedFetch } from './fetch';
+import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
 const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
 
@@ -85,26 +85,23 @@ export const getTeamById = async (id: number): Promise<TeamResponse> => {
  * Create a new team
  */
 export const createTeam = async (teamData: Team): Promise<TeamResponse> => {
-  try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams`, {
-      method: 'POST',
-      body: JSON.stringify(teamData),
-    });
+  const response = await authenticatedFetch(`${API_BASE_URL}/teams`, {
+    method: 'POST',
+    body: JSON.stringify(teamData),
+  });
 
-    if (!response.ok) {
-      const errorData: ApiResponse<null> = await response.json();
-      throw new Error(errorData.message || `Failed to create team: ${response.statusText}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    if (response.status === 401) {
+      throw new Error(`Unauthorized (401). Please login again.`);
     }
-
-    const data: ApiResponse<TeamResponse> = await response.json();
-    if (!data.data) {
-      throw new Error('Failed to create team');
+    if (response.status === 403) {
+      throw new Error(`Forbidden (403). Requires admin role.`);
     }
-    return data.data;
-  } catch (error) {
-    console.error('Error creating team:', error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+    throw new Error(msg || `Failed to create team (${response.status})`);
   }
+
+  return (await response.json()) as TeamResponse;
 };
 
 /**
@@ -118,8 +115,11 @@ export const updateTeam = async (id: number, teamData: Partial<Team>): Promise<T
     });
 
     if (!response.ok) {
-      const errorData: ApiResponse<null> = await response.json();
-      throw new Error(errorData.message || `Failed to update team: ${response.statusText}`);
+      const raw = await response.text().catch(() => '');
+      const msg = raw || response.statusText;
+      if (response.status === 401) throw new Error('Unauthorized (401). Please login again.');
+      if (response.status === 403) throw new Error('Forbidden (403). Your account lacks ADMIN permission to update teams.');
+      throw new Error(msg || `Failed to update team: ${response.statusText}`);
     }
 
     const data: ApiResponse<TeamResponse> = await response.json();
@@ -153,88 +153,73 @@ export const deleteTeam = async (id: number): Promise<void> => {
 
 /**
  * Get team members
+ *
+ * NOTE: Backend TeamController does NOT expose this route.
+ * Use GET /api/persons/team/{teamId} via `getPersonsByTeam()` in `api/person.ts`.
  */
-export const getTeamMembers = async (teamId: number): Promise<TeamMember[]> => {
-  try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/members`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch team members: ${response.statusText}`);
-    }
-
-    const data: ApiResponse<TeamMember[]> = await response.json();
-    return data.data || [];
-  } catch (error) {
-    console.error(`Error fetching team members for team ${teamId}:`, error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
-  }
+export const getTeamMembers = async (_teamId: number): Promise<TeamMember[]> => {
+  throw new Error('Not supported by backend. Use getPersonsByTeam(teamId) instead.');
 };
 
 /**
- * Add person to team
+ * Assign workers to a team
+ * POST /api/teams/{id}/assign-workers
  */
-export const addPersonToTeam = async (teamId: number, personId: number): Promise<TeamResponse> => {
+export const assignWorkersToTeam = async (teamId: number, workerIds: number[]): Promise<TeamResponse> => {
   try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/members/${personId}`, {
+    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/assign-workers`, {
       method: 'POST',
+      body: JSON.stringify(workerIds),
     });
 
     if (!response.ok) {
-      const errorData: ApiResponse<null> = await response.json();
-      throw new Error(
-        errorData.message || `Failed to add person to team: ${response.statusText}`
-      );
+      const errorData: ApiResponse<null> = await response.json().catch(() => ({ success: false, message: '' } as ApiResponse<null>));
+      throw new Error(errorData.message || `Failed to assign workers: ${response.statusText}`);
     }
 
     const data: ApiResponse<TeamResponse> = await response.json();
     if (!data.data) {
-      throw new Error('Failed to add person to team');
+      throw new Error('Failed to assign workers');
     }
+
     return data.data;
   } catch (error) {
-    console.error(`Error adding person to team:`, error);
+    console.error('Error assigning workers to team:', error);
     throw error instanceof Error ? error : new Error('An unexpected error occurred');
   }
 };
 
 /**
- * Remove person from team
+ * Remove worker from team
+ * DELETE /api/teams/{teamId}/workers/{workerId}
  */
-export const removePersonFromTeam = async (teamId: number, personId: number): Promise<void> => {
+export const removeWorkerFromTeam = async (teamId: number, workerId: number): Promise<void> => {
   try {
-    const response = await authenticatedFetch(
-      `${API_BASE_URL}/teams/${teamId}/members/${personId}`,
-      {
-        method: 'DELETE',
-      }
-    );
+    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/workers/${workerId}`, {
+      method: 'DELETE',
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to remove person from team: ${response.statusText}`);
+      throw new Error(`Failed to remove worker from team: ${response.statusText}`);
     }
   } catch (error) {
-    console.error(`Error removing person from team:`, error);
+    console.error('Error removing worker from team:', error);
     throw error instanceof Error ? error : new Error('An unexpected error occurred');
   }
 };
+
+// Back-compat aliases for older UI code
+export const addPersonToTeam = async (teamId: number, personId: number): Promise<TeamResponse> =>
+  assignWorkersToTeam(teamId, [personId]);
+
+export const removePersonFromTeam = async (teamId: number, personId: number): Promise<void> =>
+  removeWorkerFromTeam(teamId, personId);
 
 /**
  * Search teams by name
+ *
+ * NOTE: Backend TeamController does NOT expose /api/teams/search.
  */
-export const searchTeams = async (query: string): Promise<TeamResponse[]> => {
-  try {
-    const response = await authenticatedFetch(
-      `${API_BASE_URL}/teams/search?query=${encodeURIComponent(query)}`
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to search teams: ${response.statusText}`);
-    }
-
-    const data: ApiResponse<TeamResponse[]> = await response.json();
-    return data.data || [];
-  } catch (error) {
-    console.error('Error searching teams:', error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
-  }
+export const searchTeams = async (_query: string): Promise<TeamResponse[]> => {
+  throw new Error('Not supported by backend. Use getAllTeams() and filter client-side.');
 };

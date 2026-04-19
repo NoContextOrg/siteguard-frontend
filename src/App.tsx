@@ -7,8 +7,7 @@ import NurseDashboard from './Nurse_Dashboard';
 import Workers from './Workers';
 import WorkerProfile from './Worker_Profile';
 import AdminDashboard from './Admin_Dashboard';
-import AdminTeam from './Admin_Team';
-import AdminTeamDetail from './Admin_Team_Detail';
+import AdminTeamPage from './Admin_Team';
 import EngineerDashboard from './Engineer_Dashboard';
 import EngineerTeam from './Engineer_Team';
 import PersonManagement from './components/PersonManagement';
@@ -495,15 +494,7 @@ function AppContent() {
         path="/admin_team" 
         element={
           <ProtectedRoute requiredRoles={['admin']}>
-            <AdminTeam />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin_team_detail" 
-        element={
-          <ProtectedRoute requiredRoles={['admin']}>
-            <AdminTeamDetail />
+            <AdminTeamPage />
           </ProtectedRoute>
         } 
       />

@@ -100,41 +100,89 @@ const AdminDashboard = () => {
             <div className="col-span-full text-center py-8">Loading...</div>
           ) : (
             <>
-              <StatCard 
-                label="Total Workers" 
-                value={(systemStats?.workers ?? 0).toString()} 
-                icon={<Users className="text-blue-400" size={28}/>} 
-                borderColor="border-l-blue-500" 
+              <StatCard
+                label="Workers"
+                value={(systemStats?.workers ?? 0).toLocaleString()}
+                icon={<Users className="text-blue-400" size={28} />}
+                borderColor="border-l-blue-500"
+                footer={
+                  <Link
+                    to="/workers"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    View workers →
+                  </Link>
+                }
               />
-              <StatCard 
-                label="Total Admins" 
-                value={(systemStats?.admins ?? 0).toString()} 
-                icon={<UserCheck className="text-teal-400" size={28}/>} 
-                borderColor="border-l-teal-500" 
+              <StatCard
+                label="Site Engineers"
+                value={(systemStats?.engineers ?? 0).toLocaleString()}
+                icon={<HardHat className="text-blue-300" size={28} />}
+                borderColor="border-l-blue-300"
+                footer={
+                  <Link
+                    to="/person-management"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    Add account →
+                  </Link>
+                }
               />
-              <StatCard 
-                label="Site Engineers" 
-                value={(systemStats?.engineers ?? 0).toString()} 
-                icon={<HardHat className="text-blue-300" size={28}/>} 
-                borderColor="border-l-blue-300" 
+              <StatCard
+                label="Nurses"
+                value={(systemStats?.nurses ?? 0).toLocaleString()}
+                icon={<UserX className="text-red-400" size={28} />}
+                borderColor="border-l-red-500"
+                footer={
+                  <Link
+                    to="/person-management"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    Add account →
+                  </Link>
+                }
               />
-              <StatCard 
-                label="Total Nurses" 
-                value={(systemStats?.nurses ?? 0).toString()} 
-                icon={<UserX className="text-red-400" size={28}/>} 
-                borderColor="border-l-red-500" 
+              <StatCard
+                label="Admins"
+                value={(systemStats?.admins ?? 0).toLocaleString()}
+                icon={<UserCheck className="text-teal-400" size={28} />}
+                borderColor="border-l-teal-500"
+                footer={
+                  <Link
+                    to="/person-management"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    Add account →
+                  </Link>
+                }
               />
-              <StatCard 
-                label="Total Staff" 
-                value={(systemStats?.staff ?? 0).toString()} 
-                icon={<Users size={28}/>} 
-                borderColor="border-l-purple-500" 
+              <StatCard
+                label="Staff"
+                value={(systemStats?.staff ?? 0).toLocaleString()}
+                icon={<Users size={28} />}
+                borderColor="border-l-purple-500"
+                footer={
+                  <Link
+                    to="/person-management"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    Manage people →
+                  </Link>
+                }
               />
-              <StatCard 
-                label="Total Persons" 
-                value={(systemStats?.total_persons ?? 0).toString()} 
-                icon={<HardHat size={28}/>} 
-                borderColor="border-l-indigo-500" 
+              <StatCard
+                label="Total Persons"
+                value={(systemStats?.total_persons ?? 0).toLocaleString()}
+                icon={<HardHat size={28} />}
+                borderColor="border-l-indigo-500"
+                footer={
+                  <Link
+                    to="/person-management"
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+                  >
+                    View all →
+                  </Link>
+                }
               />
             </>
           )}
@@ -143,29 +191,37 @@ const AdminDashboard = () => {
         {/* Bottom stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center">
-              <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Teams</p>
-                  <div className="flex items-center gap-3 mt-2">
-                      <Users2 size={32} />
-                      <span className="text-4xl font-black">{dashboardOverview?.total_teams || 0}</span>
-                  </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Teams</p>
+              <div className="flex items-center gap-3 mt-2">
+                <Users2 size={32} />
+                <span className="text-4xl font-black">{dashboardOverview?.total_teams || 0}</span>
               </div>
-              <button className="text-[12px] font-bold text-slate-400 flex items-center gap-1 hover:text-blue-600">View Teams <ArrowUpRight size={12}/></button>
+            </div>
+            <Link
+              to="/team-management"
+              className="text-[12px] font-bold text-slate-400 flex items-center gap-1 hover:text-blue-600"
+            >
+              View Teams <ArrowUpRight size={12} />
+            </Link>
           </div>
           <div className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center">
-              <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Attendance</p>
-                  <div className="flex items-center gap-3 mt-2">
-                      <Users size={32} className="text-orange-400" />
-                      <span className="text-4xl font-black text-orange-400">{dashboardOverview?.todays_attendance || 0}</span>
-                  </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Attendance</p>
+              <div className="flex items-center gap-3 mt-2">
+                <Users size={32} className="text-orange-400" />
+                <span className="text-4xl font-black text-orange-400">
+                  {dashboardOverview?.todays_attendance || 0}
+                </span>
               </div>
-              <div className="text-right">
-                  <div className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1 text-[12px] font-bold">
-                      <ArrowUpRight size={12} className="text-green-500"/> {dashboardOverview?.todays_hotlist_alerts || 0}
-                  </div>
-                  <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Today's Alerts</p>
+            </div>
+            <div className="text-right">
+              <div className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1 text-[12px] font-bold">
+                <ArrowUpRight size={12} className="text-green-500" />{' '}
+                {dashboardOverview?.todays_hotlist_alerts || 0}
               </div>
+              <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Today's Alerts</p>
+            </div>
           </div>
         </div>
 
@@ -397,15 +453,18 @@ const AdminDashboard = () => {
   );
 };
 
-const StatCard = ({ label, value, icon, borderColor }: any) => (
-  <div className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm flex items-center justify-between hover:scale-[1.02] transition cursor-pointer`}>
-    <div>
-        <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-          {label}
-        </p>
+const StatCard = ({ label, value, icon, borderColor, footer }: any) => (
+  <div
+    className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm hover:scale-[1.02] transition cursor-pointer`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
         <span className="text-4xl font-black text-slate-800">{value}</span>
+      </div>
+      <div className="opacity-40">{icon}</div>
     </div>
-    <div className="opacity-40">{icon}</div>
+    {footer ? <div className="mt-4">{footer}</div> : null}
   </div>
 );
 

@@ -205,3 +205,23 @@ export const searchPersons = async (query: string): Promise<PersonResponse[]> =>
     throw error instanceof Error ? error : new Error('An unexpected error occurred');
   }
 };
+
+/**
+ * Get persons in a team.
+ * GET /api/persons/team/{teamId}
+ */
+export const getPersonsByTeam = async (teamId: number): Promise<PersonResponse[]> => {
+  try {
+    const response = await authenticatedFetch(`${API_BASE_URL}/persons/team/${teamId}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team persons: ${response.statusText}`);
+    }
+
+    const data: ApiResponse<PersonResponse[]> = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error(`Error fetching persons for team ${teamId}:`, error);
+    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+  }
+};

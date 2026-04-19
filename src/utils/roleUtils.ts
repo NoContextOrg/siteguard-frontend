@@ -1,4 +1,4 @@
-import { getPrimaryRole, getUserRoles, isTokenValid, logoutUser } from '../api/auth';
+import { getPrimaryRole, getUserRoles, isTokenValid } from '../api/auth';
 
 /**
  * Check if user has required role
@@ -17,26 +17,19 @@ export const checkUserRole = (requiredRoles?: string[]): boolean => {
 };
 
 /**
- * Check if user is authenticated and redirect if not
+ * Check if user is authenticated.
+ * No side effects (no logout / no redirect).
  */
 export const ensureAuthenticated = (): boolean => {
-  if (!isTokenValid()) {
-    logoutUser();
-    window.location.href = '/';
-    return false;
-  }
-  return true;
+  return isTokenValid();
 };
 
 /**
- * Check if user has required role and redirect if not
+ * Check if user has required role.
+ * No side effects (no redirect).
  */
 export const ensureAuthorized = (requiredRoles?: string[]): boolean => {
-  if (!checkUserRole(requiredRoles)) {
-    window.location.href = '/';
-    return false;
-  }
-  return true;
+  return checkUserRole(requiredRoles);
 };
 
 /**

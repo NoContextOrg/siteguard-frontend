@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Users } from 'lucide-react';
-import { 
-  getAllTeams, 
-  createTeam, 
-  updateTeam, 
+import {
+  getAllTeams,
+  createTeam,
+  updateTeam,
   deleteTeam,
-  getTeamMembers,
   addPersonToTeam,
   removePersonFromTeam,
   type Team,
   type TeamResponse,
-  type TeamMember,
 } from '../api/team';
-import { getAllPersons, type PersonResponse } from '../api/person';
-import DashboardLayout from './DashboardLayout';
+import { getAllPersons, getPersonsByTeam, type PersonResponse } from '../api/person';
 
 interface FormData {
   name: string;
@@ -24,20 +21,20 @@ interface FormData {
 const TeamManagement: React.FC = () => {
   const [teams, setTeams] = useState<TeamResponse[]>([]);
   const [persons, setPersons] = useState<PersonResponse[]>([]);
+  const [teamMembers, setTeamMembers] = useState<PersonResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  
+
   const [selectedTeam, setSelectedTeam] = useState<TeamResponse | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -47,17 +44,14 @@ const TeamManagement: React.FC = () => {
 
   // Load teams and persons on component mount
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [teamsData, personsData] = await Promise.all([
-        getAllTeams(),
-        getAllPersons(),
-      ]);
+      const [teamsData, personsData] = await Promise.all([getAllTeams(), getAllPersons()]);
       setTeams(teamsData);
       setPersons(personsData);
     } catch (err) {
@@ -66,6 +60,12 @@ const TeamManagement: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const teamMemberCountById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const t of teams) map.set(t.id, t.members ?? 0);
+    return map;
+  }, [teams]);
 
   const handleCreateClick = () => {
     setFormData({
@@ -95,7 +95,7 @@ const TeamManagement: React.FC = () => {
     try {
       setError(null);
       setSelectedTeam(team);
-      const members = await getTeamMembers(team.id);
+      const members = await getPersonsByTeam(team.id);
       setTeamMembers(members);
       setShowMembersModal(true);
     } catch (err) {
@@ -156,11 +156,12 @@ const TeamManagement: React.FC = () => {
       setError(null);
       await addPersonToTeam(selectedTeam.id, selectedPersonForTeam);
       setSuccess('Person added to team successfully!');
-      const members = await getTeamMembers(selectedTeam.id);
+      const members = await getPersonsByTeam(selectedTeam.id);
       setTeamMembers(members);
       setSelectedPersonForTeam(null);
       setShowAddMemberModal(false);
       setTimeout(() => setSuccess(null), 3000);
+      await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add person to team');
     }
@@ -172,27 +173,27 @@ const TeamManagement: React.FC = () => {
       setError(null);
       await removePersonFromTeam(selectedTeam.id, personId);
       setSuccess('Person removed from team successfully!');
-      const members = await getTeamMembers(selectedTeam.id);
+      const members = await getPersonsByTeam(selectedTeam.id);
       setTeamMembers(members);
       setTimeout(() => setSuccess(null), 3000);
+      await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove person from team');
     }
   };
 
-  const filteredTeams = teams.filter(team =>
-    team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.location.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTeams = teams.filter(
+    (team) =>
+      team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      team.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      team.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const availablePersons = persons.filter(
-    person => !teamMembers.some(member => member.id === person.id)
-  );
+  const availablePersons = persons.filter((person) => !teamMembers.some((member) => member.id === person.id));
 
   return (
-    <DashboardLayout title="Team Management">
-      <div className="p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
@@ -270,7 +271,7 @@ const TeamManagement: React.FC = () => {
                   <div className="flex items-center gap-2 mb-4">
                     <Users size={16} className="text-blue-600" />
                     <span className="text-sm text-slate-600">
-                      {team.members ?? 0} members
+                      {teamMemberCountById.get(team.id) ?? 0} members
                     </span>
                   </div>
                   <p className="text-sm text-slate-600 mb-4">
@@ -445,140 +446,140 @@ const TeamManagement: React.FC = () => {
           </form>
         </Modal>
       )}
-      </DashboardLayout>
-    );
-  };
-  
-  interface TeamFormProps {
-    formData: FormData;
-    setFormData: (data: FormData) => void;
-    onSubmit: (e: React.FormEvent) => void;
-    submitLabel: string;
-  }
-  
-  const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel }) => {
-    return (
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Team Name *</label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-  
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Description *</label>
-          <textarea
-            required
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={4}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-  
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Location *</label>
-          <input
-            type="text"
-            required
-            value={formData.location}
-            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-  
-        <div className="flex gap-3 pt-4 border-t border-slate-200">
+    </div>
+  );
+};
+
+interface TeamFormProps {
+  formData: FormData;
+  setFormData: (data: FormData) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  submitLabel: string;
+}
+
+const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel }) => {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Team Name *</label>
+        <input
+          type="text"
+          required
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Description *</label>
+        <textarea
+          required
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          rows={4}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Location *</label>
+        <input
+          type="text"
+          required
+          value={formData.location}
+          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4 border-t border-slate-200">
+        <button
+          type="submit"
+          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+interface ModalProps {
+  title: string;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  children: React.ReactNode;
+}
+
+const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-200 bg-white">
+          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
           <button
-            type="submit"
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-700 transition-colors"
           >
-            {submitLabel}
+            <X size={24} />
           </button>
         </div>
-      </form>
-    );
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+interface ConfirmModalProps {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmLabel: string;
+  confirmColor: 'red' | 'blue' | 'green';
+}
+
+const ConfirmModal: React.FC<ConfirmModalProps> = ({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmLabel,
+  confirmColor,
+}) => {
+  const colorClasses = {
+    red: 'bg-red-600 hover:bg-red-700',
+    blue: 'bg-blue-600 hover:bg-blue-700',
+    green: 'bg-green-600 hover:bg-green-700',
   };
-  
-  interface ModalProps {
-    title: string;
-    onClose: () => void;
-    onSubmit: (e: React.FormEvent) => void;
-    children: React.ReactNode;
-  }
-  
-  const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="absolute inset-0" onClick={onClose}></div>
-        <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-200 bg-white">
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="absolute inset-0" onClick={onCancel}></div>
+      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">{title}</h2>
+          <p className="text-slate-600 mb-6">{message}</p>
+          <div className="flex gap-3">
             <button
-              onClick={onClose}
-              className="text-slate-500 hover:text-slate-700 transition-colors"
+              onClick={onCancel}
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
             >
-              <X size={24} />
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium ${colorClasses[confirmColor]}`}
+            >
+              {confirmLabel}
             </button>
           </div>
-          <div className="p-6">{children}</div>
         </div>
       </div>
-    );
-  };
-  
-  interface ConfirmModalProps {
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-    confirmLabel: string;
-    confirmColor: 'red' | 'blue' | 'green';
-  }
-  
-  const ConfirmModal: React.FC<ConfirmModalProps> = ({
-    title,
-    message,
-    onConfirm,
-    onCancel,
-    confirmLabel,
-    confirmColor,
-  }) => {
-    const colorClasses = {
-      red: 'bg-red-600 hover:bg-red-700',
-      blue: 'bg-blue-600 hover:bg-blue-700',
-      green: 'bg-green-600 hover:bg-green-700',
-    };
-  
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="absolute inset-0" onClick={onCancel}></div>
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-2">{title}</h2>
-            <p className="text-slate-600 mb-6">{message}</p>
-            <div className="flex gap-3">
-              <button
-                onClick={onCancel}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onConfirm}
-                className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium ${colorClasses[confirmColor]}`}
-              >
-                {confirmLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  export default TeamManagement;
+    </div>
+  );
+};
+
+export default TeamManagement;

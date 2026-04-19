@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAuthToken, isTokenValid, logoutUser } from '../api/auth';
+import { getAuthToken, isTokenValid } from '../api/auth';
 
 /**
  * Hook to check if user is authenticated and token is valid
@@ -14,21 +14,13 @@ export const useAuthState = () => {
       const token = getAuthToken();
       const isValid = isTokenValid();
 
-      if (token && isValid) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-        // Clear storage if token is invalid
-        if (token && !isValid) {
-          logoutUser();
-        }
-      }
+      setIsAuthenticated(Boolean(token && isValid));
       setLoading(false);
     };
 
     checkAuth();
 
-    // Check auth state every 30 seconds
+    // Keep light polling but DO NOT perform side-effects (logout/redirect)
     const interval = setInterval(checkAuth, 30000);
 
     return () => clearInterval(interval);
@@ -43,9 +35,10 @@ export const useAuthState = () => {
 export const useSyncAuth = () => {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      // If accessToken is removed, user logged out
+      // If accessToken is removed in another tab, do not hard-redirect.
+      // Pages/routes should handle auth state.
       if (e.key === 'accessToken' && e.newValue === null) {
-        window.location.href = '/';
+        // no-op
       }
     };
 
