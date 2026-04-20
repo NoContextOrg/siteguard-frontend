@@ -14,6 +14,7 @@ import { getAllPersons, getPersonsByTeam, type PersonResponse } from '../api/per
 
 interface FormData {
   name: string;
+  classification: string;
   description: string;
   location: string;
 }
@@ -37,6 +38,7 @@ const TeamManagement: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<TeamResponse | null>(null);
   const [formData, setFormData] = useState<FormData>({
     name: '',
+    classification: 'GENERAL',
     description: '',
     location: '',
   });
@@ -70,6 +72,7 @@ const TeamManagement: React.FC = () => {
   const handleCreateClick = () => {
     setFormData({
       name: '',
+      classification: 'GENERAL',
       description: '',
       location: '',
     });
@@ -80,6 +83,7 @@ const TeamManagement: React.FC = () => {
     setSelectedTeam(team);
     setFormData({
       name: team.name,
+      classification: (team as any)?.classification ?? 'GENERAL',
       description: team.description,
       location: team.location,
     });
@@ -107,7 +111,7 @@ const TeamManagement: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
-      await createTeam(formData as Team);
+      await createTeam(formData as unknown as Team);
       setSuccess('Team created successfully!');
       setShowCreateModal(false);
       await loadData();
@@ -122,7 +126,7 @@ const TeamManagement: React.FC = () => {
     if (!selectedTeam) return;
     try {
       setError(null);
-      await updateTeam(selectedTeam.id, formData);
+      await updateTeam(selectedTeam.id, formData as unknown as Team);
       setSuccess('Team updated successfully!');
       setShowEditModal(false);
       await loadData();
@@ -469,6 +473,21 @@ const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, su
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Classification *</label>
+        <select
+          required
+          value={formData.classification}
+          onChange={(e) => setFormData({ ...formData, classification: e.target.value })}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="GENERAL">GENERAL</option>
+          <option value="WORKER">WORKER</option>
+          <option value="ENGINEER">ENGINEER</option>
+          <option value="NURSE">NURSE</option>
+        </select>
       </div>
 
       <div>

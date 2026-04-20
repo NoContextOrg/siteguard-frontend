@@ -76,7 +76,7 @@ const PersonManagement: React.FC = () => {
     setFormData({
       name: person.name,
       email: person.email,
-      phone: person.phone,
+      phone: (person as any).phone ?? '',
       position: person.position,
       department: person.department,
     });

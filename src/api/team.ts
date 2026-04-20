@@ -9,7 +9,14 @@ const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface Team {
   id?: number;
+  /** UI name */
   name: string;
+  /** Backend requires this on create */
+  classification?: string;
+  /** Backend TeamCreateDTO.projectArea */
+  projectArea?: string;
+  /** Backend TeamCreateDTO.siteEngineerId (required by service) */
+  siteEngineerId?: number;
   description: string;
   location: string;
   createdAt?: string;
@@ -18,12 +25,18 @@ export interface Team {
 
 export interface TeamResponse {
   id: number;
+  // Backend returns teamName
   name: string;
   description: string;
   location: string;
   createdAt: string;
   updatedAt: string;
   members?: number;
+  // Backend TeamResponseDTO fields
+  classification?: string;
+  projectArea?: string;
+  siteEngineerId?: number;
+  siteEngineerName?: string;
 }
 
 export interface TeamMember {
@@ -85,9 +98,34 @@ export const getTeamById = async (id: number): Promise<TeamResponse> => {
  * Create a new team
  */
 export const createTeam = async (teamData: Team): Promise<TeamResponse> => {
+  const teamName = (teamData.name ?? '').trim();
+  const classification = String(teamData.classification ?? '').trim() || 'GENERAL';
+
+  if (!teamName) {
+    throw new Error('Team name is required');
+  }
+  if (teamData.siteEngineerId == null) {
+    throw new Error('Site engineer is required');
+  }
+
+  const payload: Record<string, unknown> = {
+    teamName,
+    classification,
+    siteEngineerId: teamData.siteEngineerId,
+  };
+
+  const projectArea = (teamData.projectArea ?? '').trim();
+  if (projectArea) payload.projectArea = projectArea;
+
+  // Keep passing these in case backend supports them
+  const description = (teamData.description ?? '').trim();
+  const location = (teamData.location ?? '').trim();
+  if (description) payload.description = description;
+  if (location) payload.location = location;
+
   const response = await authenticatedFetch(`${API_BASE_URL}/teams`, {
     method: 'POST',
-    body: JSON.stringify(teamData),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -101,7 +139,22 @@ export const createTeam = async (teamData: Team): Promise<TeamResponse> => {
     throw new Error(msg || `Failed to create team (${response.status})`);
   }
 
-  return (await response.json()) as TeamResponse;
+  const json = await response.json();
+  // Support either direct DTO or wrapped ApiResponse
+  const dto = (json?.data ?? json) as any;
+  return {
+    id: dto.id,
+    name: dto.teamName ?? dto.name,
+    description: dto.description ?? '',
+    location: dto.location ?? dto.projectArea ?? '',
+    createdAt: dto.createdAt ?? '',
+    updatedAt: dto.updatedAt ?? '',
+    members: dto.workerCount ?? dto.members,
+    classification: dto.classification,
+    projectArea: dto.projectArea,
+    siteEngineerId: dto.siteEngineerId,
+    siteEngineerName: dto.siteEngineerName,
+  };
 };
 
 /**
@@ -109,9 +162,18 @@ export const createTeam = async (teamData: Team): Promise<TeamResponse> => {
  */
 export const updateTeam = async (id: number, teamData: Partial<Team>): Promise<TeamResponse> => {
   try {
+    const payload: Record<string, unknown> = {
+      ...(teamData.name != null ? { teamName: teamData.name } : {}),
+      ...(teamData.projectArea != null ? { projectArea: teamData.projectArea } : {}),
+      ...(teamData.classification != null ? { classification: teamData.classification } : {}),
+      ...(teamData.siteEngineerId != null ? { siteEngineerId: teamData.siteEngineerId } : {}),
+      ...(teamData.description != null ? { description: teamData.description } : {}),
+      ...(teamData.location != null ? { location: teamData.location } : {}),
+    };
+
     const response = await authenticatedFetch(`${API_BASE_URL}/teams/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(teamData),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -122,11 +184,21 @@ export const updateTeam = async (id: number, teamData: Partial<Team>): Promise<T
       throw new Error(msg || `Failed to update team: ${response.statusText}`);
     }
 
-    const data: ApiResponse<TeamResponse> = await response.json();
-    if (!data.data) {
-      throw new Error('Failed to update team');
-    }
-    return data.data;
+    const json = await response.json();
+    const dto = (json?.data ?? json) as any;
+    return {
+      id: dto.id,
+      name: dto.teamName ?? dto.name,
+      description: dto.description ?? '',
+      location: dto.location ?? dto.projectArea ?? '',
+      createdAt: dto.createdAt ?? '',
+      updatedAt: dto.updatedAt ?? '',
+      members: dto.workerCount ?? dto.members,
+      classification: dto.classification,
+      projectArea: dto.projectArea,
+      siteEngineerId: dto.siteEngineerId,
+      siteEngineerName: dto.siteEngineerName,
+    };
   } catch (error) {
     console.error(`Error updating team ${id}:`, error);
     throw error instanceof Error ? error : new Error('An unexpected error occurred');

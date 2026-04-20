@@ -7,6 +7,7 @@ import {
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
 import { assignWorkersToTeam, createTeam, getAllTeams, type Team, type TeamResponse } from './api/team';
+import { createPersonUi, deletePersonById, updatePersonUi } from './api/person';
 
 // ========== Types & Sub-Components ========== //
 
@@ -79,14 +80,33 @@ const AdminTeam = () => {
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamLocation, setNewTeamLocation] = useState('');
   const [newTeamDescription, setNewTeamDescription] = useState('');
+  const [newTeamSiteEngineerId, setNewTeamSiteEngineerId] = useState<number | null>(null);
 
   const [selectedTeamIdForWorkerAdd, setSelectedTeamIdForWorkerAdd] = useState<number | null>(null);
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
+
+  // Create account form state
+  const [newAccountRole, setNewAccountRole] = useState<'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN'>('WORKER');
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountEmail, setNewAccountEmail] = useState('');
+  const [newAccountPhone, setNewAccountPhone] = useState('');
+  const [newAccountDepartment, setNewAccountDepartment] = useState('');
+  const [accountSubmitting, setAccountSubmitting] = useState(false);
+
+  // Edit/delete state
+  const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
+  const [deletingPerson, setDeletingPerson] = useState<PersonResponse | null>(null);
+
+  // Search and filter state
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN'>('ALL');
 
   const closeModal = () => {
     setModalType(null);
     setSelectedTeamIdForWorkerAdd(null);
     setSelectedWorkerId(null);
+    setEditingPerson(null);
+    setDeletingPerson(null);
   };
 
   const load = async () => {
@@ -120,22 +140,32 @@ const AdminTeam = () => {
     void load();
   }, []);
 
-  const isWorker = (p: PersonResponse) => p.position?.toLowerCase() === 'worker' || p.department?.toLowerCase() === 'worker';
-  const isEngineer = (p: PersonResponse) => p.position?.toLowerCase().includes('engineer') || p.department?.toLowerCase().includes('engineer');
-  const isNurse = (p: PersonResponse) => p.position?.toLowerCase().includes('nurse') || p.department?.toLowerCase().includes('nurse');
+  const isWorker = (p: PersonResponse) => String((p as any).role ?? '').toUpperCase() === 'WORKER';
+  const isEngineer = (p: PersonResponse) => String((p as any).role ?? '').toUpperCase() === 'ENGINEER';
+  const isNurse = (p: PersonResponse) => String((p as any).role ?? '').toUpperCase() === 'NURSE';
 
   const workerCount = useMemo(() => persons.filter(isWorker).length, [persons]);
   const engineerCount = useMemo(() => persons.filter(isEngineer).length, [persons]);
   const nurseCount = useMemo(() => persons.filter(isNurse).length, [persons]);
 
   const workers = useMemo(() => persons.filter(isWorker), [persons]);
+  const engineers = useMemo(() => persons.filter(isEngineer), [persons]);
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setError(null);
+
+      if (!newTeamSiteEngineerId) {
+        setError('Please select a site engineer');
+        return;
+      }
+
       const payload: Team = {
         name: newTeamName.trim(),
+        classification: 'GENERAL',
+        projectArea: newTeamLocation.trim() || 'N/A',
+        siteEngineerId: newTeamSiteEngineerId,
         description: newTeamDescription.trim() || 'N/A',
         location: newTeamLocation.trim() || 'N/A',
       };
@@ -150,6 +180,7 @@ const AdminTeam = () => {
       setNewTeamName('');
       setNewTeamDescription('');
       setNewTeamLocation('');
+      setNewTeamSiteEngineerId(null);
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to create team');
@@ -173,6 +204,116 @@ const AdminTeam = () => {
     }
   };
 
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError(null);
+      setAccountSubmitting(true);
+
+      const payload = {
+        name: newAccountName.trim(),
+        email: newAccountEmail.trim(),
+        phone: newAccountPhone.trim(),
+        position: newAccountRole === 'WORKER' ? 'Worker' : newAccountRole === 'ENGINEER' ? 'Site Engineer' : newAccountRole === 'NURSE' ? 'Nurse' : 'Admin',
+        department: newAccountDepartment.trim(),
+        role: newAccountRole,
+      };
+
+      if (!payload.name || !payload.email) {
+        setError('Name and email are required');
+        return;
+      }
+
+      await createPersonUi(payload);
+
+      setNewAccountName('');
+      setNewAccountEmail('');
+      setNewAccountPhone('');
+      setNewAccountDepartment('');
+      closeModal();
+      await load();
+    } catch (e2) {
+      setError(e2 instanceof Error ? e2.message : 'Failed to create account');
+    } finally {
+      setAccountSubmitting(false);
+    }
+  };
+
+  const startEditPerson = (p: PersonResponse) => {
+    const anyP = p as any;
+    setEditingPerson(p);
+    setNewAccountRole(((anyP.role as any) || 'WORKER') as any);
+    setNewAccountName(anyP.name ?? '');
+    setNewAccountEmail(anyP.email ?? '');
+    setNewAccountPhone(anyP.phoneNumber ?? anyP.phone ?? '');
+    setNewAccountDepartment(anyP.department ?? '');
+    setModalType('account');
+  };
+
+  const handleSavePersonEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPerson) return;
+
+    try {
+      setError(null);
+      setAccountSubmitting(true);
+
+      await updatePersonUi(editingPerson.id, {
+        name: newAccountName.trim(),
+        email: newAccountEmail.trim(),
+        phone: newAccountPhone.trim(),
+        position: newAccountRole === 'WORKER' ? 'Worker' : newAccountRole === 'ENGINEER' ? 'Site Engineer' : newAccountRole === 'NURSE' ? 'Nurse' : 'Admin',
+        department: newAccountDepartment.trim(),
+        role: newAccountRole as any,
+      });
+
+      setEditingPerson(null);
+      setNewAccountName('');
+      setNewAccountEmail('');
+      setNewAccountPhone('');
+      setNewAccountDepartment('');
+      closeModal();
+      await load();
+    } catch (e2) {
+      setError(e2 instanceof Error ? e2.message : 'Failed to update account');
+    } finally {
+      setAccountSubmitting(false);
+    }
+  };
+
+  const handleConfirmDeletePerson = async () => {
+    if (!deletingPerson) return;
+    try {
+      setError(null);
+      await deletePersonById(deletingPerson.id);
+      setDeletingPerson(null);
+      closeModal();
+      await load();
+    } catch (e2) {
+      setError(e2 instanceof Error ? e2.message : 'Failed to delete account');
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    return persons
+      .filter((p) => {
+        const anyP = p as any;
+        const role = String(anyP.role || '').toUpperCase();
+        if (userRoleFilter === 'ALL') return true;
+        return role === userRoleFilter;
+      })
+      .filter((p) => {
+        if (!q) return true;
+        const anyP = p as any;
+        const name = String(anyP.name || '').toLowerCase();
+        const email = String(anyP.email || '').toLowerCase();
+        const role = String(anyP.role || '').toLowerCase();
+        const dept = String(anyP.department || '').toLowerCase();
+        return name.includes(q) || email.includes(q) || role.includes(q) || dept.includes(q);
+      });
+  }, [persons, userSearch, userRoleFilter]);
+
   return (
     <DashboardLayout title="Team">
       <div className="max-w-7xl mx-auto px-6">
@@ -192,9 +333,21 @@ const AdminTeam = () => {
         <section className="mt-8">
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">ACCOUNTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <AccountCard title="Workers" count={loading ? '—' : workerCount.toLocaleString()} onAdd={() => setModalType('account')} />
-            <AccountCard title="Site Engineers" count={loading ? '—' : engineerCount.toLocaleString()} onAdd={() => setModalType('account')} />
-            <AccountCard title="Nurses" count={loading ? '—' : nurseCount.toLocaleString()} onAdd={() => setModalType('account')} />
+            <AccountCard title="Workers" count={loading ? '—' : workerCount.toLocaleString()} onAdd={() => {
+              setEditingPerson(null);
+              setNewAccountRole('WORKER');
+              setModalType('account');
+            }} />
+            <AccountCard title="Site Engineers" count={loading ? '—' : engineerCount.toLocaleString()} onAdd={() => {
+              setEditingPerson(null);
+              setNewAccountRole('ENGINEER');
+              setModalType('account');
+            }} />
+            <AccountCard title="Nurses" count={loading ? '—' : nurseCount.toLocaleString()} onAdd={() => {
+              setEditingPerson(null);
+              setNewAccountRole('NURSE');
+              setModalType('account');
+            }} />
           </div>
         </section>
 
@@ -238,15 +391,218 @@ const AdminTeam = () => {
             )}
           </div>
         </section>
+
+        {/* All users table with CRUD */}
+        {!loading && (
+          <section className="mt-10">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">GENERAL MANAGEMENT</h2>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Search name/email/role/department…"
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
+                />
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value as any)}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
+                >
+                  <option value="ALL">All Roles</option>
+                  <option value="WORKER">Workers</option>
+                  <option value="ENGINEER">Engineers</option>
+                  <option value="NURSE">Nurses</option>
+                  <option value="ADMIN">Admins</option>
+                </select>
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg bg-[#1a2e5a] text-white text-sm font-black uppercase tracking-widest hover:bg-[#132142]"
+                  onClick={() => {
+                    setEditingPerson(null);
+                    setNewAccountRole('WORKER');
+                    setNewAccountName('');
+                    setNewAccountEmail('');
+                    setNewAccountPhone('');
+                    setNewAccountDepartment('');
+                    setModalType('account');
+                  }}
+                >
+                  Add User
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-slate-600">
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Name</th>
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Email</th>
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Role</th>
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Phone</th>
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Department</th>
+                      <th className="p-3 font-black uppercase tracking-widest text-[10px]"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td className="p-6 text-slate-500" colSpan={6}>
+                          No users found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((p) => {
+                        const anyP = p as any;
+                        const role = String(anyP.role || '').toUpperCase() || '—';
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold text-slate-800 whitespace-nowrap">{anyP.name ?? '—'}</td>
+                            <td className="p-3 text-slate-700 whitespace-nowrap">{anyP.email ?? '—'}</td>
+                            <td className="p-3 text-slate-700 whitespace-nowrap">{role}</td>
+                            <td className="p-3 text-slate-700 whitespace-nowrap">{anyP.phoneNumber ?? anyP.phone ?? '—'}</td>
+                            <td className="p-3 text-slate-700 whitespace-nowrap">{anyP.department ?? '—'}</td>
+                            <td className="p-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200"
+                                  onClick={() => startEditPerson(p)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100"
+                                  onClick={() => {
+                                    setDeletingPerson(p);
+                                    setModalType('account');
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+              Note: Delete requires ADMIN role (backend enforces).
+            </div>
+          </section>
+        )}
       </div>
 
       {/* ========== MODAL FORMS ========== */}
 
-      {/* 1. Add Account Form (placeholder: backend auth/account CRUD not provided) */}
-      <Modal isOpen={modalType === 'account'} onClose={closeModal} title="Create New Account">
-        <div className="text-sm text-slate-600">
-          Account CRUD endpoints are not available in the provided backend (only /auth/login). Use Person Management for now.
-        </div>
+      {/* 1. Add Account Form */}
+      <Modal isOpen={modalType === 'account'} onClose={closeModal} title={deletingPerson ? 'Delete Account' : editingPerson ? 'Edit Account' : 'Create New Account'}>
+        {deletingPerson ? (
+          <div className="space-y-4">
+            <div className="text-sm text-slate-700">
+              Delete <span className="font-bold">{deletingPerson.name}</span>? This cannot be undone.
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingPerson(null)}
+                className="flex-1 border border-slate-200 rounded-2xl py-3 font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePerson}
+                className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-black uppercase tracking-widest hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={editingPerson ? handleSavePersonEdit : handleCreateAccount}>
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Account Type</label>
+              <select
+                value={newAccountRole}
+                onChange={(e) => setNewAccountRole(e.target.value as any)}
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                disabled={accountSubmitting}
+              >
+                <option value="WORKER">Worker</option>
+                <option value="ENGINEER">Site Engineer</option>
+                <option value="NURSE">Nurse</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Full Name</label>
+              <input
+                type="text"
+                value={newAccountName}
+                onChange={(e) => setNewAccountName(e.target.value)}
+                placeholder="e.g. Juan Dela Cruz"
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                required
+                disabled={accountSubmitting}
+              />
+            </div>
+
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Email</label>
+              <input
+                type="email"
+                value={newAccountEmail}
+                onChange={(e) => setNewAccountEmail(e.target.value)}
+                placeholder="e.g. juan@example.com"
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                required
+                disabled={accountSubmitting}
+              />
+            </div>
+
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Phone (optional)</label>
+              <input
+                type="text"
+                value={newAccountPhone}
+                onChange={(e) => setNewAccountPhone(e.target.value)}
+                placeholder="e.g. 09xxxxxxxxx"
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                disabled={accountSubmitting}
+              />
+            </div>
+
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Department (optional)</label>
+              <input
+                type="text"
+                value={newAccountDepartment}
+                onChange={(e) => setNewAccountDepartment(e.target.value)}
+                placeholder="e.g. Structural"
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                disabled={accountSubmitting}
+              />
+            </div>
+
+            <button
+              className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+              type="submit"
+              disabled={accountSubmitting}
+            >
+              {accountSubmitting ? 'Saving…' : editingPerson ? 'Save Changes' : 'Create Account'}
+            </button>
+          </form>
+        )}
       </Modal>
 
       {/* 2. Create Team Form */}
@@ -263,6 +619,24 @@ const AdminTeam = () => {
               required
             />
           </div>
+
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Site Engineer</label>
+            <select
+              required
+              value={newTeamSiteEngineerId ?? ''}
+              onChange={(e) => setNewTeamSiteEngineerId(Number(e.target.value))}
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+            >
+              <option value="">-- Choose a site engineer --</option>
+              {engineers.map((eng) => (
+                <option key={eng.id} value={eng.id}>
+                  {eng.name} ({eng.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Description</label>
             <input
@@ -274,7 +648,7 @@ const AdminTeam = () => {
             />
           </div>
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Location</label>
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Project Area / Location</label>
             <input
               type="text"
               value={newTeamLocation}

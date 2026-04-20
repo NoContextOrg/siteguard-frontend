@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from './DashboardLayout';
-import { AlertTriangle, CheckCircle, Trash2, Search, X, AlertCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Search, X, AlertCircle } from 'lucide-react';
 import {
   getActiveAlerts,
   acknowledgeAlert,
@@ -149,25 +149,52 @@ const AlertManagement: React.FC = () => {
     person.personCode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const canManageHotlist = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('userRoles');
+      if (!raw) return false;
+      const roles = JSON.parse(raw) as unknown;
+      const list = Array.isArray(roles) ? roles : [roles];
+      return list.some((r) => String(r).toUpperCase().includes('ADMIN') || String(r).toUpperCase().includes('NURSE'));
+    } catch {
+      return false;
+    }
+  }, []);
+
   return (
     <DashboardLayout title="Alert & Hotlist Management">
       <div className="p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Alert & Hotlist Management</h1>
-            <p className="text-slate-600 mt-1">Monitor and manage alerts and hotlisted persons</p>
+            <h1 className="text-3xl font-bold text-slate-900">Alerts & Hotlist</h1>
+            <p className="text-slate-600 mt-1">
+              Hotlist status is a clinical risk flag (age / medical conditions). During a fingerprint LOGIN, the backend
+              checks hotlist status and triggers <span className="font-mono">HOTLIST_LOGIN</span> alerts automatically.
+            </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowHotlistModal(true)}
-              className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors shadow-lg"
-            >
-              <AlertTriangle size={20} />
-              Manage Hotlist
-            </button>
+            {canManageHotlist && (
+              <button
+                onClick={() => setShowHotlistModal(true)}
+                className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors shadow-lg"
+                type="button"
+              >
+                <AlertTriangle size={20} />
+                Manage Hotlist
+              </button>
+            )}
           </div>
         </div>
+
+        {!canManageHotlist && (
+          <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="text-sm text-slate-700 font-semibold">Read-only access</div>
+            <div className="text-xs text-slate-600 mt-1">
+              Your role can view alerts/hotlist, but cannot modify hotlist status.
+            </div>
+          </div>
+        )}
 
         {/* Alerts */}
         {error && (
@@ -394,20 +421,22 @@ const AlertManagement: React.FC = () => {
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-slate-200">
-                      <button
-                        onClick={() => {
-                          setFormData({
-                            personCode: person.personCode,
-                            isHotlisted: false,
-                            reason: '',
-                          });
-                          setShowHotlistModal(true);
-                        }}
-                        className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-700 font-medium transition-colors text-sm"
-                      >
-                        <Trash2 size={16} />
-                        Remove from Hotlist
-                      </button>
+                      {canManageHotlist && (
+                        <button
+                          onClick={() => {
+                            setFormData({
+                              personCode: person.personCode,
+                              isHotlisted: false,
+                              reason: '',
+                            });
+                            setShowHotlistModal(true);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-700 font-medium transition-colors text-sm"
+                          type="button"
+                        >
+                          Remove from Hotlist
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -418,11 +447,9 @@ const AlertManagement: React.FC = () => {
       </div>
 
       {/* Hotlist Modal */}
-      {showHotlistModal && (
+      {showHotlistModal && canManageHotlist && (
         <Modal
-          title={
-            formData.isHotlisted ? 'Add to Hotlist' : 'Manage Hotlist Status'
-          }
+          title={formData.isHotlisted ? 'Add to Hotlist' : 'Manage Hotlist Status'}
           onClose={() => {
             setShowHotlistModal(false);
             setFormData({ personCode: '', isHotlisted: false, reason: '' });
@@ -431,78 +458,65 @@ const AlertManagement: React.FC = () => {
         >
           <form onSubmit={handleUpdateHotlist} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Person Code *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Person Code
+              </label>
               <input
                 type="text"
-                required
                 value={formData.personCode}
                 onChange={(e) => setFormData({ ...formData, personCode: e.target.value })}
-                placeholder="e.g., WRK-001"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                readOnly
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">Action</label>
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, isHotlisted: true })}
-                  className={`w-full p-3 rounded-lg text-sm font-medium transition-all border-2 ${
-                    formData.isHotlisted
-                      ? 'bg-red-100 border-red-600 text-red-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-red-300'
-                  }`}
-                >
-                  Add to Hotlist
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, isHotlisted: false })}
-                  className={`w-full p-3 rounded-lg text-sm font-medium transition-all border-2 ${
-                    !formData.isHotlisted
-                      ? 'bg-green-100 border-green-600 text-green-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-green-300'
-                  }`}
-                >
-                  Remove from Hotlist
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Hotlist Status
+              </label>
+              <select
+                value={formData.isHotlisted ? 'hotlisted' : 'not_hotlisted'}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    isHotlisted: e.target.value === 'hotlisted',
+                  })
+                }
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="not_hotlisted">Not Hotlisted</option>
+                <option value="hotlisted">Hotlisted</option>
+              </select>
             </div>
 
             {formData.isHotlisted && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Reason</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Reason
+                </label>
                 <textarea
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Enter the reason for hotlisting..."
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
+                  placeholder="Enter reason for hotlisting"
+                ></textarea>
               </div>
             )}
 
-            <div className="flex gap-3 pt-4 border-t border-slate-200">
+            <div className="flex justify-end gap-4">
               <button
+                onClick={() => setShowHotlistModal(false)}
+                className="w-full sm:w-auto bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors"
                 type="button"
-                onClick={() => {
-                  setShowHotlistModal(false);
-                  setFormData({ personCode: '', isHotlisted: false, reason: '' });
-                }}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
+                className="w-full sm:w-auto bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
                 type="submit"
-                className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium ${
-                  formData.isHotlisted
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
               >
-                {formData.isHotlisted ? 'Add to Hotlist' : 'Remove from Hotlist'}
+                {formData.isHotlisted ? 'Add to Hotlist' : 'Update Hotlist Status'}
               </button>
             </div>
           </form>
@@ -529,11 +543,12 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
           <button
             onClick={onClose}
             className="text-slate-500 hover:text-slate-700 transition-colors"
+            type="button"
           >
             <X size={24} />
           </button>
         </div>
-        <div className="p-6">{children}        </div>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );

@@ -94,7 +94,7 @@ export const acknowledgeAlert = async (alertId: number): Promise<void> => {
 
     console.log('📡 Acknowledging alert:', alertId);
     const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/acknowledge`, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader(),
@@ -174,8 +174,8 @@ export const getActiveAlertCount = async (): Promise<number> => {
     }
 
     const data = await response.json();
-    console.log('✅ Alert count:', data?.count);
-    return data?.count || 0;
+    console.log('✅ Alert count:', data?.activeAlertCount);
+    return data?.activeAlertCount || 0;
   } catch (error) {
     console.error('❌ Error fetching alert count:', error);
     return 0;

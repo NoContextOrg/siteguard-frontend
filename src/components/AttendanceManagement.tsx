@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { LogIn, LogOut, Clock, Search, X, Download } from 'lucide-react';
 import {
-  logAttendance,
   getAllAttendance,
   getTodaysSummary,
   getAttendanceStats,
@@ -9,12 +8,10 @@ import {
   type AttendanceSummary,
   type AttendanceStats,
 } from '../api/attendance';
-import { getAllPersons, type PersonResponse } from '../api/person';
 import DashboardLayout from './DashboardLayout';
 
-const AttendanceManagement: React.FC = () => {
+const AttendanceManagement = () => {
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
-  const [persons, setPersons] = useState<PersonResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -23,77 +20,36 @@ const AttendanceManagement: React.FC = () => {
   const [statsData, setStatsData] = useState<AttendanceStats | null>(null);
 
   // Modal states
-  const [showLogModal, setShowLogModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
 
   // Form states
-  const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
-  const [eventType, setEventType] = useState<'LOGIN' | 'LOGOUT' | 'OVERTIME'>('LOGIN');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
   // Load data on component mount
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [logs, personsData, summary, stats] = await Promise.all([
+
+      const [logs, summary, stats] = await Promise.all([
         getAllAttendance(),
-        getAllPersons(),
         getTodaysSummary().catch(() => null),
         getAttendanceStats().catch(() => null),
       ]);
+
       setAttendanceLogs(logs);
-      setPersons(personsData);
       setTodaysSummary(summary);
       setStatsData(stats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleLogAttendance = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPersonId) {
-      setError('Please select a person');
-      return;
-    }
-
-    const selectedPerson = persons.find(p => p.id === selectedPersonId);
-    if (!selectedPerson) {
-      setError('Selected person not found');
-      return;
-    }
-
-    try {
-      setError(null);
-      const payload = {
-        worker_id: selectedPerson.name,
-        type: eventType.toUpperCase(),
-        timestamp: new Date().toISOString(),
-      };
-      
-      const result = await logAttendance(payload);
-      
-      // Handle both direct response and wrapped response
-      if (result.status === 'success' || result.message) {
-        setSuccess(`Attendance logged successfully (${eventType})`);
-        setShowLogModal(false);
-        setSelectedPersonId(null);
-        setEventType('LOGIN');
-        await loadData();
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        throw new Error('Unexpected response from server');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log attendance');
     }
   };
 
@@ -110,9 +66,10 @@ const AttendanceManagement: React.FC = () => {
     }
   };
 
-  const filteredLogs = attendanceLogs.filter(log =>
-    log.personCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (log.personName?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+  const filteredLogs = attendanceLogs.filter(
+    (log) =>
+      log.personCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.personName?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const getEventTypeIcon = (eventType: string) => {
@@ -148,20 +105,16 @@ const AttendanceManagement: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Attendance Management</h1>
-            <p className="text-slate-600 mt-1">Track and manage worker attendance logs</p>
+            <h1 className="text-3xl font-bold text-slate-900">Attendance</h1>
+            <p className="text-slate-600 mt-1">
+              Attendance logs are generated automatically by the biometric IoT hardware.
+            </p>
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => setShowLogModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
-            >
-              <LogIn size={20} />
-              Log Attendance
-            </button>
-            <button
               onClick={() => setShowStatsModal(true)}
               className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors shadow-lg"
+              type="button"
             >
               <Download size={20} />
               View Stats
@@ -176,7 +129,7 @@ const AttendanceManagement: React.FC = () => {
               <h3 className="font-semibold text-red-800">Error</h3>
               <p className="text-sm text-red-700">{error}</p>
             </div>
-            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
+            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800" type="button">
               <X size={18} />
             </button>
           </div>
@@ -188,7 +141,7 @@ const AttendanceManagement: React.FC = () => {
               <h3 className="font-semibold text-green-800">Success</h3>
               <p className="text-sm text-green-700">{success}</p>
             </div>
-            <button onClick={() => setSuccess(null)} className="text-green-600 hover:text-green-800">
+            <button onClick={() => setSuccess(null)} className="text-green-600 hover:text-green-800" type="button">
               <X size={18} />
             </button>
           </div>
@@ -253,7 +206,7 @@ const AttendanceManagement: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filteredLogs.slice(0, 50).map((log) => (
-                  <tr key={log.id || Math.random()} className="hover:bg-slate-50 transition-colors">
+                  <tr key={log.id ?? `${log.personCode}-${log.eventTimestamp}-${log.eventType}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-sm text-slate-900 font-medium">{log.personCode}</td>
                     <td className="px-6 py-4 text-sm">
                       <div className={getEventTypeBadge(log.eventType)}>
@@ -286,77 +239,9 @@ const AttendanceManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Log Attendance Modal */}
-      {showLogModal && (
-        <Modal
-          title="Log Attendance"
-          onClose={() => setShowLogModal(false)}
-          onSubmit={handleLogAttendance}
-        >
-          <form onSubmit={handleLogAttendance} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Select Person *</label>
-              <select
-                required
-                value={selectedPersonId ?? ''}
-                onChange={(e) => setSelectedPersonId(parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">-- Choose a person --</option>
-                {persons.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} ({person.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Event Type *</label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['LOGIN', 'LOGOUT', 'OVERTIME'] as const).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setEventType(type)}
-                    className={`p-3 rounded-lg font-medium text-sm transition-all ${
-                      eventType === type
-                        ? 'bg-blue-600 text-white border-2 border-blue-600'
-                        : 'bg-slate-100 text-slate-700 border-2 border-slate-200 hover:border-blue-300'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setShowLogModal(false)}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Log Attendance
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
       {/* Statistics Modal */}
       {showStatsModal && (
-        <Modal
-          title="Attendance Statistics"
-          onClose={() => setShowStatsModal(false)}
-          onSubmit={handleExportStats}
-        >
+        <Modal title="Attendance Statistics" onClose={() => setShowStatsModal(false)}>
           <form onSubmit={handleExportStats} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -427,21 +312,17 @@ const AttendanceManagement: React.FC = () => {
 interface ModalProps {
   title: string;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
   children: React.ReactNode;
 }
 
-const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
+const Modal = ({ title, onClose, children }: ModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="absolute inset-0" onClick={onClose}></div>
       <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-200 bg-white">
           <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-slate-700 transition-colors"
-          >
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-700 transition-colors" type="button">
             <X size={24} />
           </button>
         </div>
