@@ -97,7 +97,9 @@ const AdminDashboard = () => {
         {/* ========== TOP STAT CARDS ========== */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {loading ? (
-            <div className="col-span-full text-center py-8">Loading...</div>
+            <div className="col-span-full flex items-center justify-center py-10">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+            </div>
           ) : (
             <>
               <StatCard
@@ -269,8 +271,10 @@ const AdminDashboard = () => {
                   <tbody className="font-semibold text-slate-600">
                     {alertsLoading ? (
                       <tr>
-                        <td className="px-6 py-6 text-slate-400" colSpan={5}>
-                          Loading alerts...
+                        <td className="px-6 py-10" colSpan={5}>
+                          <div className="flex items-center justify-center">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                          </div>
                         </td>
                       </tr>
                     ) : activeAlerts.length === 0 ? (
@@ -281,7 +285,10 @@ const AdminDashboard = () => {
                       </tr>
                     ) : (
                       activeAlerts.slice(0, 8).map((alert) => (
-                        <tr key={alert.id ?? `${alert.alertType}-${alert.createdAt}`} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer">
+                        <tr
+                          key={alert.id ?? `${alert.alertType}-${alert.createdAt}`}
+                          className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
+                        >
                           <td className="px-6 py-3">{alert.id ?? '-'}</td>
                           <td className="px-6 py-3">{alert.alertType}</td>
                           <td className="px-6 py-3 max-w-[360px] truncate" title={alert.description || ''}>

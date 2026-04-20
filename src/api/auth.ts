@@ -3,7 +3,7 @@
  * Handles all auth-related API calls to the backend
  */
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface LoginRequest {
   email: string;
