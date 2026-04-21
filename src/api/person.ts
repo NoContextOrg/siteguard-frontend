@@ -355,3 +355,21 @@ export const deletePersonById = async (id: number): Promise<void> => {
     throw new Error(msg || `Failed to delete person (${response.status})`);
   }
 };
+
+/**
+ * Set or reset a person's password (admin only)
+ * PUT /api/persons/{id}/password
+ */
+export const setPersonPassword = async (id: number, newPassword: string): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/persons/${id}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ password: newPassword }),
+  });
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    if (response.status === 401) throw new Error('Unauthorized (401). Please login again.');
+    if (response.status === 403) throw new Error('Forbidden (403). Requires admin role.');
+    throw new Error(msg || `Failed to set/reset password (${response.status})`);
+  }
+};

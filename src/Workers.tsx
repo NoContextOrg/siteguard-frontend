@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Calendar, Filter, X, Save } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
-import { createPersonUi, getAllPersons, updatePersonUi, type PersonResponse } from './api/person';
+import { createPersonUi, getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 
 // ========== Types ==========
@@ -64,6 +64,13 @@ export default function WorkersPage() {
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
+
+  // Password modal state
+  const [passwordModalId, setPasswordModalId] = useState<number | null>(null);
+  const [passwordValue, setPasswordValue] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
@@ -240,6 +247,39 @@ export default function WorkersPage() {
       setError(e instanceof Error ? e.message : 'Failed to create worker');
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Password modal handlers
+  const openPasswordModal = (id: number) => {
+    setPasswordModalId(id);
+    setPasswordValue('');
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+  const closePasswordModal = () => {
+    setPasswordModalId(null);
+    setPasswordValue('');
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+  const handleSetPassword = async () => {
+    if (!passwordModalId) return;
+    if (!passwordValue || passwordValue.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    try {
+      await setPersonPassword(passwordModalId, passwordValue);
+      setPasswordSuccess('Password updated successfully.');
+      setTimeout(() => closePasswordModal(), 1200);
+    } catch (e) {
+      setPasswordError(e instanceof Error ? e.message : 'Failed to set password');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -601,13 +641,22 @@ export default function WorkersPage() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              onClick={() => startEdit(worker)}
-                              className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
-                              type="button"
-                            >
-                              Rename
-                            </button>
+                            <>
+                              <button
+                                onClick={() => startEdit(worker)}
+                                className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                                type="button"
+                              >
+                                Rename
+                              </button>
+                              <button
+                                onClick={() => openPasswordModal(worker.id)}
+                                className="text-orange-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                                type="button"
+                              >
+                                Set/Reset Password
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -676,6 +725,42 @@ export default function WorkersPage() {
             </table>
           </div>
         </div>
+
+        {/* Password Modal */}
+        {passwordModalId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+              <div className="font-black text-lg mb-2">Set/Reset Password</div>
+              <div className="text-xs text-slate-500 mb-4">Set a new password for this worker. Minimum 6 characters.</div>
+              <input
+                type="password"
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={passwordValue}
+                onChange={e => setPasswordValue(e.target.value)}
+                placeholder="New password"
+                disabled={passwordLoading}
+              />
+              {passwordError && <div className="text-xs text-red-600 mb-2">{passwordError}</div>}
+              {passwordSuccess && <div className="text-xs text-green-600 mb-2">{passwordSuccess}</div>}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleSetPassword}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? 'Saving…' : 'Save Password'}
+                </button>
+                <button
+                  onClick={closePasswordModal}
+                  className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
+                  disabled={passwordLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
