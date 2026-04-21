@@ -57,41 +57,67 @@ export interface ApiResponse<T> {
  * Get all teams
  */
 export const getAllTeams = async (): Promise<TeamResponse[]> => {
-  try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams`);
+  const response = await authenticatedFetch(`${API_BASE_URL}/teams`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch teams: ${response.statusText}`);
-    }
-
-    const data: ApiResponse<TeamResponse[]> = await response.json();
-    return data.data || [];
-  } catch (error) {
-    console.error('Error fetching teams:', error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    if (response.status === 401) throw new Error('Unauthorized (401). Please login again.');
+    if (response.status === 403) throw new Error('Forbidden (403). Requires ADMIN or ENGINEER role to view teams.');
+    throw new Error(msg || `Failed to fetch teams (${response.status})`);
   }
+
+  const json = await response.json();
+
+  // Backend returns List<TeamResponseDTO> (array). Older UI expected ApiResponse wrapper.
+  const list = (Array.isArray(json) ? json : (json?.data ?? [])) as any[];
+  if (!Array.isArray(list)) return [];
+
+  return list.map((dto) => ({
+    id: dto.id,
+    name: dto.teamName ?? dto.name,
+    description: dto.description ?? '',
+    location: dto.location ?? dto.projectArea ?? '',
+    createdAt: dto.createdAt ?? '',
+    updatedAt: dto.updatedAt ?? '',
+    members: dto.workerCount ?? dto.members,
+    classification: dto.classification,
+    projectArea: dto.projectArea,
+    siteEngineerId: dto.siteEngineerId,
+    siteEngineerName: dto.siteEngineerName,
+  }));
 };
 
 /**
  * Get team by ID
  */
 export const getTeamById = async (id: number): Promise<TeamResponse> => {
-  try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${id}`);
+  const response = await authenticatedFetch(`${API_BASE_URL}/teams/${id}`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch team: ${response.statusText}`);
-    }
-
-    const data: ApiResponse<TeamResponse> = await response.json();
-    if (!data.data) {
-      throw new Error('Team not found');
-    }
-    return data.data;
-  } catch (error) {
-    console.error(`Error fetching team ${id}:`, error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    if (response.status === 401) throw new Error('Unauthorized (401). Please login again.');
+    if (response.status === 403) throw new Error('Forbidden (403). Requires ADMIN or ENGINEER role to view teams.');
+    throw new Error(msg || `Failed to fetch team (${response.status})`);
   }
+
+  const json = await response.json();
+  const dto = (json?.data ?? json) as any;
+
+  if (!dto) throw new Error('Team not found');
+
+  return {
+    id: dto.id,
+    name: dto.teamName ?? dto.name,
+    description: dto.description ?? '',
+    location: dto.location ?? dto.projectArea ?? '',
+    createdAt: dto.createdAt ?? '',
+    updatedAt: dto.updatedAt ?? '',
+    members: dto.workerCount ?? dto.members,
+    classification: dto.classification,
+    projectArea: dto.projectArea,
+    siteEngineerId: dto.siteEngineerId,
+    siteEngineerName: dto.siteEngineerName,
+  };
 };
 
 /**
@@ -238,27 +264,38 @@ export const getTeamMembers = async (_teamId: number): Promise<TeamMember[]> => 
  * POST /api/teams/{id}/assign-workers
  */
 export const assignWorkersToTeam = async (teamId: number, workerIds: number[]): Promise<TeamResponse> => {
-  try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/assign-workers`, {
-      method: 'POST',
-      body: JSON.stringify(workerIds),
-    });
+  const response = await authenticatedFetch(`${API_BASE_URL}/teams/${teamId}/assign-workers`, {
+    method: 'POST',
+    body: JSON.stringify(workerIds),
+  });
 
-    if (!response.ok) {
-      const errorData: ApiResponse<null> = await response.json().catch(() => ({ success: false, message: '' } as ApiResponse<null>));
-      throw new Error(errorData.message || `Failed to assign workers: ${response.statusText}`);
-    }
-
-    const data: ApiResponse<TeamResponse> = await response.json();
-    if (!data.data) {
-      throw new Error('Failed to assign workers');
-    }
-
-    return data.data;
-  } catch (error) {
-    console.error('Error assigning workers to team:', error);
-    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    if (response.status === 401) throw new Error('Unauthorized (401). Please login again.');
+    if (response.status === 403) throw new Error('Forbidden (403). Requires ADMIN or ENGINEER role to assign workers.');
+    throw new Error(msg || `Failed to assign workers (${response.status})`);
   }
+
+  const json = await response.json();
+  const dto = (json?.data ?? json) as any;
+
+  if (!dto) {
+    throw new Error('Failed to assign workers');
+  }
+
+  return {
+    id: dto.id,
+    name: dto.teamName ?? dto.name,
+    description: dto.description ?? '',
+    location: dto.location ?? dto.projectArea ?? '',
+    createdAt: dto.createdAt ?? '',
+    updatedAt: dto.updatedAt ?? '',
+    members: dto.workerCount ?? dto.members,
+    classification: dto.classification,
+    projectArea: dto.projectArea,
+    siteEngineerId: dto.siteEngineerId,
+    siteEngineerName: dto.siteEngineerName,
+  };
 };
 
 /**

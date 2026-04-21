@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   UserPlus,
-  X
+  X,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
-import { assignWorkersToTeam, createTeam, getAllTeams, type Team, type TeamResponse } from './api/team';
+import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
 import { createPersonUi, deletePersonById, updatePersonUi } from './api/person';
 
 // ========== Types & Sub-Components ========== //
@@ -49,17 +51,67 @@ const AccountCard = ({ title, count, onAdd }: { title: string, count: string, on
   </div>
 );
 
-const TeamCard = ({ title, engineer, count, borderColor, onAddWorker }: { title: string, engineer: string, count: string, borderColor: string, onAddWorker: () => void }) => (
-  <div className={`bg-white p-8 rounded-xl shadow-sm border-l-[6px] ${borderColor} flex flex-col justify-between h-52 relative hover:shadow-md transition`}>
-    <div>
-        <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">{title}</h3>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Engr. {engineer}</p>
+const TeamCard = ({ title, engineer, count, borderColor, accentGradient, onAddWorker, onOpen, onEditTeam, onDeleteTeam }: { title: string, engineer: string, count: string, borderColor: string, accentGradient: string, onAddWorker: () => void, onOpen: () => void, onEditTeam: () => void, onDeleteTeam: () => void }) => (
+  <div
+    className={`bg-white p-8 rounded-xl shadow-sm border-l-[6px] ${borderColor} flex flex-col justify-between h-52 relative cursor-pointer
+      transition-all duration-200 ease-out
+      hover:-translate-y-1 hover:shadow-xl hover:border-slate-100
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40
+      group overflow-hidden`}
+    onClick={onOpen}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') onOpen();
+    }}
+  >
+    {/* soft glow */}
+    <div className={`pointer-events-none absolute -inset-24 opacity-0 blur-2xl transition-opacity duration-200 group-hover:opacity-70 bg-gradient-to-r ${accentGradient} to-transparent`} />
+
+    {/* top-right actions */}
+    <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEditTeam();
+        }}
+        className="p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-slate-50 shadow-sm"
+        aria-label="Edit team"
+        title="Edit team"
+      >
+        <Pencil size={16} className="text-slate-700" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteTeam();
+        }}
+        className="p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-red-50 shadow-sm"
+        aria-label="Delete team"
+        title="Delete team"
+      >
+        <Trash2 size={16} className="text-red-700" />
+      </button>
     </div>
-    <div className="flex items-center gap-3">
-        <Users size={32} className="text-slate-200" />
-        <span className="text-4xl font-black text-slate-300">{count}</span>
+
+    <div className="relative">
+      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter transition-colors duration-200 group-hover:text-slate-900">{title}</h3>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 transition-colors duration-200 group-hover:text-slate-500">Engr. {engineer}</p>
     </div>
-    <button onClick={onAddWorker} className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter">
+    <div className="relative flex items-center gap-3">
+      <Users size={32} className="text-slate-200 transition-colors duration-200 group-hover:text-slate-300" />
+      <span className="text-4xl font-black text-slate-300 transition-colors duration-200 group-hover:text-slate-400">{count}</span>
+    </div>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onAddWorker();
+      }}
+      className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter"
+      type="button"
+    >
       Add Worker <span className="text-lg">→</span>
     </button>
   </div>
@@ -68,7 +120,7 @@ const TeamCard = ({ title, engineer, count, borderColor, onAddWorker }: { title:
 // ========== Main Page Component ========== //
 
 const AdminTeam = () => {
-  const [modalType, setModalType] = useState<'account' | 'team' | 'worker' | null>(null);
+  const [modalType, setModalType] = useState<'account' | 'team' | 'worker' | 'teamEdit' | 'teamDelete' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +133,7 @@ const AdminTeam = () => {
   const [newTeamLocation, setNewTeamLocation] = useState('');
   const [newTeamDescription, setNewTeamDescription] = useState('');
   const [newTeamSiteEngineerId, setNewTeamSiteEngineerId] = useState<number | null>(null);
+  const [teamSubmitting, setTeamSubmitting] = useState(false);
 
   const [selectedTeamIdForWorkerAdd, setSelectedTeamIdForWorkerAdd] = useState<number | null>(null);
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
@@ -96,17 +149,28 @@ const AdminTeam = () => {
   // Edit/delete state
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
   const [deletingPerson, setDeletingPerson] = useState<PersonResponse | null>(null);
+  const [teamEditing, setTeamEditing] = useState<TeamResponse | null>(null);
+  const [teamDeleting, setTeamDeleting] = useState<TeamResponse | null>(null);
 
   // Search and filter state
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN'>('ALL');
 
+  // Team detail modal state
+  const [selectedTeam, setSelectedTeam] = useState<TeamResponse | null>(null);
+  const [teamMembers, setTeamMembers] = useState<PersonResponse[]>([]);
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
+
   const closeModal = () => {
+    // Avoid closing modals mid-submit (was causing "team created" but UI not refreshed / perceived as missing)
+    if (teamSubmitting || accountSubmitting) return;
     setModalType(null);
     setSelectedTeamIdForWorkerAdd(null);
     setSelectedWorkerId(null);
     setEditingPerson(null);
     setDeletingPerson(null);
+    setTeamEditing(null);
+    setTeamDeleting(null);
   };
 
   const load = async () => {
@@ -155,6 +219,7 @@ const AdminTeam = () => {
     e.preventDefault();
     try {
       setError(null);
+      setTeamSubmitting(true);
 
       if (!newTeamSiteEngineerId) {
         setError('Please select a site engineer');
@@ -176,14 +241,22 @@ const AdminTeam = () => {
       }
 
       await createTeam(payload);
-      closeModal();
+
+      // Reset form first
       setNewTeamName('');
       setNewTeamDescription('');
       setNewTeamLocation('');
       setNewTeamSiteEngineerId(null);
+
+      // Reload from backend so the new team appears immediately
       await load();
+
+      // Close only after successful refresh
+      setModalType(null);
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to create team');
+    } finally {
+      setTeamSubmitting(false);
     }
   };
 
@@ -294,6 +367,112 @@ const AdminTeam = () => {
     }
   };
 
+  const loadTeamMembers = async (teamId: number) => {
+    try {
+      setTeamMembersLoading(true);
+      setError(null);
+
+      const members = await getPersonsByTeam(teamId);
+      setTeamMembers(Array.isArray(members) ? members : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load team members');
+      setTeamMembers([]);
+    } finally {
+      setTeamMembersLoading(false);
+    }
+  };
+
+  const openTeamDetail = async (t: TeamResponse) => {
+    setSelectedTeam(t);
+    await loadTeamMembers(t.id);
+  };
+
+  const closeTeamDetail = () => {
+    setSelectedTeam(null);
+    setTeamMembers([]);
+  };
+
+  const startEditTeam = (t: TeamResponse) => {
+    setError(null);
+    setTeamEditing(t);
+    setNewTeamName(String(t.name ?? ''));
+    setNewTeamDescription(String(t.description ?? ''));
+    setNewTeamLocation(String((t as any).projectArea ?? t.location ?? ''));
+    setNewTeamSiteEngineerId((t as any).siteEngineerId != null ? Number((t as any).siteEngineerId) : null);
+    setModalType('teamEdit');
+  };
+
+  const startDeleteTeam = (t: TeamResponse) => {
+    setError(null);
+    setTeamDeleting(t);
+    setModalType('teamDelete');
+  };
+
+  const handleSaveTeamEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamEditing) return;
+
+    try {
+      setError(null);
+      setTeamSubmitting(true);
+
+      if (!newTeamName.trim()) {
+        setError('Team name is required');
+        return;
+      }
+      if (!newTeamSiteEngineerId) {
+        setError('Please select a site engineer');
+        return;
+      }
+
+      await updateTeam(teamEditing.id, {
+        name: newTeamName.trim(),
+        description: newTeamDescription.trim() || 'N/A',
+        location: newTeamLocation.trim() || 'N/A',
+        projectArea: newTeamLocation.trim() || 'N/A',
+        siteEngineerId: newTeamSiteEngineerId,
+      });
+
+      setTeamEditing(null);
+      setNewTeamName('');
+      setNewTeamDescription('');
+      setNewTeamLocation('');
+      setNewTeamSiteEngineerId(null);
+
+      await load();
+      setModalType(null);
+    } catch (e2) {
+      setError(e2 instanceof Error ? e2.message : 'Failed to update team');
+    } finally {
+      setTeamSubmitting(false);
+    }
+  };
+
+  const handleConfirmDeleteTeam = async () => {
+    if (!teamDeleting) return;
+    try {
+      setError(null);
+      setTeamSubmitting(true);
+      await deleteTeam(teamDeleting.id);
+      setTeamDeleting(null);
+      await load();
+      setModalType(null);
+    } catch (e2) {
+      setError(e2 instanceof Error ? e2.message : 'Failed to delete team');
+    } finally {
+      setTeamSubmitting(false);
+    }
+  };
+
+  const engineerNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    persons.forEach((p) => {
+      const anyP = p as any;
+      if (p.id != null) map.set(p.id, String(anyP.name ?? '').trim() || String(anyP.email ?? '') || `ID-${p.id}`);
+    });
+    return map;
+  }, [persons]);
+
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
     return persons
@@ -313,6 +492,40 @@ const AdminTeam = () => {
         return name.includes(q) || email.includes(q) || role.includes(q) || dept.includes(q);
       });
   }, [persons, userSearch, userRoleFilter]);
+
+  const teamBorderColor = (_t: TeamResponse, index: number) => {
+    // Aesthetic palette (Tailwind border colors). Keeps UI consistent and readable.
+    const palette = [
+      'border-l-blue-600',
+      'border-l-fuchsia-600',
+      'border-l-emerald-600',
+      'border-l-amber-600',
+      'border-l-cyan-600',
+      'border-l-violet-600',
+      'border-l-rose-600',
+      'border-l-indigo-600',
+      'border-l-sky-600',
+      'border-l-lime-600',
+    ];
+    return palette[index % palette.length];
+  };
+
+  const teamAccentBg = (index: number) => {
+    // Matching soft glow background for the hover overlay.
+    const palette = [
+      'from-blue-100 via-blue-50',
+      'from-fuchsia-100 via-fuchsia-50',
+      'from-emerald-100 via-emerald-50',
+      'from-amber-100 via-amber-50',
+      'from-cyan-100 via-cyan-50',
+      'from-violet-100 via-violet-50',
+      'from-rose-100 via-rose-50',
+      'from-indigo-100 via-indigo-50',
+      'from-sky-100 via-sky-50',
+      'from-lime-100 via-lime-50',
+    ];
+    return palette[index % palette.length];
+  };
 
   return (
     <DashboardLayout title="Team">
@@ -375,21 +588,32 @@ const AdminTeam = () => {
             {loading ? (
               <div className="col-span-full text-center py-10 text-slate-400 font-bold">Loading teams…</div>
             ) : (
-              teams.map((t) => (
+              teams.map((t, idx) => (
                 <TeamCard
                   key={t.id}
                   title={t.name}
-                  engineer={'N/A'}
-                  count={(teamCounts[t.id] ?? t.members ?? 0).toLocaleString()}
-                  borderColor="border-l-slate-300"
+                  engineer={
+                    (t as any).siteEngineerId
+                      ? (engineerNameById.get(Number((t as any).siteEngineerId)) ?? 'N/A')
+                      : (t as any).siteEngineerName ?? 'N/A'
+                  }
+                  count={(teamCounts[t.id] ?? (t as any).members ?? 0).toLocaleString()}
+                  borderColor={teamBorderColor(t, idx)}
+                  accentGradient={teamAccentBg(idx)}
                   onAddWorker={() => {
                     setSelectedTeamIdForWorkerAdd(t.id);
                     setModalType('worker');
                   }}
+                  onOpen={() => void openTeamDetail(t)}
+                  onEditTeam={() => startEditTeam(t)}
+                  onDeleteTeam={() => startDeleteTeam(t)}
                 />
               ))
             )}
           </div>
+          {!loading && teams.length === 0 && (
+            <div className="mt-4 text-center text-slate-500 text-sm font-bold">No teams found.</div>
+          )}
         </section>
 
         {/* All users table with CRUD */}
@@ -617,6 +841,7 @@ const AdminTeam = () => {
               placeholder="e.g. Carpentry"
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
               required
+              disabled={teamSubmitting}
             />
           </div>
 
@@ -627,6 +852,7 @@ const AdminTeam = () => {
               value={newTeamSiteEngineerId ?? ''}
               onChange={(e) => setNewTeamSiteEngineerId(Number(e.target.value))}
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
             >
               <option value="">-- Choose a site engineer --</option>
               {engineers.map((eng) => (
@@ -645,6 +871,7 @@ const AdminTeam = () => {
               onChange={(e) => setNewTeamDescription(e.target.value)}
               placeholder="e.g. Concrete works"
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
             />
           </div>
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
@@ -655,10 +882,15 @@ const AdminTeam = () => {
               onChange={(e) => setNewTeamLocation(e.target.value)}
               placeholder="e.g. Site A"
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
             />
           </div>
-          <button className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition" type="submit">
-            Register Team
+          <button
+            className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+            type="submit"
+            disabled={teamSubmitting}
+          >
+            {teamSubmitting ? 'Registering…' : 'Register Team'}
           </button>
         </form>
       </Modal>
@@ -687,6 +919,178 @@ const AdminTeam = () => {
             Add to Team
           </button>
         </form>
+      </Modal>
+
+      {/* Team detail modal */}
+      <Modal
+        isOpen={Boolean(selectedTeam)}
+        onClose={closeTeamDetail}
+        title={selectedTeam ? `Team: ${selectedTeam.name}` : 'Team'}
+      >
+        {!selectedTeam ? null : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team ID</div>
+                <div className="mt-1 font-black text-slate-800">{selectedTeam.id}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Members</div>
+                <div className="mt-1 font-black text-slate-800">{teamMembersLoading ? '…' : teamMembers.length}</div>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Engineer</div>
+                <div className="mt-1 font-black text-slate-800">
+                  {(selectedTeam as any).siteEngineerId
+                    ? (engineerNameById.get(Number((selectedTeam as any).siteEngineerId)) ?? 'N/A')
+                    : (selectedTeam as any).siteEngineerName ?? 'N/A'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Team members (from backend)</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Loaded via <span className="font-mono">GET /api/teams/{'{id}'}/members</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadTeamMembers(selectedTeam.id)}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[10px] font-black uppercase tracking-widest"
+                disabled={teamMembersLoading}
+              >
+                {teamMembersLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+
+            <div className="max-h-[360px] overflow-auto border border-slate-100 rounded-2xl">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase">
+                  <tr>
+                    <th className="p-3 text-left">Name</th>
+                    <th className="p-3 text-left">Role</th>
+                    <th className="p-3 text-left">Email</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {teamMembersLoading ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-slate-500 font-bold">Loading members…</td>
+                    </tr>
+                  ) : teamMembers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-slate-500 font-bold">No members found.</td>
+                    </tr>
+                  ) : (
+                    teamMembers.map((m) => {
+                      const anyM = m as any;
+                      return (
+                        <tr key={m.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-bold text-slate-800">{anyM.name ?? '—'}</td>
+                          <td className="p-3 text-slate-700">{String(anyM.role ?? '—').toUpperCase()}</td>
+                          <td className="p-3 text-slate-700">{anyM.email ?? '—'}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit Team Modal */}
+      <Modal isOpen={modalType === 'teamEdit'} onClose={closeModal} title="Edit Team Details">
+        <form className="space-y-4" onSubmit={handleSaveTeamEdit}>
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Team Name</label>
+            <input
+              type="text"
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              placeholder="e.g. Carpentry"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              required
+              disabled={teamSubmitting}
+            />
+          </div>
+
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Site Engineer</label>
+            <select
+              required
+              value={newTeamSiteEngineerId ?? ''}
+              onChange={(e) => setNewTeamSiteEngineerId(Number(e.target.value))}
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
+            >
+              <option value="">-- Choose a site engineer --</option>
+              {engineers.map((eng) => (
+                <option key={eng.id} value={eng.id}>
+                  {eng.name} ({eng.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Description</label>
+            <input
+              type="text"
+              value={newTeamDescription}
+              onChange={(e) => setNewTeamDescription(e.target.value)}
+              placeholder="e.g. Concrete works"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
+            />
+          </div>
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Project Area / Location</label>
+            <input
+              type="text"
+              value={newTeamLocation}
+              onChange={(e) => setNewTeamLocation(e.target.value)}
+              placeholder="e.g. Site A"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              disabled={teamSubmitting}
+            />
+          </div>
+          <button
+            className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+            type="submit"
+            disabled={teamSubmitting}
+          >
+            {teamSubmitting ? 'Saving…' : 'Save Changes'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Delete Team Confirmation Modal */}
+      <Modal isOpen={modalType === 'teamDelete'} onClose={closeModal} title="Confirm Delete Team">
+        <div className="space-y-4">
+          <div className="text-sm text-slate-700">
+            Delete team <span className="font-bold">{teamDeleting?.name}</span>? This action cannot be undone.
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setTeamDeleting(null)}
+              className="flex-1 border border-slate-200 rounded-2xl py-3 font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDeleteTeam}
+              className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-black uppercase tracking-widest hover:bg-red-700"
+            >
+              Delete Team
+            </button>
+          </div>
+        </div>
       </Modal>
     </DashboardLayout>
   );

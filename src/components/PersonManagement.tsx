@@ -74,11 +74,11 @@ const PersonManagement: React.FC = () => {
   const handleEditClick = (person: PersonResponse) => {
     setSelectedPerson(person);
     setFormData({
-      name: person.name,
-      email: person.email,
+      name: person.name ?? '',
+      email: person.email ?? '',
       phone: (person as any).phone ?? '',
-      position: person.position,
-      department: person.department,
+      position: person.position ?? '',
+      department: person.department ?? '',
     });
     setShowEditModal(true);
   };
@@ -155,11 +155,14 @@ const PersonManagement: React.FC = () => {
     }
   };
 
-  const filteredPersons = persons.filter(person =>
-    person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    person.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    person.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPersons = persons.filter(person => {
+    const name = (person.name ?? '').toLowerCase();
+    const email = (person.email ?? '').toLowerCase();
+    const dept = (person.department ?? '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+
+    return name.includes(q) || email.includes(q) || dept.includes(q);
+  });
 
   return (
     <DashboardLayout title="Person Management">
@@ -343,7 +346,7 @@ const PersonManagement: React.FC = () => {
           onSubmit={handleSubmitFingerprint}
         >
           <FingerprintForm
-            personName={selectedPerson.name}
+            personName={selectedPerson.name ?? ''}
             fingerprintData={fingerprintData}
             setFingerprintData={setFingerprintData}
             onSubmit={handleSubmitFingerprint}

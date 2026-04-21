@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Calendar, Filter, X, Save } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
-import { getAllPersons, updatePersonUi, type PersonResponse } from './api/person';
+import { createPersonUi, getAllPersons, updatePersonUi, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 
 // ========== Types ==========
@@ -54,6 +54,16 @@ export default function WorkersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // In-app guide state
+  const [guideOpen, setGuideOpen] = useState(true);
+
+  // Quick create worker (inline CRUD-lite)
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newWorkerName, setNewWorkerName] = useState('');
+  const [newWorkerEmail, setNewWorkerEmail] = useState('');
+  const [newWorkerPhone, setNewWorkerPhone] = useState('');
 
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
@@ -202,6 +212,37 @@ export default function WorkersPage() {
     }
   };
 
+  const createWorker = async () => {
+    const name = newWorkerName.trim();
+    if (!name) {
+      setError('Worker name is required');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError(null);
+
+      await createPersonUi({
+        name: name.toUpperCase(),
+        email: newWorkerEmail.trim(),
+        phone: newWorkerPhone.trim(),
+        role: 'WORKER',
+      });
+
+      setNewWorkerName('');
+      setNewWorkerEmail('');
+      setNewWorkerPhone('');
+      setCreateOpen(false);
+
+      await loadPersons({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create worker');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <DashboardLayout title="Workers">
       <div className="p-10 space-y-8">
@@ -210,6 +251,177 @@ export default function WorkersPage() {
           <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             {loading ? 'Loading…' : `${filteredWorkers.length} shown / ${workers.length} total`}
           </div>
+        </div>
+
+        {/* Quick add worker */}
+        <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">Quick add worker</div>
+              <div className="text-xs text-slate-500 mt-1">Create a WORKER user without leaving this page</div>
+            </div>
+            <button
+              type="button"
+              className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline"
+              onClick={() => setCreateOpen((v) => !v)}
+            >
+              {createOpen ? 'Close' : 'Add worker'}
+            </button>
+          </div>
+
+          {createOpen && (
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Full name</label>
+                  <input
+                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    value={newWorkerName}
+                    onChange={(e) => setNewWorkerName(e.target.value.toUpperCase())}
+                    placeholder="JUAN DELA CRUZ"
+                    disabled={creating}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Email (optional)</label>
+                  <input
+                    type="email"
+                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    value={newWorkerEmail}
+                    onChange={(e) => setNewWorkerEmail(e.target.value)}
+                    placeholder="worker@example.com"
+                    disabled={creating}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Phone (optional)</label>
+                  <input
+                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    value={newWorkerPhone}
+                    onChange={(e) => setNewWorkerPhone(e.target.value)}
+                    placeholder="09xxxxxxxxx"
+                    disabled={creating}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void createWorker()}
+                  disabled={creating}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {creating ? 'Creating…' : 'Create worker'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                  disabled={creating}
+                  className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <div className="text-xs text-slate-500">
+                  Tip: create first, then follow the enrollment guide below to link a fingerprint.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* In-app guide: fingerprint enrollment */}
+        <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
+          <button
+            type="button"
+            className="w-full p-4 border-b flex items-center justify-between text-left hover:bg-slate-50"
+            onClick={() => setGuideOpen((v) => !v)}
+          >
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                Guide: Register workers with fingerprint
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                This matches the real flow: UI → ESP32 → Backend → stored on worker record
+              </div>
+            </div>
+            <div className="text-[11px] font-black uppercase tracking-widest text-blue-600">
+              {guideOpen ? 'Hide' : 'Show'}
+            </div>
+          </button>
+
+          {guideOpen && (
+            <div className="p-5 space-y-4 text-sm text-slate-700">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="p-4 border border-slate-200 bg-slate-50 rounded-sm">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">1) Create the worker</div>
+                  <ul className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li>
+                      Add the worker in <span className="font-semibold">User Management</span> (role: WORKER).
+                    </li>
+                    <li>
+                      Ensure the worker has a unique <span className="font-mono">personCode</span> (used by attendance/biometrics).
+                    </li>
+                    <li>
+                      The worker can exist without fingerprint first; enrollment comes next.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 border border-slate-200 bg-slate-50 rounded-sm">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                    2) Enroll on the fingerprint device (ESP32)
+                  </div>
+                  <ul className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li>
+                      Put the ESP32 device into <span className="font-semibold">enroll</span> mode (per device UI/command).
+                    </li>
+                    <li>
+                      The sensor assigns the next available <span className="font-mono">fingerprintId</span> and reports it.
+                    </li>
+                    <li>
+                      This page polls <span className="font-mono">/api/biometric</span> and shows the latest enrolled ID as{' '}
+                      <span className="font-semibold">lastId</span>.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 border border-slate-200 bg-slate-50 rounded-sm">
+                  <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                    3) Link the fingerprint to the worker in the backend
+                  </div>
+                  <ul className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li>
+                      Take the <span className="font-semibold">lastId</span> shown above and assign it to the worker.
+                    </li>
+                    <li>
+                      In the admin UI, update the worker record so the backend stores the fingerprint value.
+                    </li>
+                    <li>
+                      After linking, the worker will be counted under <span className="font-semibold">Registered fingerprints</span>.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="p-4 border border-slate-200 rounded-sm">
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">Operational checklist</div>
+                <ol className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed list-decimal pl-4">
+                  <li>Confirm ESP32 is online and accessible by the backend.</li>
+                  <li>Enroll fingerprint on the device and wait for <span className="font-mono">lastId</span> to update.</li>
+                  <li>Assign that fingerprint ID to the correct worker in User Management.</li>
+                  <li>Test attendance by scanning the finger; logs should appear under Recent attendance logs.</li>
+                </ol>
+              </div>
+
+              <div className="text-xs text-slate-500">
+                Notes: If <span className="font-mono">/api/biometric</span> is secured and you are logged out, polling may stop until you
+                log in.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Hardware / device status */}
