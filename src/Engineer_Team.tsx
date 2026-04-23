@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   X,
@@ -6,203 +6,225 @@ import {
   Calendar,
   Search
 } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Legend 
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
 } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 
-// ========== Dummy Data for the Chart ========== //
-const overtimeData = [
-  { name: 'Jan 01', Hotlist: 60, Workers: 85 },
-  { name: 'Jan 02', Hotlist: 55, Workers: 120 },
-  { name: 'Jan 03', Hotlist: 78, Workers: 95 },
-  { name: 'Jan 04', Hotlist: 80, Workers: 110 },
-  { name: 'Jan 05', Hotlist: 40, Workers: 82 },
-  { name: 'Jan 06', Hotlist: 65, Workers: 130 },
-  { name: 'Jan 07', Hotlist: 50, Workers: 120 },
-  { name: 'Jan 08', Hotlist: 55, Workers: 80 },
-  { name: 'Jan 09', Hotlist: 30, Workers: 50 },
-  { name: 'Jan 10', Hotlist: 45, Workers: 85 },
-  { name: 'Jan 11', Hotlist: 35, Workers: 70 },
-  { name: 'Jan 12', Hotlist: 75, Workers: 145 },
-];
+// ================= TYPES ================= //
+type Person = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  role: string;
+  teamName?: string;
+};
 
-// ========== Dummy Data for the Table ========== //
-const workersData = [
-  { name: 'JUAN DELA CRUZ', team: 'MASONRY', attendance: 'PRESENT', engineer: 'ENGR. SANTOS', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'MARIA LOPEZ', team: 'LINE & GRADE', attendance: 'ABSENT', engineer: 'ENGR. MACASPAC', lastAdmitted: '01/19/26', status: 'HOTLIST' },
-  { name: 'PEDRO RAMOS', team: 'MASONRY', attendance: 'ON LEAVE', engineer: 'ENGR. CRUZ', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'ANA VILLANUEVA', team: 'LINE & GRADE', attendance: 'PRESENT', engineer: 'ENGR. LIMUNOZ', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'ROBERTO MENDOZA', team: 'MEPF', attendance: 'ON LEAVE', engineer: 'ENGR. LIMUNOZ', lastAdmitted: '01/19/26', status: 'HOTLIST' },
-  { name: 'LIZA FERNANDEZ', team: 'STRUCTURAL', attendance: 'PRESENT', engineer: 'ENGR. MACASPAC', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'NOEL BAUTISTA', team: 'FINISHING', attendance: 'ABSENT', engineer: 'ENGR. MACASPAC', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'RAMON GUTIERREZ', team: 'STRUCTURAL', attendance: 'PRESENT', engineer: 'ENGR. LIMUNOZ', lastAdmitted: 'N/A', status: 'NORMAL' },
-  { name: 'JENNY MORALES', team: 'FINISHING', attendance: 'LATE', engineer: 'ENGR. CRUZ', lastAdmitted: '01/19/26', status: 'HOTLIST' },
-  { name: 'CARLO NAVARRO', team: 'MASONRY', attendance: 'PRESENT', engineer: 'ENGR. MACASPAC', lastAdmitted: 'N/A', status: 'NORMAL' },
-];
+type OvertimePoint = {
+  name: string;
+  Hotlist: number;
+  Workers: number;
+};
 
+// ================= COMPONENT ================= //
 const EngineerTeam = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalType, setModalType] = useState<'list' | 'add' | null>(null);
 
-  const filteredWorkers = workersData.filter(worker => 
-    worker.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [persons, setPersons] = useState<Person[]>([]);
+  const [overtimeData, setOvertimeData] = useState<OvertimePoint[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [activeAlerts, setActiveAlerts] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
+  // ================= FETCH DATA ================= //
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        const [personsRes, overtimeRes, statsRes, alertsRes] = await Promise.all([
+          fetch('/api/persons'),
+          fetch('/api/analytics/overtime'),
+          fetch('/api/analytics/stats'),
+          fetch('/api/alerts/count/active')
+        ]);
+
+        const personsData = await personsRes.json();
+        const overtimeJson = await overtimeRes.json();
+        const statsJson = await statsRes.json();
+        const alertsJson = await alertsRes.json();
+
+        setPersons(personsData || []);
+        setOvertimeData(overtimeJson?.data || overtimeJson || []);
+        setStats(statsJson);
+        setActiveAlerts(alertsJson || 0);
+
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ================= FILTER ================= //
+  const filteredWorkers = useMemo(() => {
+    return persons.filter(p =>
+      `${p.firstName} ${p.lastName}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  }, [persons, searchTerm]);
+
+  const mapName = (p: Person) => `${p.firstName} ${p.lastName}`;
+
+  // ================= UI ================= //
   return (
     <DashboardLayout title="Team">
       <div className="p-10">
 
-          {/* ========== MEPF Summary Section ========== */}
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
-            <h2 className="text-xl font-black text-slate-800 uppercase">MEPF</h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">ENGR. ALBERT SANTOS</p>
+        {/* ========== SUMMARY ========== */}
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
+          <h2 className="text-xl font-black text-slate-800 uppercase">MEPF</h2>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">
+            ENGR. ALBERT SANTOS
+          </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              {/* ========== Hotlist Card ========== */}
-              <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
-                <Users size={40} className="text-red-400" />
-                <div>
-                  <h3 className="text-md font-black text-slate-800 uppercase">Hotlist Workers</h3>
-                  <span className="text-5xl font-black text-red-400">20</span>
-                </div>
-                <div className="absolute bottom-4 right-6 text-right space-y-1">
-                  <button onClick={() => setModalType('list')} className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase flex items-center gap-1">See List →</button>
-                  <button onClick={() => setModalType('add')} className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase flex items-center gap-1">Add Worker →</button>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+
+            {/* HOTLIST */}
+            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+              <Users size={40} className="text-red-400" />
+              <div>
+                <h3 className="text-md font-black text-slate-800 uppercase">Hotlist Workers</h3>
+                <span className="text-5xl font-black text-red-400">
+                  {stats?.hotlistCount ?? activeAlerts}
+                </span>
               </div>
-
-              {/* ========== Normal Card ========== */}
-              <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
-                <Users size={40} className="text-blue-400" />
-                <div>
-                  <h3 className="text-md font-black text-slate-800 uppercase">Normal Workers</h3>
-                  <span className="text-5xl font-black text-blue-400">50</span>
-                </div>
-                <div className="absolute bottom-4 right-6 text-right space-y-1">
-                  <button onClick={() => setModalType('list')} className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase flex items-center gap-1">See List →</button>
-                  <button onClick={() => setModalType('add')} className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase flex items-center gap-1">Add Worker →</button>
-                </div>
+              <div className="absolute bottom-4 right-6 text-right space-y-1">
+                <button onClick={() => setModalType('list')}
+                  className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                  See List →
+                </button>
+                <button onClick={() => setModalType('add')}
+                  className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                  Add Worker →
+                </button>
               </div>
             </div>
 
-            {/* ========== Overtime Overview Chart ========== */}
-            <div className="border-2 border-slate-100 rounded-2xl p-8">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-sm font-black text-slate-800 uppercase">Overtime Overview</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">This bar graph shows how many workers are working overtime.</p>
-                </div>
-                <Calendar size={20} className="text-slate-800" />
-              </div>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={overtimeData}>
-                    <defs>
-                      <linearGradient id="colorHotlist" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorWorkers" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f87171" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                    <Tooltip />
-                    <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 'bold'}} />
-                    <Area type="monotone" dataKey="Hotlist" stroke="#818cf8" fillOpacity={1} fill="url(#colorHotlist)" strokeWidth={2} />
-                    <Area type="monotone" dataKey="Workers" stroke="#f87171" fillOpacity={1} fill="url(#colorWorkers)" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
+            {/* NORMAL */}
+            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+              <Users size={40} className="text-blue-400" />
+              <div>
+                <h3 className="text-md font-black text-slate-800 uppercase">Normal Workers</h3>
+                <span className="text-5xl font-black text-blue-400">
+                  {stats?.workers ?? persons.length}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* ========== Worker Table Section ========== */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Table Controls */}
-            <div className="p-6 flex flex-wrap gap-4 items-center justify-between bg-white border-b border-slate-100">
-              <div className="relative w-full max-w-lg">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Search" 
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none focus:border-blue-500 transition"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          {/* ========== CHART ========== */}
+          <div className="border-2 border-slate-100 rounded-2xl p-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase">
+                  Overtime Overview
+                </h3>
               </div>
-              <div className="flex items-center gap-4">
-                 <Calendar className="text-slate-400 cursor-pointer" size={20} />
-                 <List className="text-slate-400 cursor-pointer" size={20} />
-              </div>
+              <Calendar size={20} />
             </div>
 
-            {/* ========== The Table ========== */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-center text-[11px] font-bold">
-                <thead className="bg-slate-50 text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                  <tr>
-                    <th className="px-6 py-4">Name</th>
-                    <th className="px-6 py-4">Assigned Team</th>
-                    <th className="px-6 py-4">Attendance</th>
-                    <th className="px-6 py-4">Assigned Engineer</th>
-                    <th className="px-6 py-4">Last Admitted</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="text-slate-600">
-                  {filteredWorkers.map((worker, i) => (
-                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition">
-                      <td className="px-6 py-4 text-slate-900">{worker.name}</td>
-                      <td className="px-6 py-4 uppercase">{worker.team}</td>
-                      <td className="px-6 py-4 uppercase">{worker.attendance}</td>
-                      <td className="px-6 py-4 uppercase">{worker.engineer}</td>
-                      <td className="px-6 py-4 uppercase">{worker.lastAdmitted}</td>
-                      <td className={`px-6 py-4 uppercase ${worker.status === 'HOTLIST' ? 'text-red-500 font-black' : 'text-slate-500'}`}>
-                        {worker.status}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link to="/worker-profile" className="text-blue-500 font-black uppercase hover:underline flex items-center gap-1 justify-center">View</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={overtimeData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Area dataKey="Hotlist" stroke="#818cf8" fill="#818cf8" />
+                  <Area dataKey="Workers" stroke="#f87171" fill="#f87171" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-      {/* ========== OVERLAY MODALS ========== */}
-      {modalType && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setModalType(null)}></div>
-          <div className="relative bg-white w-full max-w-xl rounded-[30px] shadow-2xl animate-in zoom-in duration-300">
-             <div className="p-8 border-b flex justify-between items-center">
-                <h2 className="text-xl font-black uppercase text-slate-800">
-                  {modalType === 'list' ? 'See Full Worker List' : 'Add Worker to Team'}
-                </h2>
-                <X className="cursor-pointer" onClick={() => setModalType(null)} />
-             </div>
-             <div className="p-8">
-                {modalType === 'add' ? (
-                   <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                      <div className="bg-[#f0f7ff] border border-slate-200 rounded-xl p-4">
-                        <label className="text-[10px] font-black uppercase text-blue-900">Worker Name</label>
-                        <input type="text" placeholder="Search..." className="w-full bg-transparent outline-none font-bold" />
-                      </div>
-                      <button onClick={() => setModalType(null)} className="w-full bg-[#1e3a8a] text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-blue-900 transition">Submit Addition</button>
-                   </form>
+        {/* ========== TABLE ========== */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+
+          <div className="p-6 flex justify-between items-center border-b">
+            <div className="relative w-full max-w-lg">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2" size={18} />
+              <input
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-full"
+                placeholder="Search workers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-center text-[11px] font-bold">
+              <thead className="bg-slate-50 text-slate-400 uppercase">
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={3} className="p-6 text-slate-400">
+                      Loading...
+                    </td>
+                  </tr>
                 ) : (
-                  <div className="text-center py-10 font-bold text-slate-400 uppercase tracking-widest">List Component Content Here</div>
+                  filteredWorkers.map((p) => (
+                    <tr key={p.id} className="border-b hover:bg-slate-50">
+                      <td className="p-4 text-slate-900">
+                        {mapName(p)}
+                      </td>
+                      <td>{p.role}</td>
+                      <td>
+                        <Link to={`/worker-profile/${p.id}`} className="text-blue-500">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
                 )}
-             </div>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ========== MODAL ========== */}
+      {modalType && (
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setModalType(null)} />
+          <div className="relative bg-white p-8 rounded-xl w-[400px]">
+            <div className="flex justify-between">
+              <h2 className="font-bold uppercase">
+                {modalType === 'list' ? 'Worker List' : 'Add Worker'}
+              </h2>
+              <X onClick={() => setModalType(null)} />
+            </div>
+
+            <div className="mt-6 text-sm text-slate-500">
+              Backend integration ready (connect POST /api/persons/ui here next step).
+            </div>
           </div>
         </div>
       )}
