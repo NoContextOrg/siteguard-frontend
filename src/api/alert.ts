@@ -1,36 +1,30 @@
 /**
- * Alert Management API - CLEAN VERSION
- * All duplicate functions removed
+ * Alert Management API - CLEAN + BACKEND ALIGNED VERSION (FINAL)
  */
 
 import { getAuthHeader, getAuthToken } from './auth';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
-export interface Alert {
+/**
+ * Backend-aligned AlertDTO
+ */
+export interface AlertDTO {
   id?: number;
   personId?: number;
   personCode?: string;
   personName?: string;
   alertType: string;
-  message?: string;
-  description?: string;
-  createdAt?: string;
-  resolvedAt?: string;
-  acknowledgedAt?: string;
-  isResolved?: boolean;
+  alertMessage?: string;
   isAcknowledged?: boolean;
-}
-
-export interface AlertDTO {
-  id?: number;
-  personId?: number;
-  alertType: string;
-  description?: string;
   createdAt?: string;
   acknowledgedAt?: string;
+  acknowledgedByName?: string;
 }
 
+/**
+ * Backend-aligned HealthProfile (hotlist module)
+ */
 export interface HealthProfile {
   id?: number;
   personCode: string;
@@ -40,179 +34,115 @@ export interface HealthProfile {
   updatedAt?: string;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-}
+/* =========================================================
+   INTERNAL SAFE FETCH WRAPPER (reduces repetition bugs)
+========================================================= */
+const safeFetch = async (url: string, options?: RequestInit) => {
+  const token = getAuthToken();
+
+  if (!token) {
+    console.warn('⚠️ Missing auth token');
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+      ...(options?.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(errorText || response.statusText);
+  }
+
+  return response;
+};
+
+/* =========================================================
+   ALERTS
+========================================================= */
 
 /**
  * Get active alerts
  */
 export const getActiveAlerts = async (): Promise<AlertDTO[]> => {
   try {
-    const token = getAuthToken();
-    if (!token) {
-      console.warn('⚠️ No auth token available');
-      return [];
-    }
-
-    console.log('📡 Fetching active alerts...');
-    const response = await fetch(`${API_BASE_URL}/alerts/active`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_ALERTS] Unauthorized');
-        throw new Error('Unauthorized');
-      }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Alerts fetched:', data.length, 'items');
-    return data || [];
+    const res = await safeFetch(`${API_BASE_URL}/alerts/active`);
+    const data = (await res.json()) as AlertDTO[];
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('❌ Error fetching alerts:', error);
-    throw error;
+    console.error('❌ getActiveAlerts:', error);
+    return [];
   }
 };
 
 /**
- * Acknowledge an alert
+ * Acknowledge alert
  */
 export const acknowledgeAlert = async (alertId: number): Promise<void> => {
   try {
-    const token = getAuthToken();
-    if (!token) throw new Error('Not authenticated');
-
-    console.log('📡 Acknowledging alert:', alertId);
-    const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/acknowledge`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_ACK] Unauthorized');
-        throw new Error('Unauthorized');
-      }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    console.log('✅ Alert acknowledged');
+    await safeFetch(
+      `${API_BASE_URL}/alerts/${alertId}/acknowledge`,
+      { method: 'PUT' }
+    );
   } catch (error) {
-    console.error('❌ Error acknowledging alert:', error);
+    console.error('❌ acknowledgeAlert:', error);
     throw error;
   }
 };
 
 /**
- * Delete an alert
+ * Delete alert (ADMIN only backend rule)
  */
 export const deleteAlert = async (alertId: number): Promise<void> => {
   try {
-    const token = getAuthToken();
-    if (!token) throw new Error('Not authenticated');
-
-    console.log('📡 Deleting alert:', alertId);
-    const response = await fetch(`${API_BASE_URL}/alerts/${alertId}`, {
+    await safeFetch(`${API_BASE_URL}/alerts/${alertId}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
     });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_DELETE] Unauthorized');
-        throw new Error('Unauthorized');
-      }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    console.log('✅ Alert deleted');
   } catch (error) {
-    console.error('❌ Error deleting alert:', error);
+    console.error('❌ deleteAlert:', error);
     throw error;
   }
 };
 
 /**
  * Get active alert count
+ * Backend returns: number (Long)
  */
 export const getActiveAlertCount = async (): Promise<number> => {
   try {
-    const token = getAuthToken();
-    if (!token) return 0;
+    const res = await safeFetch(`${API_BASE_URL}/alerts/count/active`);
+    const data = await res.json();
 
-    console.log('📡 Fetching active alert count...');
-    const response = await fetch(`${API_BASE_URL}/alerts/count/active`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_COUNT] Unauthorized');
-        throw new Error('Unauthorized');
-      }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Alert count:', data?.activeAlertCount);
-    return data?.activeAlertCount || 0;
+    return typeof data === 'number' ? data : 0;
   } catch (error) {
-    console.error('❌ Error fetching alert count:', error);
+    console.error('❌ getActiveAlertCount:', error);
     return 0;
   }
 };
+
+/* =========================================================
+   HOTLIST (HEALTH PROFILE MODULE)
+========================================================= */
 
 /**
  * Get all hotlisted persons
  */
 export const getAllHotlistedPersons = async (): Promise<HealthProfile[]> => {
   try {
-    const token = getAuthToken();
-    if (!token) return [];
+    const res = await safeFetch(
+      `${API_BASE_URL}/health-profile/hotlist/all`
+    );
 
-    console.log('📡 Fetching hotlisted persons...');
-    const response = await fetch(`${API_BASE_URL}/health-profile/hotlist/all`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_HOTLIST] Unauthorized');
-        throw new Error('Unauthorized');
-      }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Hotlisted persons:', data.length, 'items');
-    return data || [];
+    const data = (await res.json()) as HealthProfile[];
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('❌ Error fetching hotlisted persons:', error);
-    throw error;
+    console.error('❌ getAllHotlistedPersons:', error);
+    return [];
   }
 };
 
@@ -225,33 +155,18 @@ export const updateHotlistStatus = async (
   reason: string
 ): Promise<void> => {
   try {
-    const token = getAuthToken();
-    if (!token) throw new Error('Not authenticated');
-
-    console.log('📡 Updating hotlist status:', { personCode, isHotlisted });
-    const response = await fetch(`${API_BASE_URL}/health-profile/${personCode}/hotlist`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-      body: JSON.stringify({
-        isHotlisted,
-        reason: isHotlisted ? reason : '',
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ [401_UPDATE] Unauthorized');
-        throw new Error('Unauthorized');
+    await safeFetch(
+      `${API_BASE_URL}/health-profile/${personCode}/hotlist`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          isHotlisted,
+          reason: isHotlisted ? reason : '',
+        }),
       }
-      throw new Error(`Failed: ${response.statusText}`);
-    }
-
-    console.log('✅ Hotlist status updated');
+    );
   } catch (error) {
-    console.error('❌ Error updating hotlist status:', error);
+    console.error('❌ updateHotlistStatus:', error);
     throw error;
   }
 };
