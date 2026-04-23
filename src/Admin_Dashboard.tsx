@@ -95,99 +95,96 @@ const AdminDashboard = () => {
         <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Admin Dashboard</h2>
 
         {/* ========== TOP STAT CARDS ========== */}
+        {loading && (
+          <div className="flex items-center justify-center py-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {loading ? (
-            <div className="col-span-full flex items-center justify-center py-10">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-            </div>
-          ) : (
-            <>
-              <StatCard
-                label="Workers"
-                value={(systemStats?.workers ?? 0).toLocaleString()}
-                icon={<Users className="text-blue-400" size={28} />}
-                borderColor="border-l-blue-500"
-                footer={
-                  <Link
-                    to="/workers"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    View workers →
-                  </Link>
-                }
-              />
-              <StatCard
-                label="Site Engineers"
-                value={(systemStats?.engineers ?? 0).toLocaleString()}
-                icon={<HardHat className="text-blue-300" size={28} />}
-                borderColor="border-l-blue-300"
-                footer={
-                  <Link
-                    to="/person-management"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    Add account →
-                  </Link>
-                }
-              />
-              <StatCard
-                label="Nurses"
-                value={(systemStats?.nurses ?? 0).toLocaleString()}
-                icon={<UserX className="text-red-400" size={28} />}
-                borderColor="border-l-red-500"
-                footer={
-                  <Link
-                    to="/person-management"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    Add account →
-                  </Link>
-                }
-              />
-              <StatCard
-                label="Admins"
-                value={(systemStats?.admins ?? 0).toLocaleString()}
-                icon={<UserCheck className="text-teal-400" size={28} />}
-                borderColor="border-l-teal-500"
-                footer={
-                  <Link
-                    to="/person-management"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    Add account →
-                  </Link>
-                }
-              />
-              <StatCard
-                label="Staff"
-                value={(systemStats?.staff ?? 0).toLocaleString()}
-                icon={<Users size={28} />}
-                borderColor="border-l-purple-500"
-                footer={
-                  <Link
-                    to="/person-management"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    Manage people →
-                  </Link>
-                }
-              />
-              <StatCard
-                label="Total Persons"
-                value={(systemStats?.total_persons ?? 0).toLocaleString()}
-                icon={<HardHat size={28} />}
-                borderColor="border-l-indigo-500"
-                footer={
-                  <Link
-                    to="/person-management"
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-                  >
-                    View all →
-                  </Link>
-                }
-              />
-            </>
-          )}
+          <StatCard
+            label="Workers"
+            value={(systemStats?.workers ?? 0).toLocaleString()}
+            icon={<Users className="text-blue-400" size={28} />}
+            borderColor="border-l-blue-500"
+            footer={
+              <Link
+                to="/workers"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                View workers →
+              </Link>
+            }
+          />
+          <StatCard
+            label="Site Engineers"
+            value={(systemStats?.engineers ?? 0).toLocaleString()}
+            icon={<HardHat className="text-blue-300" size={28} />}
+            borderColor="border-l-blue-300"
+            footer={
+              <Link
+                to="/person-management"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                Add account →
+              </Link>
+            }
+          />
+          <StatCard
+            label="Nurses"
+            value={(systemStats?.nurses ?? 0).toLocaleString()}
+            icon={<UserX className="text-red-400" size={28} />}
+            borderColor="border-l-red-500"
+            footer={
+              <Link
+                to="/person-management"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                Add account →
+              </Link>
+            }
+          />
+          <StatCard
+            label="Admins"
+            value={(systemStats?.admins ?? 0).toLocaleString()}
+            icon={<UserCheck className="text-teal-400" size={28} />}
+            borderColor="border-l-teal-500"
+            footer={
+              <Link
+                to="/person-management"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                Add account →
+              </Link>
+            }
+          />
+          <StatCard
+            label="Staff"
+            value={(systemStats?.staff ?? 0).toLocaleString()}
+            icon={<Users size={28} />}
+            borderColor="border-l-purple-500"
+            footer={
+              <Link
+                to="/person-management"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                Manage people →
+              </Link>
+            }
+          />
+          <StatCard
+            label="Total Persons"
+            value={(systemStats?.total_persons ?? 0).toLocaleString()}
+            icon={<HardHat size={28} />}
+            borderColor="border-l-indigo-500"
+            footer={
+              <Link
+                to="/person-management"
+                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
+              >
+                View all →
+              </Link>
+            }
+          />
         </div>
 
         {/* Bottom stats */}
@@ -201,7 +198,7 @@ const AdminDashboard = () => {
               </div>
             </div>
             <Link
-              to="/team-management"
+              to="/admin_team"
               className="text-[12px] font-bold text-slate-400 flex items-center gap-1 hover:text-blue-600"
             >
               View Teams <ArrowUpRight size={12} />
