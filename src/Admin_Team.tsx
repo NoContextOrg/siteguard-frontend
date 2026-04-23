@@ -29,7 +29,7 @@ const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
       <div className="relative bg-white w-full max-w-xl rounded-[30px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24}/></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24} /></button>
         </div>
         <div className="p-8">{children}</div>
       </div>
@@ -43,8 +43,8 @@ const AccountCard = ({ title, count, onAdd }: { title: string, count: string, on
       <span className="text-sm font-black text-slate-800 uppercase tracking-widest">{title}</span>
     </div>
     <div className="flex items-center gap-3">
-        <Users size={32} className="text-blue-200" />
-        <span className="text-4xl font-black text-blue-200">{count}</span>
+      <Users size={32} className="text-blue-200" />
+      <span className="text-4xl font-black text-blue-200">{count}</span>
     </div>
     <button onClick={onAdd} className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter">
       Add Account <span className="text-lg">→</span>
@@ -645,7 +645,7 @@ const AdminTeam = () => {
         <section className="mt-12">
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">TEAMS</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             {/* Add New Team Trigger */}
             <div
               className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-orange-900 flex flex-col justify-center items-center h-52 relative group cursor-pointer"
@@ -753,12 +753,12 @@ const AdminTeam = () => {
                   {loading
                     ? skeletonRows
                     : filteredUsers.length === 0
-                    ? (
-                      <tr key="empty">
-                        <td className="p-6 text-slate-500" colSpan={6}>No users found.</td>
-                      </tr>
-                    )
-                    : filteredUsers.map((p) => {
+                      ? (
+                        <tr key="empty">
+                          <td className="p-6 text-slate-500" colSpan={6}>No users found.</td>
+                        </tr>
+                      )
+                      : filteredUsers.map((p) => {
                         const anyP = p as any;
                         const role = String(anyP.role || '').toUpperCase() || '—';
                         return (
@@ -999,25 +999,7 @@ const AdminTeam = () => {
 
       {/* 3. Add Worker to Team Form */}
       <Modal isOpen={modalType === 'worker'} onClose={closeModal} title="Add Worker to Team">
-        <form className="space-y-4" onSubmit={async (e) => {
-          e.preventDefault();
-          if (!selectedTeamIdForWorkerAdd || !selectedWorkerId) {
-            setError('Please select a team and worker');
-            return;
-          }
-          try {
-            setError(null);
-            await assignWorkersToTeam(selectedTeamIdForWorkerAdd, [selectedWorkerId]);
-            if (addWorkerPassword && addWorkerPassword.length >= 6) {
-              await setPersonPassword(selectedWorkerId, addWorkerPassword);
-            }
-            setAddWorkerPassword('');
-            closeModal();
-            await load();
-          } catch (e2) {
-            setError(e2 instanceof Error ? e2.message : 'Failed to add worker to team');
-          }
-        }}>
+        <form className="space-y-4" onSubmit={handleAddWorkerToTeam}>
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Select Worker</label>
             <select
