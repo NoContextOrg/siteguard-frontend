@@ -109,6 +109,13 @@ export default function WorkersPage() {
     }
   };
 
+  const closeEditPasswordModal = () => {
+    setEditPasswordModal(null);
+    setEditPasswordValue('');
+    setEditPasswordError(null);
+    setEditPasswordSuccess(null);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -271,7 +278,7 @@ export default function WorkersPage() {
     setPasswordSuccess(null);
   };
   const handleSetPassword = async () => {
-    if (!passwordModalId) return;
+    if (passwordModalId === null) return;
     if (!passwordValue || passwordValue.length < 6) {
       setPasswordError('Password must be at least 6 characters.');
       return;
@@ -331,7 +338,7 @@ export default function WorkersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Email (optional)</label>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Email</label>
                   <input
                     type="email"
                     className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -343,7 +350,7 @@ export default function WorkersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Phone (optional)</label>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Phone</label>
                   <input
                     className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     value={newWorkerPhone}
@@ -354,7 +361,7 @@ export default function WorkersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Password (optional)</label>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Password</label>
                   <input
                     type="password"
                     className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -609,15 +616,14 @@ export default function WorkersPage() {
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold uppercase">{worker.team}</td>
                         <td className="px-6 py-4">
                           <span
-                            className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
-                              worker.attendance === 'PRESENT'
-                                ? 'text-green-600 bg-green-50'
-                                : worker.attendance === 'ABSENT'
-                                  ? 'text-red-600 bg-red-50'
-                                  : worker.attendance === 'ON LEAVE'
-                                    ? 'text-orange-600 bg-orange-50'
-                                    : 'text-slate-600 bg-slate-100'
-                            }`}
+                            className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${worker.attendance === 'PRESENT'
+                              ? 'text-green-600 bg-green-50'
+                              : worker.attendance === 'ABSENT'
+                                ? 'text-red-600 bg-red-50'
+                                : worker.attendance === 'ON LEAVE'
+                                  ? 'text-orange-600 bg-orange-50'
+                                  : 'text-slate-600 bg-slate-100'
+                              }`}
                           >
                             {worker.attendance}
                           </span>
@@ -626,9 +632,8 @@ export default function WorkersPage() {
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
                         <td className="px-6 py-4 text-center">
                           <span
-                            className={`text-[10px] font-black tracking-widest ${
-                              worker.status === 'HOTLIST' ? 'text-red-500' : 'text-slate-500'
-                            }`}
+                            className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST' ? 'text-red-500' : 'text-slate-500'
+                              }`}
                           >
                             {worker.status}
                           </span>
@@ -696,7 +701,7 @@ export default function WorkersPage() {
           </div>
         </div>
 
-        {/* Attendance preview (optional) */}
+        {/* Attendance preview */}
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
             <div>
@@ -809,7 +814,7 @@ export default function WorkersPage() {
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={async () => {
-                    if (!editPasswordModal) return;
+                    if (editPasswordModal === null) return;
                     if (!editPasswordValue || editPasswordValue.length < 6) {
                       setEditPasswordError('Password must be at least 6 characters.');
                       return;
@@ -833,7 +838,7 @@ export default function WorkersPage() {
                   {editPasswordLoading ? 'Saving…' : 'Save Password'}
                 </button>
                 <button
-                  onClick={() => setEditPasswordModal(null)}
+                  onClick={closeEditPasswordModal}
                   className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
                   disabled={editPasswordLoading}
                 >
