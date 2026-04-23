@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from './DashboardLayout';
-import { AlertTriangle, CheckCircle, Search, X, AlertCircle } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import {
   getActiveAlerts,
   acknowledgeAlert,
