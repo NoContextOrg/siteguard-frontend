@@ -54,6 +54,11 @@ export default function WorkersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editPasswordModal, setEditPasswordModal] = useState<number | null>(null);
+  const [editPasswordValue, setEditPasswordValue] = useState('');
+  const [editPasswordLoading, setEditPasswordLoading] = useState(false);
+  const [editPasswordError, setEditPasswordError] = useState<string | null>(null);
+  const [editPasswordSuccess, setEditPasswordSuccess] = useState<string | null>(null);
 
   // In-app guide state
   const [guideOpen, setGuideOpen] = useState(true);
@@ -64,6 +69,7 @@ export default function WorkersPage() {
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
+  const [newWorkerPassword, setNewWorkerPassword] = useState('');
 
   // Password modal state
   const [passwordModalId, setPasswordModalId] = useState<number | null>(null);
@@ -225,23 +231,24 @@ export default function WorkersPage() {
       setError('Worker name is required');
       return;
     }
-
+    if (newWorkerPassword && newWorkerPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
     try {
       setCreating(true);
       setError(null);
-
       await createPersonUi({
         name: name.toUpperCase(),
         email: newWorkerEmail.trim(),
         phone: newWorkerPhone.trim(),
         role: 'WORKER',
       });
-
       setNewWorkerName('');
       setNewWorkerEmail('');
       setNewWorkerPhone('');
+      setNewWorkerPassword('');
       setCreateOpen(false);
-
       await loadPersons({ silent: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create worker');
@@ -311,7 +318,7 @@ export default function WorkersPage() {
 
           {createOpen && (
             <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Full name</label>
                   <input
@@ -344,6 +351,19 @@ export default function WorkersPage() {
                     placeholder="09xxxxxxxxx"
                     disabled={creating}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Password (optional)</label>
+                  <input
+                    type="password"
+                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    value={newWorkerPassword}
+                    onChange={(e) => setNewWorkerPassword(e.target.value)}
+                    placeholder="Set password"
+                    disabled={creating}
+                  />
+                  <div className="text-xs text-slate-400 mt-1">Leave blank to auto-generate or skip</div>
                 </div>
               </div>
 
@@ -639,6 +659,14 @@ export default function WorkersPage() {
                               >
                                 Cancel
                               </button>
+                              <button
+                                onClick={() => setEditPasswordModal(worker.id)}
+                                className="text-orange-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                                type="button"
+                                disabled={savingEdit}
+                              >
+                                Change Password
+                              </button>
                             </>
                           ) : (
                             <>
@@ -754,6 +782,60 @@ export default function WorkersPage() {
                   onClick={closePasswordModal}
                   className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
                   disabled={passwordLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Password Modal (from edit) */}
+        {editPasswordModal !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+              <div className="font-black text-lg mb-2">Change Password</div>
+              <div className="text-xs text-slate-500 mb-4">Set a new password for this worker. Minimum 6 characters.</div>
+              <input
+                type="password"
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={editPasswordValue}
+                onChange={e => setEditPasswordValue(e.target.value)}
+                placeholder="New password"
+                disabled={editPasswordLoading}
+              />
+              {editPasswordError && <div className="text-xs text-red-600 mb-2">{editPasswordError}</div>}
+              {editPasswordSuccess && <div className="text-xs text-green-600 mb-2">{editPasswordSuccess}</div>}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={async () => {
+                    if (!editPasswordModal) return;
+                    if (!editPasswordValue || editPasswordValue.length < 6) {
+                      setEditPasswordError('Password must be at least 6 characters.');
+                      return;
+                    }
+                    setEditPasswordLoading(true);
+                    setEditPasswordError(null);
+                    setEditPasswordSuccess(null);
+                    try {
+                      await setPersonPassword(editPasswordModal, editPasswordValue);
+                      setEditPasswordSuccess('Password updated successfully.');
+                      setTimeout(() => setEditPasswordModal(null), 1200);
+                    } catch (e) {
+                      setEditPasswordError(e instanceof Error ? e.message : 'Failed to set password');
+                    } finally {
+                      setEditPasswordLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50"
+                  disabled={editPasswordLoading}
+                >
+                  {editPasswordLoading ? 'Saving…' : 'Save Password'}
+                </button>
+                <button
+                  onClick={() => setEditPasswordModal(null)}
+                  className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
+                  disabled={editPasswordLoading}
                 >
                   Cancel
                 </button>

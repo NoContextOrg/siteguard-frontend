@@ -10,6 +10,7 @@ import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
 import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
 import { createPersonUi, deletePersonById, updatePersonUi } from './api/person';
+import { setPersonPassword } from './api/person';
 
 // ========== Types & Sub-Components ========== //
 
@@ -117,6 +118,13 @@ const TeamCard = ({ title, engineer, count, borderColor, accentGradient, onAddWo
   </div>
 );
 
+// Skeleton cell for table loading state
+const SkeletonCell = () => (
+  <td className="p-3">
+    <div className="h-4 bg-slate-100 rounded animate-pulse w-3/4" />
+  </td>
+);
+
 // ========== Main Page Component ========== //
 
 const AdminTeam = () => {
@@ -146,6 +154,9 @@ const AdminTeam = () => {
   const [newAccountDepartment, setNewAccountDepartment] = useState('');
   const [accountSubmitting, setAccountSubmitting] = useState(false);
 
+  // Add Account password state
+  const [addAccountPassword, setAddAccountPassword] = useState('');
+
   // Edit/delete state
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
   const [deletingPerson, setDeletingPerson] = useState<PersonResponse | null>(null);
@@ -161,8 +172,16 @@ const AdminTeam = () => {
   const [teamMembers, setTeamMembers] = useState<PersonResponse[]>([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
 
+  // Password modal state
+  const [passwordModalPersonId, setPasswordModalPersonId] = useState<number | null>(null);
+  const [passwordValue, setPasswordValue] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  // Add Worker password state
+  const [addWorkerPassword, setAddWorkerPassword] = useState('');
+
   const closeModal = () => {
-    // Avoid closing modals mid-submit (was causing "team created" but UI not refreshed / perceived as missing)
     if (teamSubmitting || accountSubmitting) return;
     setModalType(null);
     setSelectedTeamIdForWorkerAdd(null);
@@ -242,16 +261,12 @@ const AdminTeam = () => {
 
       await createTeam(payload);
 
-      // Reset form first
       setNewTeamName('');
       setNewTeamDescription('');
       setNewTeamLocation('');
       setNewTeamSiteEngineerId(null);
 
-      // Reload from backend so the new team appears immediately
       await load();
-
-      // Close only after successful refresh
       setModalType(null);
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to create team');
@@ -270,6 +285,10 @@ const AdminTeam = () => {
     try {
       setError(null);
       await assignWorkersToTeam(selectedTeamIdForWorkerAdd, [selectedWorkerId]);
+      if (addWorkerPassword && addWorkerPassword.length >= 6) {
+        await setPersonPassword(selectedWorkerId, addWorkerPassword);
+      }
+      setAddWorkerPassword('');
       closeModal();
       await load();
     } catch (e2) {
@@ -283,6 +302,12 @@ const AdminTeam = () => {
       setError(null);
       setAccountSubmitting(true);
 
+      if (!addAccountPassword || addAccountPassword.length < 6) {
+        setError('Password is required and must be at least 6 characters.');
+        setAccountSubmitting(false);
+        return;
+      }
+
       const payload = {
         name: newAccountName.trim(),
         email: newAccountEmail.trim(),
@@ -290,10 +315,12 @@ const AdminTeam = () => {
         position: newAccountRole === 'WORKER' ? 'Worker' : newAccountRole === 'ENGINEER' ? 'Site Engineer' : newAccountRole === 'NURSE' ? 'Nurse' : 'Admin',
         department: newAccountDepartment.trim(),
         role: newAccountRole,
+        password: addAccountPassword,
       };
 
       if (!payload.name || !payload.email) {
         setError('Name and email are required');
+        setAccountSubmitting(false);
         return;
       }
 
@@ -303,6 +330,7 @@ const AdminTeam = () => {
       setNewAccountEmail('');
       setNewAccountPhone('');
       setNewAccountDepartment('');
+      setAddAccountPassword('');
       closeModal();
       await load();
     } catch (e2) {
@@ -494,7 +522,6 @@ const AdminTeam = () => {
   }, [persons, userSearch, userRoleFilter]);
 
   const teamBorderColor = (_t: TeamResponse, index: number) => {
-    // Aesthetic palette (Tailwind border colors). Keeps UI consistent and readable.
     const palette = [
       'border-l-blue-600',
       'border-l-fuchsia-600',
@@ -511,7 +538,6 @@ const AdminTeam = () => {
   };
 
   const teamAccentBg = (index: number) => {
-    // Matching soft glow background for the hover overlay.
     const palette = [
       'from-blue-100 via-blue-50',
       'from-fuchsia-100 via-fuchsia-50',
@@ -526,6 +552,57 @@ const AdminTeam = () => {
     ];
     return palette[index % palette.length];
   };
+
+  const handleSetPassword = async () => {
+    if (!passwordModalPersonId) return;
+    if (!passwordValue || passwordValue.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    try {
+      await setPersonPassword(passwordModalPersonId, passwordValue);
+      setPasswordSuccess('Password updated successfully.');
+      setTimeout(() => closePasswordModal(), 1200);
+    } catch (e) {
+      setPasswordError(e instanceof Error ? e.message : 'Failed to set password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const openPasswordModal = (personId: number) => {
+    setPasswordModalPersonId(personId);
+    setPasswordValue('');
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+  const closePasswordModal = () => {
+    setPasswordModalPersonId(null);
+    setPasswordValue('');
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+
+  // Skeleton rows shown while loading
+  const skeletonRows = [...Array(5)].map((_, i) => (
+    <tr key={`skel-${i}`} className="border-b border-slate-100">
+      <SkeletonCell />
+      <SkeletonCell />
+      <SkeletonCell />
+      <SkeletonCell />
+      <SkeletonCell />
+      <td className="p-3">
+        <div className="flex items-center justify-end gap-2">
+          <div className="h-6 w-10 bg-slate-100 rounded animate-pulse" />
+          <div className="h-6 w-14 bg-slate-100 rounded animate-pulse" />
+          <div className="h-6 w-28 bg-slate-100 rounded animate-pulse" />
+        </div>
+      </td>
+    </tr>
+  ));
 
   return (
     <DashboardLayout title="Team">
@@ -616,69 +693,72 @@ const AdminTeam = () => {
           )}
         </section>
 
-        {/* All users table with CRUD */}
-        {!loading && (
-          <section className="mt-10">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">GENERAL MANAGEMENT</h2>
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                <input
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search name/email/role/department…"
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
-                />
-                <select
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value as any)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
-                >
-                  <option value="ALL">All Roles</option>
-                  <option value="WORKER">Workers</option>
-                  <option value="ENGINEER">Engineers</option>
-                  <option value="NURSE">Nurses</option>
-                  <option value="ADMIN">Admins</option>
-                </select>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-[#1a2e5a] text-white text-sm font-black uppercase tracking-widest hover:bg-[#132142]"
-                  onClick={() => {
-                    setEditingPerson(null);
-                    setNewAccountRole('WORKER');
-                    setNewAccountName('');
-                    setNewAccountEmail('');
-                    setNewAccountPhone('');
-                    setNewAccountDepartment('');
-                    setModalType('account');
-                  }}
-                >
-                  Add User
-                </button>
-              </div>
+        {/* GENERAL MANAGEMENT — always visible; rows show skeletons while loading */}
+        <section className="mt-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">GENERAL MANAGEMENT</h2>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <input
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search name/email/role/department…"
+                className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
+                disabled={loading}
+              />
+              <select
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
+                disabled={loading}
+              >
+                <option value="ALL">All Roles</option>
+                <option value="WORKER">Workers</option>
+                <option value="ENGINEER">Engineers</option>
+                <option value="NURSE">Nurses</option>
+                <option value="ADMIN">Admins</option>
+              </select>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg bg-[#1a2e5a] text-white text-sm font-black uppercase tracking-widest hover:bg-[#132142] disabled:opacity-50"
+                disabled={loading}
+                onClick={() => {
+                  setEditingPerson(null);
+                  setNewAccountRole('WORKER');
+                  setNewAccountName('');
+                  setNewAccountEmail('');
+                  setNewAccountPhone('');
+                  setNewAccountDepartment('');
+                  setModalType('account');
+                }}
+              >
+                Add User
+              </button>
             </div>
+          </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left text-slate-600">
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Name</th>
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Email</th>
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Role</th>
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Phone</th>
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]">Department</th>
-                      <th className="p-3 font-black uppercase tracking-widest text-[10px]"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredUsers.length === 0 ? (
-                      <tr>
-                        <td className="p-6 text-slate-500" colSpan={6}>
-                          No users found.
-                        </td>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr className="text-left text-slate-600">
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]">Name</th>
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]">Email</th>
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]">Role</th>
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]">Phone</th>
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]">Department</th>
+                    <th className="p-3 font-black uppercase tracking-widest text-[10px]"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loading
+                    ? skeletonRows
+                    : filteredUsers.length === 0
+                    ? (
+                      <tr key="empty">
+                        <td className="p-6 text-slate-500" colSpan={6}>No users found.</td>
                       </tr>
-                    ) : (
-                      filteredUsers.map((p) => {
+                    )
+                    : filteredUsers.map((p) => {
                         const anyP = p as any;
                         const role = String(anyP.role || '').toUpperCase() || '—';
                         return (
@@ -707,22 +787,28 @@ const AdminTeam = () => {
                                 >
                                   Delete
                                 </button>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1 rounded-lg text-xs font-bold bg-orange-50 text-orange-700 hover:bg-orange-100"
+                                  onClick={() => openPasswordModal(p.id)}
+                                >
+                                  Change Password
+                                </button>
                               </div>
                             </td>
                           </tr>
                         );
                       })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  }
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-              Note: Delete requires ADMIN role (backend enforces).
-            </div>
-          </section>
-        )}
+          <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            Note: Delete requires ADMIN role (backend enforces).
+          </div>
+        </section>
       </div>
 
       {/* ========== MODAL FORMS ========== */}
@@ -818,6 +904,22 @@ const AdminTeam = () => {
               />
             </div>
 
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password</label>
+              <input
+                type="password"
+                value={addAccountPassword}
+                onChange={e => setAddAccountPassword(e.target.value)}
+                placeholder="Set password for this user"
+                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                disabled={accountSubmitting}
+              />
+              <div className="text-xs text-slate-400 mt-1">Minimum 6 characters.</div>
+            </div>
+
             <button
               className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
               type="submit"
@@ -897,7 +999,25 @@ const AdminTeam = () => {
 
       {/* 3. Add Worker to Team Form */}
       <Modal isOpen={modalType === 'worker'} onClose={closeModal} title="Add Worker to Team">
-        <form className="space-y-4" onSubmit={handleAddWorkerToTeam}>
+        <form className="space-y-4" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!selectedTeamIdForWorkerAdd || !selectedWorkerId) {
+            setError('Please select a team and worker');
+            return;
+          }
+          try {
+            setError(null);
+            await assignWorkersToTeam(selectedTeamIdForWorkerAdd, [selectedWorkerId]);
+            if (addWorkerPassword && addWorkerPassword.length >= 6) {
+              await setPersonPassword(selectedWorkerId, addWorkerPassword);
+            }
+            setAddWorkerPassword('');
+            closeModal();
+            await load();
+          } catch (e2) {
+            setError(e2 instanceof Error ? e2.message : 'Failed to add worker to team');
+          }
+        }}>
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Select Worker</label>
             <select
@@ -914,12 +1034,73 @@ const AdminTeam = () => {
               ))}
             </select>
           </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase italic">* Worker must already exist as a Person record.</p>
-          <button className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition" type="submit">
-            Add to Team
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Assign Date</label>
+            <input
+              type="date"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+            />
+          </div>
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password (optional)</label>
+            <input
+              type="password"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              value={addWorkerPassword}
+              onChange={e => setAddWorkerPassword(e.target.value)}
+              placeholder="Set password for this worker"
+              autoComplete="new-password"
+            />
+            <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4"
+          >
+            Confirm Addition
           </button>
         </form>
       </Modal>
+
+      {/* Password Modal for member */}
+      {passwordModalPersonId !== null && (
+        <Modal isOpen={true} onClose={closePasswordModal} title="Set/Reset Worker Password">
+          <form onSubmit={e => { e.preventDefault(); handleSetPassword(); }} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
+              <input
+                type="password"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                value={passwordValue}
+                onChange={e => setPasswordValue(e.target.value)}
+                placeholder="Enter new password"
+                autoComplete="new-password"
+                disabled={passwordLoading}
+              />
+              <div className="text-xs text-slate-400 mt-1">Minimum 6 characters</div>
+              {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
+              {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                disabled={passwordLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={passwordLoading}
+              >
+                {passwordLoading ? 'Saving…' : 'Save Password'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Team detail modal */}
       <Modal
@@ -972,16 +1153,17 @@ const AdminTeam = () => {
                     <th className="p-3 text-left">Name</th>
                     <th className="p-3 text-left">Role</th>
                     <th className="p-3 text-left">Email</th>
+                    <th className="p-3 text-left">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teamMembersLoading ? (
                     <tr>
-                      <td colSpan={3} className="p-6 text-center text-slate-500 font-bold">Loading members…</td>
+                      <td colSpan={4} className="p-6 text-center text-slate-500 font-bold">Loading members…</td>
                     </tr>
                   ) : teamMembers.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="p-6 text-center text-slate-500 font-bold">No members found.</td>
+                      <td colSpan={4} className="p-6 text-center text-slate-500 font-bold">No members found.</td>
                     </tr>
                   ) : (
                     teamMembers.map((m) => {
@@ -991,6 +1173,15 @@ const AdminTeam = () => {
                           <td className="p-3 font-bold text-slate-800">{anyM.name ?? '—'}</td>
                           <td className="p-3 text-slate-700">{String(anyM.role ?? '—').toUpperCase()}</td>
                           <td className="p-3 text-slate-700">{anyM.email ?? '—'}</td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => openPasswordModal(m.id)}
+                              className="p-2 text-orange-600 hover:text-orange-700 transition-colors"
+                              title="Change Password"
+                            >
+                              Change Password
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
