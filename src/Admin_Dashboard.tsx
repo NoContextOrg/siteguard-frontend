@@ -288,8 +288,8 @@ const AdminDashboard = () => {
                         >
                           <td className="px-6 py-3">{alert.id ?? '-'}</td>
                           <td className="px-6 py-3">{alert.alertType}</td>
-                          <td className="px-6 py-3 max-w-[360px] truncate" title={alert.description || ''}>
-                            {alert.description || '-'}
+                          <td className="px-6 py-3 max-w-[360px] truncate" title={alert.alertMessage || ''}>
+                            {alert.alertMessage || '-'}
                           </td>
                           <td className="px-6 py-3">
                             {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : '-'}
