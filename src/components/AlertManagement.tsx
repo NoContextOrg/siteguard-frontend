@@ -140,18 +140,32 @@ const AlertManagement: React.FC = () => {
   }, [hotlistedPersons, searchQuery]);
 
   // ================= ROLE CHECK =================
-  const canManageHotlist = useMemo(() => {
-    try {
-      const roles = JSON.parse(localStorage.getItem('userRoles') || '[]');
-      const list = Array.isArray(roles) ? roles : [roles];
+const canManageHotlist = useMemo(() => {
+  try {
+    const rolesRaw = localStorage.getItem('userRoles');
 
-      return list.some(role =>
-        ['ADMIN', 'NURSE'].includes(String(role).toUpperCase())
+    if (!rolesRaw) return false;
+
+    const roles = JSON.parse(rolesRaw);
+
+    const roleList = Array.isArray(roles) ? roles : [roles];
+
+    return roleList.some((role: string) => {
+      const r = String(role).toUpperCase();
+
+      return (
+        r === 'ADMIN' ||
+        r === 'ROLE_ADMIN' ||
+        r.includes('ADMIN') ||   // fallback safety
+        r === 'NURSE' ||
+        r === 'ROLE_NURSE' ||
+        r.includes('NURSE')
       );
-    } catch {
-      return false;
-    }
-  }, []);
+    });
+  } catch {
+    return false;
+  }
+}, []);
 
   // ================= UI =================
   return (
