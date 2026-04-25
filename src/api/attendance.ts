@@ -306,3 +306,21 @@ export const postBiometricAction = async (payload: {
   // May return JSON map
   return response.json().catch(() => ({}));
 };
+
+/**
+ * Get attendance calendar for a person.
+ * GET /api/attendance/person/{personCode}/calendar
+ * Expected backend shape: { "2026-04-01": ["LOGIN", "LOGOUT"], ... }
+ */
+export const getAttendanceCalendar = async (personCode: string): Promise<Record<string, string[]>> => {
+  try {
+    const response = await authenticatedFetch(`${API_BASE_URL}/attendance/person/${personCode}/calendar`);
+    if (!response.ok) {
+      throw new Error(`Failed to load calendar for person ${personCode}: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching attendance calendar for ${personCode}:`, error);
+    throw error instanceof Error ? error : new Error('An unexpected error occurred');
+  }
+};

@@ -111,11 +111,14 @@ export const getPersonById = async (id: number): Promise<PersonResponse> => {
       throw new Error(`Failed to fetch person: ${response.statusText}`);
     }
 
-    const data: ApiResponse<PersonResponse> = await response.json();
-    if (!data.data) {
+    const json: ApiResponse<PersonResponse> | PersonResponse = await response.json();
+    // Handle both wrapped and unwrapped responses
+    const personData = 'data' in json ? json.data : json;
+
+    if (!personData || !('id' in personData)) {
       throw new Error('Person not found');
     }
-    return data.data;
+    return toPersonResponse(personData);
   } catch (error) {
     console.error(`Error fetching person ${id}:`, error);
     throw error instanceof Error ? error : new Error('An unexpected error occurred');
