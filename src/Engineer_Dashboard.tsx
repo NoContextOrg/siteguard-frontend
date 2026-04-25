@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Calendar, Filter, List, X, UserCheck, UserX, UserPlus, Users
+  Filter, UserCheck, UserX, UserPlus, Users
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line
+  ResponsiveContainer
 } from 'recharts';
-import { useSidebarTabs } from './hooks/useSidebarTabs';
-import type { SidebarTab } from './config/sidebarConfig.tsx';
 import type {
   SystemStats,
   DashboardOverview,
@@ -18,21 +16,17 @@ import type {
 import {
   getSystemStats,
   getDashboardOverview,
-  getAttendancePlot,
   getHotlistOverview,
   getTeamAttendance,
 } from './api/analytics';
 import DashboardLayout from './components/DashboardLayout';
 
 const EngineerDashboard = () => {
-  const sidebarTabs: SidebarTab[] = useSidebarTabs();
-
   const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
-  const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
   const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
 
@@ -48,7 +42,6 @@ const EngineerDashboard = () => {
         const [
           stats,
           overview,
-          attendance,
           hotlist,
           teamAttend,
           personsRes,
@@ -56,7 +49,6 @@ const EngineerDashboard = () => {
         ] = await Promise.all([
           getSystemStats(),
           getDashboardOverview(),
-          getAttendancePlot(),
           getHotlistOverview(),
           getTeamAttendance(),
           fetch('/api/persons').then(r => r.json()),
@@ -65,7 +57,6 @@ const EngineerDashboard = () => {
 
         setSystemStats(stats);
         setDashboardOverview(overview);
-        setAttendanceData(attendance.data || []);
         setHotlistOverview(hotlist);
         setTeamAttendanceData(teamAttend);
 

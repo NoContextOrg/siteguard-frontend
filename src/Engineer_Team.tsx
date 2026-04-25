@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   X,
-  List,
   Calendar,
   Search
 } from 'lucide-react';

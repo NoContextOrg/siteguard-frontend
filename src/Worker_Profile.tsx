@@ -28,14 +28,14 @@ interface HealthLogDTO {
   date?: string;
 }
 
-const getHealthLogsForPerson = async (personCode: string): Promise<HealthLogDTO[]> => {
+const getHealthLogsForPerson = async (_personCode: string): Promise<HealthLogDTO[]> => {
   // const response = await api.get<HealthLogDTO[]>(`/api/health-logs/person/${personCode}`);
   // return response.data;
   // Mocking for now. Replace with actual API call.
   return [];
 };
 
-const addHealthLog = async (personCode: string, logDto: HealthLogDTO): Promise<HealthLogDTO> => {
+const addHealthLog = async (_personCode: string, logDto: HealthLogDTO): Promise<HealthLogDTO> => {
   // const response = await api.post<HealthLogDTO>(`/api/health-logs/person/${personCode}`, logDto);
   // return response.data;
   // Mocking for now.
