@@ -288,6 +288,7 @@ export type CreatePersonUiPayload = {
   position?: string;
   department?: string;
   role: 'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN' | 'STAFF';
+  fingerprint?: number | string;
 };
 
 export const createPersonUi = async (payload: CreatePersonUiPayload): Promise<PersonResponse> => {
@@ -306,27 +307,38 @@ export const createPersonUi = async (payload: CreatePersonUiPayload): Promise<Pe
   return toPersonResponse(await response.json());
 };
 
-export const updatePersonUi = async (id: number, payload: CreatePersonUiPayload): Promise<PersonResponse> => {
+export const updatePersonUi = async (id: number, payload: Partial<CreatePersonUiPayload>): Promise<PersonResponse> => {
   // Use /api/persons/{id} (PersonCreateDTO). Map name -> first/last like backend /ui endpoint.
-  const name = (payload.name ?? '').trim();
-  const email = (payload.email ?? '').trim();
-  if (!name || !email) throw new Error('Name and email are required');
+  const body: Record<string, unknown> = {};
 
-  let firstName = name;
-  let lastName = '';
-  const idx = firstName.lastIndexOf(' ');
-  if (idx > 0) {
-    lastName = firstName.substring(idx + 1).trim();
-    firstName = firstName.substring(0, idx).trim();
+  if (payload.name) {
+    const name = payload.name.trim();
+    let firstName = name;
+    let lastName = '';
+    const idx = name.lastIndexOf(' ');
+    if (idx > 0) {
+      lastName = name.substring(idx + 1).trim();
+      firstName = name.substring(0, idx).trim();
+    }
+    body.firstName = firstName;
+    body.lastName = lastName;
   }
 
-  const body: Record<string, unknown> = {
-    firstName,
-    lastName,
-    email,
-    phoneNumber: payload.phone,
-    role: payload.role,
-  };
+  if (payload.email) {
+    body.email = payload.email.trim();
+  }
+
+  if (payload.phone) {
+    body.phoneNumber = payload.phone;
+  }
+
+  if (payload.role) {
+    body.role = payload.role;
+  }
+
+  if (payload.fingerprint) {
+    body.fingerprint = String(payload.fingerprint);
+  }
 
   const response = await authenticatedFetch(`${API_BASE_URL}/persons/${id}`, {
     method: 'PUT',

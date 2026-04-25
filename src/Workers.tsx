@@ -6,7 +6,7 @@ import { createPersonUi, getAllPersons, updatePersonUi, setPersonPassword, type 
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 
 // ========== Types ==========
-type WorkerStatus = 'NORMAL' | 'HOTLIST';
+type WorkerStatus = 'NORMAL' | 'HOTLIST' | 'NO_FINGERPRINT';
 
 type WorkerAttendance = 'PRESENT' | 'ABSENT' | 'ON LEAVE' | 'UNKNOWN';
 
@@ -18,20 +18,22 @@ interface WorkerRow {
   engineer: string;
   lastAdmitted: string;
   status: WorkerStatus;
+
+  fingerprint?: number | null;
 }
 
 const toWorkerRow = (p: PersonResponse): WorkerRow => {
-  const upperName = (p.name || '').toUpperCase();
+  const fingerprint = (p as any).fingerprint ?? null;
 
   return {
     id: p.id,
-    name: upperName,
-    // Backend attaches teamId; show it as TEAM-{id} for now.
+    name: (p.name || '').toUpperCase(),
     team: p.teamId ? `TEAM-${p.teamId}` : 'UNASSIGNED',
     attendance: 'UNKNOWN',
     engineer: 'N/A',
     lastAdmitted: 'N/A',
-    status: 'NORMAL',
+    status: fingerprint ? 'NORMAL' : 'NO_FINGERPRINT',
+    fingerprint,
   };
 };
 
@@ -140,24 +142,17 @@ export default function WorkersPage() {
     let interval: number | null = null;
 
     const tick = async () => {
-      // Option B: if endpoint is secured, we should only poll when logged in.
-      // Option A: endpoint may be public, so polling can still succeed.
       const hasToken = Boolean(localStorage.getItem('accessToken'));
 
       try {
         setLastIdLoading(true);
 
-        // If we are not logged in and backend is still secured, avoid spamming the endpoint.
-        // We'll try once (so Option A still works), then if it fails we stop polling until login.
         const lastId = await getBiometricLastId();
         if (!cancelled) setBiometricLastId(lastId);
-
-        // If we got a value, keep polling regardless of hasToken.
       } catch (e) {
         console.warn('Failed to poll biometric lastId', e);
         if (!cancelled) setBiometricLastId(null);
 
-        // If no token, stop polling until the user logs in.
         if (!hasToken && interval != null) {
           window.clearInterval(interval);
           interval = null;
@@ -215,7 +210,6 @@ export default function WorkersPage() {
       setSavingEdit(true);
       setError(null);
 
-      // Update via UI name mapping -> backend firstName/lastName
       await updatePersonUi(id, {
         name: next,
         email: (persons.find((p) => p.id === id)?.email ?? '').toString(),
@@ -229,6 +223,24 @@ export default function WorkersPage() {
       setError(e instanceof Error ? e.message : 'Failed to rename worker');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // ✅ B. Assign Fingerprint handler
+  const assignFingerprint = async (workerId: number) => {
+    if (!biometricLastId) {
+      setError('No fingerprint ID available from device');
+      return;
+    }
+
+    try {
+      await updatePersonUi(workerId, {
+        fingerprint: biometricLastId,
+      });
+
+      await loadPersons({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to assign fingerprint');
     }
   };
 
@@ -631,12 +643,20 @@ export default function WorkersPage() {
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold">{worker.engineer}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
                         <td className="px-6 py-4 text-center">
-                          <span
-                            className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST' ? 'text-red-500' : 'text-slate-500'
-                              }`}
-                          >
+                          <span className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST'
+                              ? 'text-red-500'
+                              : worker.status === 'NO_FINGERPRINT'
+                                ? 'text-amber-500'
+                                : 'text-slate-500'
+                            }`}>
                             {worker.status}
                           </span>
+
+                          {!worker.fingerprint && (
+                            <span className="block text-red-500 text-xs mt-1">
+                              No Fingerprint
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-center space-x-2">
                           <Link
@@ -681,6 +701,14 @@ export default function WorkersPage() {
                                 type="button"
                               >
                                 Rename
+                              </button>
+                              {/* ✅ A. Assign Fingerprint button */}
+                              <button
+                                onClick={() => void assignFingerprint(worker.id)}
+                                className="text-purple-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                                type="button"
+                              >
+                                Assign Fingerprint
                               </button>
                               <button
                                 onClick={() => openPasswordModal(worker.id)}
