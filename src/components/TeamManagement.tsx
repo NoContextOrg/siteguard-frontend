@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Users } from 'lucide-react';
+import DashboardLayout from './DashboardLayout';
 import {
   getAllTeams,
   createTeam,
@@ -17,6 +18,7 @@ interface FormData {
   classification: string;
   description: string;
   location: string;
+  siteEngineerId: number | null;
 }
 
 const TeamManagement: React.FC = () => {
@@ -41,6 +43,7 @@ const TeamManagement: React.FC = () => {
     classification: 'GENERAL',
     description: '',
     location: '',
+    siteEngineerId: null,
   });
   const [selectedPersonForTeam, setSelectedPersonForTeam] = useState<number | null>(null);
   const [addMemberPassword, setAddMemberPassword] = useState('');
@@ -77,12 +80,15 @@ const TeamManagement: React.FC = () => {
     return map;
   }, [teams]);
 
+  const engineers = useMemo(() => persons.filter(p => String((p as any).role ?? '').toUpperCase() === 'ENGINEER'), [persons]);
+
   const handleCreateClick = () => {
     setFormData({
       name: '',
       classification: 'GENERAL',
       description: '',
       location: '',
+      siteEngineerId: null,
     });
     setShowCreateModal(true);
   };
@@ -94,6 +100,7 @@ const TeamManagement: React.FC = () => {
       classification: (team as any)?.classification ?? 'GENERAL',
       description: team.description,
       location: team.location,
+      siteEngineerId: (team as any).siteEngineerId ?? null,
     });
     setShowEditModal(true);
   };
@@ -117,9 +124,18 @@ const TeamManagement: React.FC = () => {
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.siteEngineerId) {
+      setError('Please select a site engineer.');
+      return;
+    }
     try {
       setError(null);
-      await createTeam(formData as unknown as Team);
+      const payload: Team = {
+        ...formData,
+        projectArea: formData.location,
+        siteEngineerId: formData.siteEngineerId,
+      };
+      await createTeam(payload);
       setSuccess('Team created successfully!');
       setShowCreateModal(false);
       await loadData();
@@ -132,9 +148,18 @@ const TeamManagement: React.FC = () => {
   const handleSubmitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeam) return;
+    if (!formData.siteEngineerId) {
+      setError('Please select a site engineer.');
+      return;
+    }
     try {
       setError(null);
-      await updateTeam(selectedTeam.id, formData as unknown as Team);
+      const payload: Partial<Team> = {
+        ...formData,
+        projectArea: formData.location,
+        siteEngineerId: formData.siteEngineerId,
+      };
+      await updateTeam(selectedTeam.id, payload);
       setSuccess('Team updated successfully!');
       setShowEditModal(false);
       await loadData();
@@ -255,8 +280,8 @@ const TeamManagement: React.FC = () => {
   const availablePersons = persons.filter((person) => !teamMembers.some((member) => member.id === person.id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <DashboardLayout title="Team Management">
+      <div className="p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
@@ -312,20 +337,6 @@ const TeamManagement: React.FC = () => {
         </div>
 
         {/* Loading State */}
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Team Management</h1>
-              <p className="text-slate-600 mt-1">Manage teams and their members</p>
-            </div>
-            <button
-              onClick={handleCreateClick}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
-            >
-              <Plus size={20} />
-              Add Team
-            </button>
-          </div>
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(3)].map((_, i) => (
@@ -396,20 +407,16 @@ const TeamManagement: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
 
         {/* Create Modal */}
         {showCreateModal && (
-          <Modal
-            title="Add New Team"
-            onClose={() => setShowCreateModal(false)}
-            onSubmit={handleSubmitCreate}
-          >
+          <Modal title="Add New Team" onClose={() => setShowCreateModal(false)}>
             <TeamForm
               formData={formData}
               setFormData={setFormData}
               onSubmit={handleSubmitCreate}
               submitLabel="Create Team"
+              engineers={engineers}
             />
           </Modal>
         )}
@@ -417,15 +424,13 @@ const TeamManagement: React.FC = () => {
         {/* Edit Modal */}
         {showEditModal && selectedTeam && (
           <Modal
-            title="Edit Team"
-            onClose={() => setShowEditModal(false)}
-            onSubmit={handleSubmitEdit}
-          >
+            title="Edit Team" onClose={() => setShowEditModal(false)}>
             <TeamForm
               formData={formData}
               setFormData={setFormData}
               onSubmit={handleSubmitEdit}
               submitLabel="Update Team"
+              engineers={engineers}
             />
           </Modal>
         )}
@@ -446,9 +451,7 @@ const TeamManagement: React.FC = () => {
         {showMembersModal && selectedTeam && (
           <Modal
             title={`${selectedTeam.name} - Members`}
-            onClose={() => setShowMembersModal(false)}
-            onSubmit={() => {}}
-          >
+            onClose={() => setShowMembersModal(false)}>
             <div className="space-y-4">
               <button
                 onClick={() => setShowAddMemberModal(true)}
@@ -502,11 +505,7 @@ const TeamManagement: React.FC = () => {
             title="Add Member to Team"
             onClose={() => {
               setShowAddMemberModal(false);
-              setSelectedPersonForTeam(null);
-              setAddMemberPassword('');
-            }}
-            onSubmit={handleAddMember}
-          >
+            }}>
             <form onSubmit={handleAddMember} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -532,23 +531,23 @@ const TeamManagement: React.FC = () => {
                   type="password"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   value={addMemberPassword}
+                  minLength={6}
                   onChange={e => setAddMemberPassword(e.target.value)}
                   placeholder="Set password for this member"
                   autoComplete="new-password"
                 />
-                <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Confirm Password</label>
                 <input
                   type="password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   value={addMemberConfirmPassword}
+                  minLength={6}
                   onChange={(e) => setAddMemberConfirmPassword(e.target.value)}
                   placeholder="Confirm password"
                   autoComplete="new-password"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
-                <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-slate-200">
                 <button
@@ -576,10 +575,7 @@ const TeamManagement: React.FC = () => {
         {/* Password Modal for member */}
         {passwordModalPersonId !== null && (
           <Modal
-            title="Set/Reset Member Password"
-            onClose={closePasswordModal}
-            onSubmit={e => { e.preventDefault(); handleSetPassword(); }}
-          >
+            title="Set/Reset Member Password" onClose={closePasswordModal}>
             <form onSubmit={e => { e.preventDefault(); handleSetPassword(); }} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
@@ -587,24 +583,32 @@ const TeamManagement: React.FC = () => {
                   type="password"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   value={passwordValue}
+                  required
+                  minLength={6}
                   onChange={e => setPasswordValue(e.target.value)}
                   placeholder="Enter new password"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   disabled={passwordLoading}
+                  onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
                 />
                 <div className="text-xs text-slate-400 mt-1">Minimum 6 characters</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Confirm New Password</label>
                 <input
                   type="password"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mt-2"
                   value={confirmPasswordValue}
+                  required
+                  minLength={6}
                   onChange={(e) => setConfirmPasswordValue(e.target.value)}
                   placeholder="Confirm new password"
-                  autoComplete="new-password"
                   disabled={passwordLoading}
+                  onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
                 />
-                {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
-                {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}
               </div>
+              {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
+              {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}
               <div className="flex gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
@@ -626,7 +630,7 @@ const TeamManagement: React.FC = () => {
           </Modal>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
@@ -635,9 +639,10 @@ interface TeamFormProps {
   setFormData: (data: FormData) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitLabel: string;
+  engineers: PersonResponse[];
 }
 
-const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel }) => {
+const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel, engineers }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -649,6 +654,23 @@ const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, su
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Site Engineer *</label>
+        <select
+          required
+          value={formData.siteEngineerId ?? ''}
+          onChange={(e) => setFormData({ ...formData, siteEngineerId: e.target.value ? Number(e.target.value) : null })}
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">-- Choose a site engineer --</option>
+          {engineers.map((eng) => (
+            <option key={eng.id} value={eng.id}>
+              {eng.name} ({eng.email})
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
@@ -703,7 +725,6 @@ const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, su
 interface ModalProps {
   title: string;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
   children: React.ReactNode;
 }
 

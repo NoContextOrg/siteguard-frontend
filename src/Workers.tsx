@@ -270,7 +270,6 @@ export default function WorkersPage() {
         email: newWorkerEmail.trim(),
         phone: newWorkerPhone.trim(),
         role: 'WORKER',
-        password: newWorkerPassword,
       });
       setNewWorkerName('');
       setNewWorkerEmail('');
@@ -394,9 +393,12 @@ export default function WorkersPage() {
                     type="password"
                     className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     value={newWorkerPassword}
+                    required
+                    minLength={6}
                     onChange={(e) => setNewWorkerPassword(e.target.value)}
                     placeholder="Set password"
                     disabled={creating}
+                    onBlur={() => { if (newWorkerPassword.length < 6) setError('Password must be at least 6 characters.'); else setError(null); }}
                   />
                 </div>
 
@@ -406,11 +408,13 @@ export default function WorkersPage() {
                     type="password"
                     className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     value={newWorkerConfirmPassword}
+                    required
+                    minLength={6}
                     onChange={(e) => setNewWorkerConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
                     disabled={creating}
+                    onBlur={() => { if (newWorkerPassword !== newWorkerConfirmPassword) setError('Passwords do not match.'); else setError(null); }}
                   />
-                  <div className="text-xs text-slate-400 mt-1">Leave blank to auto-generate or skip</div>
                 </div>
               </div>
 
@@ -825,17 +829,23 @@ export default function WorkersPage() {
                 type="password"
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 value={passwordValue}
+                required
+                minLength={6}
                 onChange={e => setPasswordValue(e.target.value)}
                 placeholder="New password"
                 disabled={passwordLoading}
+                onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
               />
               <input
                 type="password"
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 value={confirmPasswordValue}
+                required
+                minLength={6}
                 onChange={(e) => setConfirmPasswordValue(e.target.value)}
                 placeholder="Confirm new password"
                 disabled={passwordLoading}
+                onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
               />
               {passwordError && <div className="text-xs text-red-600 mb-2">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mb-2">{passwordSuccess}</div>}
@@ -869,17 +879,23 @@ export default function WorkersPage() {
                 type="password"
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 value={editPasswordValue}
+                required
+                minLength={6}
                 onChange={e => setEditPasswordValue(e.target.value)}
                 placeholder="New password"
                 disabled={editPasswordLoading}
+                onBlur={() => { if (editPasswordValue.length < 6) setEditPasswordError('Password must be at least 6 characters.'); else setEditPasswordError(null); }}
               />
               <input
                 type="password"
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 value={editConfirmPasswordValue}
+                required
+                minLength={6}
                 onChange={(e) => setEditConfirmPasswordValue(e.target.value)}
                 placeholder="Confirm new password"
                 disabled={editPasswordLoading}
+                onBlur={() => { if (editPasswordValue !== editConfirmPasswordValue) setEditPasswordError('Passwords do not match.'); else setEditPasswordError(null); }}
               />
               {editPasswordError && <div className="text-xs text-red-600 mb-2">{editPasswordError}</div>}
               {editPasswordSuccess && <div className="text-xs text-green-600 mb-2">{editPasswordSuccess}</div>}

@@ -932,7 +932,7 @@ const AdminTeam = () => {
                 onChange={e => setAddAccountPassword(e.target.value)}
                 placeholder="Set password for this user"
                 className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-                autoComplete="new-password"
+                autoComplete="off"
                 required
                 minLength={6}
                 disabled={accountSubmitting}
@@ -949,7 +949,7 @@ const AdminTeam = () => {
                   onChange={(e) => setAddAccountConfirmPassword(e.target.value)}
                   placeholder="Confirm password"
                   className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   required={!editingPerson}
                   minLength={6}
                   disabled={accountSubmitting}
@@ -1066,11 +1066,13 @@ const AdminTeam = () => {
               type="password"
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
               value={addWorkerPassword}
+              required
+              minLength={6}
               onChange={e => setAddWorkerPassword(e.target.value)}
               placeholder="Set password for this worker"
-              autoComplete="new-password"
+              autoComplete="off"
+              onBlur={() => { if (addWorkerPassword.length < 6) setError('Password must be at least 6 characters.'); else setError(null); }}
             />
-            <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
           </div>
           <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Confirm Password</label>
@@ -1078,11 +1080,13 @@ const AdminTeam = () => {
               type="password"
               className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
               value={addWorkerConfirmPassword}
+              required
+              minLength={6}
               onChange={(e) => setAddWorkerConfirmPassword(e.target.value)}
               placeholder="Confirm password"
-              autoComplete="new-password"
+              autoComplete="off"
+              onBlur={() => { if (addWorkerPassword !== addWorkerConfirmPassword) setError('Passwords do not match.'); else setError(null); }}
             />
-            <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
           </div>
           <button
             type="submit"
@@ -1103,20 +1107,25 @@ const AdminTeam = () => {
                 type="password"
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 value={passwordValue}
+                required
+                minLength={6}
                 onChange={e => setPasswordValue(e.target.value)}
                 placeholder="Enter new password"
-                autoComplete="new-password"
+                autoComplete="off"
                 disabled={passwordLoading}
+                onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
               />
               <div className="text-xs text-slate-400 mt-1">Minimum 6 characters</div>
               <input
                 type="password"
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mt-2"
                 value={confirmPasswordValue}
+                required
+                minLength={6}
                 onChange={(e) => setConfirmPasswordValue(e.target.value)}
                 placeholder="Confirm new password"
-                autoComplete="new-password"
                 disabled={passwordLoading}
+                onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
               />
               {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}
