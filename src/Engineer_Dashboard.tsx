@@ -19,8 +19,8 @@ import {
   getHotlistOverview,
   getTeamAttendance,
 } from './api/analytics';
-import { getAllPersons } from './api/person';
-import { getActiveAlerts } from './api/alert';
+import { getAllPersons, type PersonResponse } from './api/person';
+import { getActiveAlerts, type AlertDTO } from './api/alert';
 import DashboardLayout from './components/DashboardLayout';
 
 const EngineerDashboard = () => {
@@ -33,8 +33,8 @@ const EngineerDashboard = () => {
   const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
 
   // NEW: backend-connected states
-  const [persons, setPersons] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [persons, setPersons] = useState<PersonResponse[]>([]);
+  const [alerts, setAlerts] = useState<AlertDTO[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -60,7 +60,7 @@ const EngineerDashboard = () => {
         setSystemStats(stats);
         setDashboardOverview(overview);
         setHotlistOverview(hotlist);
-        setTeamAttendanceData(teamAttend);
+        setTeamAttendanceData(Array.isArray(teamAttend) ? teamAttend : (teamAttend as any)?.data ?? []);
 
         setPersons(personsRes || []);
         setAlerts(alertsRes || []);
@@ -134,11 +134,9 @@ const EngineerDashboard = () => {
                   <tbody>
                     {persons.slice(0, 5).map((p, i) => (
                       <tr key={i} className="border-b hover:bg-blue-50">
-                        <td className="px-6 py-4">
-                          {p.firstName} {p.lastName}
-                        </td>
-                        <td className="px-6 py-4">{p.role}</td>
-                        <td className="px-6 py-4">{p.teamName || 'Unassigned'}</td>
+                        <td className="px-6 py-4">{p.name}</td>
+                        <td className="px-6 py-4">{(p as any).role ?? 'WORKER'}</td>
+                        <td className="px-6 py-4">{p.teamId ? `Team ${p.teamId}` : 'Unassigned'}</td>
                         <td className="px-6 py-4">{p.email}</td>
                       </tr>
                     ))}
@@ -167,10 +165,12 @@ const EngineerDashboard = () => {
                   <tbody>
                     {alerts.slice(0, 5).map((a, i) => (
                       <tr key={i} className="border-b hover:bg-blue-50">
-                        <td className="px-6 py-4">{a.personName}</td>
+                        <td className="px-6 py-4">{a.personName || 'N/A'}</td>
                         <td className="px-6 py-4 text-orange-500">{a.alertType}</td>
-                        <td className="px-6 py-4">{a.status || 'ACTIVE'}</td>
-                        <td className="px-6 py-4">{a.timestamp}</td>
+                        <td className="px-6 py-4">{a.isAcknowledged ? 'Acknowledged' : 'ACTIVE'}</td>
+                        <td className="px-6 py-4">
+                          {a.createdAt ? new Date(a.createdAt).toLocaleTimeString() : '-'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -182,7 +182,7 @@ const EngineerDashboard = () => {
             <motion.div variants={itemVars} className="bg-white p-6 rounded-xl shadow-sm border">
               <h3 className="text-sm font-black uppercase mb-6">Team Attendance Overview</h3>
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={teamAttendanceData.slice(0, 5).map((t, i) => ({
+                <BarChart data={(teamAttendanceData || []).slice(0, 5).map((t, i) => ({
                   name: `Team ${i + 1}`,
                   present: t.present,
                   absent: t.absent,

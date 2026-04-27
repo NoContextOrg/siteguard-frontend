@@ -22,26 +22,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRoles 
 }) => {
   const { isAuthenticated, loading } = useAuth();
-  const [hasAccess, setHasAccess] = useState(false);
 
   console.log('🛡️ ProtectedRoute check:', {
     isAuthenticated,
     loading,
     requiredRoles
   });
-
-  useEffect(() => {
-    if (!loading && isAuthenticated && requiredRoles && requiredRoles.length > 0) {
-      const userRole = getPrimaryRole();
-      
-      // Normalize roles for comparison
-      const hasRequiredRole = requiredRoles.some(
-        role => userRole && role.toLowerCase() === userRole.toLowerCase()
-      );
-
-      setHasAccess(hasRequiredRole);
-    }
-  }, [isAuthenticated, requiredRoles, loading]);
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -61,9 +47,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  // Has required roles or no specific roles required
-  if (!requiredRoles || requiredRoles.length === 0 || hasAccess) {
-    console.log('✅ ProtectedRoute: Access granted');
+  // If no roles are required, grant access
+  if (!requiredRoles || requiredRoles.length === 0) {
+    console.log('✅ ProtectedRoute: Access granted (no roles required)');
+    return <>{children}</>;
+  }
+
+  // Check for roles
+  const userRole = getPrimaryRole();
+  const hasRequiredRole = requiredRoles.some(
+    role => userRole && role.toLowerCase() === userRole.toLowerCase()
+  );
+
+  if (hasRequiredRole) {
+    console.log('✅ ProtectedRoute: Access granted (role match)');
     return <>{children}</>;
   }
 
