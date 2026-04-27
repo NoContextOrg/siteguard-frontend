@@ -58,6 +58,7 @@ export default function WorkersPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editPasswordModal, setEditPasswordModal] = useState<number | null>(null);
   const [editPasswordValue, setEditPasswordValue] = useState('');
+  const [editConfirmPasswordValue, setEditConfirmPasswordValue] = useState('');
   const [editPasswordLoading, setEditPasswordLoading] = useState(false);
   const [editPasswordError, setEditPasswordError] = useState<string | null>(null);
   const [editPasswordSuccess, setEditPasswordSuccess] = useState<string | null>(null);
@@ -72,10 +73,12 @@ export default function WorkersPage() {
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
   const [newWorkerPassword, setNewWorkerPassword] = useState('');
+  const [newWorkerConfirmPassword, setNewWorkerConfirmPassword] = useState('');
 
   // Password modal state
   const [passwordModalId, setPasswordModalId] = useState<number | null>(null);
   const [passwordValue, setPasswordValue] = useState('');
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
@@ -114,6 +117,7 @@ export default function WorkersPage() {
   const closeEditPasswordModal = () => {
     setEditPasswordModal(null);
     setEditPasswordValue('');
+    setEditConfirmPasswordValue('');
     setEditPasswordError(null);
     setEditPasswordSuccess(null);
   };
@@ -254,6 +258,10 @@ export default function WorkersPage() {
       setError('Password must be at least 6 characters.');
       return;
     }
+    if (newWorkerPassword !== newWorkerConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
     try {
       setCreating(true);
       setError(null);
@@ -262,11 +270,13 @@ export default function WorkersPage() {
         email: newWorkerEmail.trim(),
         phone: newWorkerPhone.trim(),
         role: 'WORKER',
+        password: newWorkerPassword,
       });
       setNewWorkerName('');
       setNewWorkerEmail('');
       setNewWorkerPhone('');
       setNewWorkerPassword('');
+      setNewWorkerConfirmPassword('');
       setCreateOpen(false);
       await loadPersons({ silent: true });
     } catch (e) {
@@ -280,12 +290,14 @@ export default function WorkersPage() {
   const openPasswordModal = (id: number) => {
     setPasswordModalId(id);
     setPasswordValue('');
+    setConfirmPasswordValue('');
     setPasswordError(null);
     setPasswordSuccess(null);
   };
   const closePasswordModal = () => {
     setPasswordModalId(null);
     setPasswordValue('');
+    setConfirmPasswordValue('');
     setPasswordError(null);
     setPasswordSuccess(null);
   };
@@ -293,6 +305,10 @@ export default function WorkersPage() {
     if (passwordModalId === null) return;
     if (!passwordValue || passwordValue.length < 6) {
       setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+    if (passwordValue !== confirmPasswordValue) {
+      setPasswordError('Passwords do not match.');
       return;
     }
     setPasswordLoading(true);
@@ -337,7 +353,7 @@ export default function WorkersPage() {
 
           {createOpen && (
             <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Full name</label>
                   <input
@@ -380,6 +396,18 @@ export default function WorkersPage() {
                     value={newWorkerPassword}
                     onChange={(e) => setNewWorkerPassword(e.target.value)}
                     placeholder="Set password"
+                    disabled={creating}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Confirm Password</label>
+                  <input
+                    type="password"
+                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    value={newWorkerConfirmPassword}
+                    onChange={(e) => setNewWorkerConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
                     disabled={creating}
                   />
                   <div className="text-xs text-slate-400 mt-1">Leave blank to auto-generate or skip</div>
@@ -801,6 +829,14 @@ export default function WorkersPage() {
                 placeholder="New password"
                 disabled={passwordLoading}
               />
+              <input
+                type="password"
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={confirmPasswordValue}
+                onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                placeholder="Confirm new password"
+                disabled={passwordLoading}
+              />
               {passwordError && <div className="text-xs text-red-600 mb-2">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mb-2">{passwordSuccess}</div>}
               <div className="flex gap-2 mt-2">
@@ -837,6 +873,14 @@ export default function WorkersPage() {
                 placeholder="New password"
                 disabled={editPasswordLoading}
               />
+              <input
+                type="password"
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={editConfirmPasswordValue}
+                onChange={(e) => setEditConfirmPasswordValue(e.target.value)}
+                placeholder="Confirm new password"
+                disabled={editPasswordLoading}
+              />
               {editPasswordError && <div className="text-xs text-red-600 mb-2">{editPasswordError}</div>}
               {editPasswordSuccess && <div className="text-xs text-green-600 mb-2">{editPasswordSuccess}</div>}
               <div className="flex gap-2 mt-2">
@@ -845,6 +889,10 @@ export default function WorkersPage() {
                     if (editPasswordModal === null) return;
                     if (!editPasswordValue || editPasswordValue.length < 6) {
                       setEditPasswordError('Password must be at least 6 characters.');
+                      return;
+                    }
+                    if (editPasswordValue !== editConfirmPasswordValue) {
+                      setEditPasswordError('Passwords do not match.');
                       return;
                     }
                     setEditPasswordLoading(true);

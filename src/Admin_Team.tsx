@@ -156,6 +156,7 @@ const AdminTeam = () => {
 
   // Add Account password state
   const [addAccountPassword, setAddAccountPassword] = useState('');
+  const [addAccountConfirmPassword, setAddAccountConfirmPassword] = useState('');
 
   // Edit/delete state
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
@@ -175,11 +176,13 @@ const AdminTeam = () => {
   // Password modal state
   const [passwordModalPersonId, setPasswordModalPersonId] = useState<number | null>(null);
   const [passwordValue, setPasswordValue] = useState('');
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   // Add Worker password state
   const [addWorkerPassword, setAddWorkerPassword] = useState('');
+  const [addWorkerConfirmPassword, setAddWorkerConfirmPassword] = useState('');
 
   const closeModal = () => {
     if (teamSubmitting || accountSubmitting) return;
@@ -281,6 +284,10 @@ const AdminTeam = () => {
       setError('Please select a team and worker');
       return;
     }
+    if (addWorkerPassword && addWorkerPassword !== addWorkerConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
 
     try {
       setError(null);
@@ -289,6 +296,7 @@ const AdminTeam = () => {
         await setPersonPassword(selectedWorkerId, addWorkerPassword);
       }
       setAddWorkerPassword('');
+      setAddWorkerConfirmPassword('');
       closeModal();
       await load();
     } catch (e2) {
@@ -304,6 +312,11 @@ const AdminTeam = () => {
 
       if (!addAccountPassword || addAccountPassword.length < 6) {
         setError('Password is required and must be at least 6 characters.');
+        setAccountSubmitting(false);
+        return;
+      }
+      if (addAccountPassword !== addAccountConfirmPassword) {
+        setError('Passwords do not match.');
         setAccountSubmitting(false);
         return;
       }
@@ -331,6 +344,7 @@ const AdminTeam = () => {
       setNewAccountPhone('');
       setNewAccountDepartment('');
       setAddAccountPassword('');
+      setAddAccountConfirmPassword('');
       closeModal();
       await load();
     } catch (e2) {
@@ -559,6 +573,10 @@ const AdminTeam = () => {
       setPasswordError('Password must be at least 6 characters.');
       return;
     }
+    if (passwordValue !== confirmPasswordValue) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
     setPasswordLoading(true);
     setPasswordError(null);
     setPasswordSuccess(null);
@@ -576,12 +594,14 @@ const AdminTeam = () => {
   const openPasswordModal = (personId: number) => {
     setPasswordModalPersonId(personId);
     setPasswordValue('');
+    setConfirmPasswordValue('');
     setPasswordError(null);
     setPasswordSuccess(null);
   };
   const closePasswordModal = () => {
     setPasswordModalPersonId(null);
     setPasswordValue('');
+    setConfirmPasswordValue('');
     setPasswordError(null);
     setPasswordSuccess(null);
   };
@@ -920,6 +940,23 @@ const AdminTeam = () => {
               <div className="text-xs text-slate-400 mt-1">Minimum 6 characters.</div>
             </div>
 
+            {!editingPerson && (
+              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+                <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  value={addAccountConfirmPassword}
+                  onChange={(e) => setAddAccountConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                  autoComplete="new-password"
+                  required={!editingPerson}
+                  minLength={6}
+                  disabled={accountSubmitting}
+                />
+              </div>
+            )}
+
             <button
               className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
               type="submit"
@@ -1035,6 +1072,18 @@ const AdminTeam = () => {
             />
             <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
           </div>
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Confirm Password</label>
+            <input
+              type="password"
+              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+              value={addWorkerConfirmPassword}
+              onChange={(e) => setAddWorkerConfirmPassword(e.target.value)}
+              placeholder="Confirm password"
+              autoComplete="new-password"
+            />
+            <div className="text-xs text-slate-400 mt-1">Leave blank to skip</div>
+          </div>
           <button
             type="submit"
             className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4"
@@ -1060,6 +1109,15 @@ const AdminTeam = () => {
                 disabled={passwordLoading}
               />
               <div className="text-xs text-slate-400 mt-1">Minimum 6 characters</div>
+              <input
+                type="password"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mt-2"
+                value={confirmPasswordValue}
+                onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                disabled={passwordLoading}
+              />
               {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}
             </div>
