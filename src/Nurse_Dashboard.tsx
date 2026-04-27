@@ -1,72 +1,63 @@
 import { useState, useEffect } from 'react';
-import { DashboardSidebar } from './components/DashboardSidebar';
-import { useNavigate } from 'react-router-dom';
-import { UserCheck, UserX, HardHat, Calendar, Filter, List, Bell, Users } from 'lucide-react';
+import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { useSidebarTabs } from './hooks/useSidebarTabs';
-import { mapTabsToNavItems } from './config/sidebarConfig.tsx';
-import type { SidebarTab } from './config/sidebarConfig.tsx';
+import DashboardLayout from './components/DashboardLayout';
 import type { 
-  SystemStats,
-  DashboardOverview,
   HotlistOverview,
-  TeamAttendance,
+  AlertsOverview,
+  StaffEfficiency,
 } from './api/analytics';
 import { 
-  getSystemStats, 
-  getDashboardOverview, 
-  getAttendancePlot, 
   getHotlistOverview,
-  getTeamAttendance,
+  getAlertsOverview,
+  getStaffEfficiency,
 } from './api/analytics';
-import DashboardNavbar from './components/DashboardNavbar';
-import { getPrimaryRole } from './api/auth';
+import { getActiveAlerts } from './api/alert';
+import type { AlertDTO } from './api/alert';
+
+const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const NurseDashboard = () => {
-  const navigate = useNavigate();
-  const sidebarTabs: SidebarTab[] = useSidebarTabs();
-
-  // Get user role information
-  const userRole = getPrimaryRole();
-
   const [loading, setLoading] = useState(true);
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-  const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
-  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [activeAlerts, setActiveAlerts] = useState<AlertDTO[]>([]);
+
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
-  const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
-  const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
+  const [alertsOverview, setAlertsOverview] = useState<AlertsOverview | null>(null);
+  const [staffEfficiency, setStaffEfficiency] = useState<StaffEfficiency[]>([]);
+  const [alertsBreakdownPie, setAlertsBreakdownPie] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
 
-        // Fetch all data in parallel
-        const [stats, overview, attendance, hotlist, teamAttend] = await Promise.all([
-          getSystemStats(),
-          getDashboardOverview(),
-          getAttendancePlot(),
-          getHotlistOverview(),
-          getTeamAttendance(),
+        // Fetch all data a nurse is allowed to see
+        const [hotlist, alerts, efficiency] = await Promise.all([
+          getHotlistOverview().catch(() => null),
+          getAlertsOverview().catch(() => null),
+          getStaffEfficiency().catch(() => []),
         ]);
 
-        setSystemStats(stats);
-        setDashboardOverview(overview);
-        setAttendanceData(attendance.data || []);
         setHotlistOverview(hotlist);
-        setTeamAttendanceData(teamAttend);
+        setAlertsOverview(alerts);
 
-        // Format team attendance pie data
-        if (teamAttend.length > 0) {
-          const firstTeam = teamAttend[0];
-          const pieData = [
-            { name: 'Present', value: firstTeam.present, color: '#818cf8' },
-            { name: 'Absent', value: firstTeam.absent, color: '#f87171' },
-            { name: 'On Leave', value: firstTeam.on_leave, color: '#2dd4bf' },
-            { name: 'Overtime', value: firstTeam.overtime, color: '#fb923c' },
-          ];
-          setTeamAttendancePie(pieData);
+        // Handle cases where API returns `{ data: [...] }` or just `[...]`
+        const efficiencyData = Array.isArray(efficiency)
+          ? efficiency
+          : (efficiency as any)?.data ?? [];
+        setStaffEfficiency(efficiencyData);
+
+        // Format alert breakdown for pie chart
+        if (alerts?.breakdown) {
+          const breakdownData = Object.entries(alerts.breakdown).map(([name, value]) => ({
+            name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            value,
+          }));
+          setAlertsBreakdownPie(breakdownData);
+        } else {
+          setAlertsBreakdownPie([]);
         }
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -77,19 +68,35 @@ const NurseDashboard = () => {
 
     fetchDashboardData();
   }, []);
-  
-  // Convert SidebarTab objects to NavItem format for DashboardSidebar
-  const sidebarItems = mapTabsToNavItems(sidebarTabs);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchActiveAlerts = async () => {
+      try {
+        setAlertsLoading(true);
+        setAlertsError(null);
+        const alerts = await getActiveAlerts();
+        if (!cancelled) setActiveAlerts(Array.isArray(alerts) ? alerts : []);
+      } catch (err) {
+        console.error('Error fetching active alerts:', err);
+        if (!cancelled) {
+          setActiveAlerts([]);
+          setAlertsError(err instanceof Error ? err.message : 'Failed to load alerts');
+        }
+      } finally {
+        if (!cancelled) setAlertsLoading(false);
+      }
+    };
+
+    fetchActiveAlerts();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      <DashboardSidebar navItems={sidebarItems} />
-
-      {/* ========== MAIN CONTENT ========== */}
-      <main className="flex-1 ml-64">
-        <DashboardNavbar title={`Nurse Dashboard - ${userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Nurse'}`} />
-
-        <div className="p-8">
+    <DashboardLayout title="Nurse Dashboard">
+      <div className="p-8">
           <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
 
           {/* ========== TOP STAT CARDS ========== */}
@@ -98,12 +105,12 @@ const NurseDashboard = () => {
               <div className="col-span-full text-center py-8">Loading...</div>
             ) : (
               <>
-                <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} icon={<Users className="text-blue-400" size={28}/>} borderColor="border-l-blue-500" />
-                <StatCard label="Onsite Workers" value={(dashboardOverview?.todays_attendance ?? 0).toString()} icon={<UserCheck className="text-teal-400" size={28}/>} borderColor="border-l-teal-500" />
-                <StatCard label="Site Engineers" value={(systemStats?.engineers ?? 0).toString()} icon={<HardHat className="text-blue-300" size={28}/>} borderColor="border-l-blue-300" />
-                <StatCard label="Hotlist Workers" value={(dashboardOverview?.todays_hotlist_alerts ?? 0).toString()} icon={<UserX className="text-red-400" size={28}/>} borderColor="border-l-red-500" />
-                <StatCard label="Total Nurses" value={(systemStats?.nurses ?? 0).toString()} icon={<Users size={28}/>} borderColor="border-l-purple-500" />
-                <StatCard label="Total Persons" value={(systemStats?.total_persons ?? 0).toString()} icon={<HardHat size={28}/>} borderColor="border-l-indigo-500" />
+                <StatCard label="Active Alerts" value={(alertsOverview?.active_alerts ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" />
+                <StatCard label="Today's Alerts" value={(alertsOverview?.total_alerts_today ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" />
+                <StatCard label="Hotlisted Persons" value={(hotlistOverview?.total_hotlist ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" />
+                <StatCard label="Overtime Alerts" value={(alertsOverview?.breakdown?.overtime ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" />
+                <StatCard label="Hotlist Login Alerts" value={(alertsOverview?.breakdown?.hotlist ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" />
+                <StatCard label="Unauthorized Alerts" value={(alertsOverview?.breakdown?.unauthorized ?? 0).toString()} icon={<ShieldAlert className="text-rose-400" size={28}/>} borderColor="border-l-rose-500" />
               </>
             )}
           </div>   
@@ -126,87 +133,76 @@ const NurseDashboard = () => {
                         <List size={18} className="text-slate-400" />
                     </div>
                 </div>
+
+                {alertsError && (
+                  <div className="px-6 py-3 text-[12px] text-red-600 bg-red-50 border-b border-red-100">
+                    {alertsError}
+                  </div>
+                )}
+
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-[11px]">
                         <thead className="bg-slate-50 text-slate-400 uppercase font-bold border-b border-slate-100">
                             <tr>
-                                <th className="px-6 py-3">Name</th>
-                                <th className="px-6 py-3">Team</th>
-                                <th className="px-6 py-3">Alert</th>
-                                <th className="px-6 py-3">Time</th>
-                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Alert ID</th>
+                                <th className="px-6 py-3">Type</th>
+                                <th className="px-6 py-3">Description</th>
+                                <th className="px-6 py-3">Created</th>
+                                <th className="px-6 py-3">Status</th>
                             </tr>
                         </thead>
                         <tbody className="font-semibold text-slate-600">
-                            {[
-                                { name: 'Oscar Madrid', team: 'Structural', alert: 'Overtime', time: '8:40 am', date: '01/19/26' },
-                                { name: 'Carlito Cruz', team: 'Line & Grade', alert: 'Admitted', time: '8:30 am', date: '01/19/26' },
-                                { name: 'Alfonso Miguel', team: 'Finishing', alert: 'Admitted', time: '8:35 am', date: '01/19/26' },
-                                { name: 'Ernesto Tornito', team: 'MEPF', alert: 'Overtime', time: '9:00 am', date: '01/19/26' },
-                            ].map((row, i) => (
-                                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer">
-                                    <td className="px-6 py-3">{row.name}</td>
-                                    <td className="px-6 py-3">{row.team}</td>
-                                    <td className="px-6 py-3">{row.alert}</td>
-                                    <td className="px-6 py-3">{row.time}</td>
-                                    <td className="px-6 py-3">{row.date}</td>
+                            {alertsLoading ? (
+                              <tr>
+                                <td className="px-6 py-10" colSpan={5}>
+                                  <div className="flex items-center justify-center">
+                                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : activeAlerts.length === 0 ? (
+                              <tr>
+                                <td className="px-6 py-6 text-slate-400" colSpan={5}>
+                                  No active alerts
+                                </td>
+                              </tr>
+                            ) : (
+                              activeAlerts.slice(0, 8).map((alert) => (
+                                <tr
+                                  key={alert.id ?? `${alert.alertType}-${alert.createdAt}`}
+                                  className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
+                                >
+                                  <td className="px-6 py-3">{alert.id ?? '-'}</td>
+                                  <td className="px-6 py-3">{alert.alertType}</td>
+                                  <td className="px-6 py-3 max-w-[360px] truncate" title={alert.alertMessage || ''}>
+                                    {alert.alertMessage || '-'}
+                                  </td>
+                                  <td className="px-6 py-3">
+                                    {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : '-'}
+                                  </td>
+                                  <td className="px-6 py-3">
+                                    <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded-sm bg-yellow-50 text-yellow-700">
+                                      ACTIVE
+                                    </span>
+                                  </td>
                                 </tr>
-                            ))}
+                            )))}
                         </tbody>
                     </table>
                 </div>
               </div>
 
-              {/* Overall Attendance Overview Chart */}
-              <ChartContainer title="Overall Attendance Overview" subtitle="This bar graph shows how many workers are onsite and their time of arrival.">
-                <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={attendanceData}>
+              {/* Staff Efficiency Chart */}
+              <ChartContainer title="Staff Efficiency" subtitle="Checkups completed by medical staff.">
+                <ResponsiveContainer width="100%" height={250} minWidth={0}>
+                    <BarChart data={staffEfficiency}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                         <Tooltip cursor={{fill: '#f8fafc'}} />
                         <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                        <Bar dataKey="Workers" stackId="a" fill="#818cf8" barSize={30} radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="Hotlist" stackId="a" fill="#f87171" barSize={30} />
-                        <Bar dataKey="Engineers" stackId="a" fill="#2dd4bf" barSize={30} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="checkups_completed" name="Checkups" fill="#8884d8" barSize={30} radius={[4, 4, 0, 0]} />
                     </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-
-              {/* Hotlist Attendance Overview Chart */}
-              <ChartContainer title="Hotlist Attendance Overview" subtitle="This bar graph shows recent hotlist alerts by team.">
-                <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={(Array.isArray(teamAttendanceData) ? teamAttendanceData : []).slice(0, 5).map((t, i) => ({
-                      name: `Team ${i + 1}`,
-                      present: t.present,
-                      absent: t.absent,
-                      leave: t.on_leave,
-                    }))}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <Tooltip />
-                        <Legend iconType="rect" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                        <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
-                        <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
-                        <Bar dataKey="leave" stackId="a" fill="#2dd4bf" name="On Leave" />
-                    </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-
-              {/* Attendance Trend (Line Chart) */}
-              <ChartContainer title="Attendance Overview" subtitle="This bar graph shows how many hotlist per team is present.">
-                <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={attendanceData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <Tooltip />
-                        <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold'}} />
-                        <Line type="monotone" dataKey="Hotlist" stroke="#818cf8" strokeWidth={3} dot={{r: 4}} />
-                        <Line type="monotone" dataKey="Workers" stroke="#f87171" strokeWidth={3} dot={{r: 4}} />
-                        <Line type="monotone" dataKey="Engineers" stroke="#2dd4bf" strokeWidth={3} dot={{r: 4}} />
-                    </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>
 
@@ -241,7 +237,7 @@ const NurseDashboard = () => {
                                     </div>
                                 </div>
                                 <button 
-                                    onClick={() => navigate('/worker-profile')}
+                                    onClick={() => { /* navigate('/worker-profile') */ }}
                                     className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
                                 >
                                     See profile
@@ -254,27 +250,22 @@ const NurseDashboard = () => {
                     </div>
                 </div>
 
-                {/* Team Attendance Donut */}
+                {/* Alert Breakdown Donut */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Team Attendance</h3>
-                    <div className="flex gap-2 mb-6">
-                        <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
-                        <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <HardHat size={10}/> Line & Grade Team</button>
-                        <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Calendar size={10}/> Jan 20, 2026</button>
-                    </div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Alert Type Breakdown</h3>
                     
                     <div className="h-64 relative">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <PieChart>
                                 <Pie 
-                                    data={teamAttendancePie} 
+                                    data={alertsBreakdownPie} 
                                     innerRadius={60} 
                                     outerRadius={80} 
                                     paddingAngle={5} 
                                     dataKey="value"
                                 >
-                                    {teamAttendancePie.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    {alertsBreakdownPie.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
                                 <Tooltip />
@@ -282,16 +273,17 @@ const NurseDashboard = () => {
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                             <span className="text-3xl font-black text-slate-800">
-                              {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
+                              {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
                             </span>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
                         </div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-4">
-                        {teamAttendancePie.map((item) => (
+                        {alertsBreakdownPie.map((item, index) => (
                             <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
                                     <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
                                 </div>
                                 <span className="text-[12px] font-black text-slate-700">{item.value}</span>
@@ -299,12 +291,10 @@ const NurseDashboard = () => {
                         ))}
                     </div>
                 </div>
-
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
