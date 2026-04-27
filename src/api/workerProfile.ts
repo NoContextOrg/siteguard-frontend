@@ -15,9 +15,13 @@ export const updateWorkerProfile = async (
   personId: number,
   dto: WorkerProfileUpdateDTO,
 ): Promise<PersonResponse> => {
-  return authenticatedFetch(`/api/worker-profiles/person/${personId}`, {
+  const response = await authenticatedFetch(`/api/worker-profiles/person/${personId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(dto),
   });
+  if (!response.ok) {
+    throw new Error('Failed to update worker profile');
+  }
+  return response.json();
 };

@@ -134,8 +134,9 @@ const WorkerProfile = () => {
       // Filter out undefined values from editData
       const dto: WorkerProfileUpdateDTO = {};
       for (const key in editData) {
-        if (editData[key] !== undefined && editData[key] !== null) {
-          dto[key] = editData[key];
+        const typedKey = key as keyof WorkerProfileUpdateDTO;
+        if (editData[typedKey] !== undefined && editData[typedKey] !== null) {
+          dto[typedKey] = editData[typedKey];
         }
       }
 

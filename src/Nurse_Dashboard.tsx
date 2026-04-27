@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import type { 
   HotlistOverview,
@@ -264,7 +264,7 @@ const NurseDashboard = () => {
                                     paddingAngle={5} 
                                     dataKey="value"
                                 >
-                                    {alertsBreakdownPie.map((entry, index) => (
+                                    {alertsBreakdownPie.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
