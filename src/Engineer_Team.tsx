@@ -12,18 +12,11 @@ import {
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { getAllPersons } from './api/person';
+import type { PersonResponse } from './api/person';
 import { getOvertimeOverview, getSystemStats } from './api/analytics';
 import { getActiveAlertCount } from './api/alert';
 
 // ================= TYPES ================= //
-type Person = {
-  id: number;
-  firstName: string;
-  lastName: string;
-  role: string;
-  teamName?: string;
-};
-
 type OvertimePoint = {
   name: string;
   Hotlist: number;
@@ -35,7 +28,7 @@ const EngineerTeam = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalType, setModalType] = useState<'list' | 'add' | null>(null);
 
-  const [persons, setPersons] = useState<Person[]>([]);
+  const [persons, setPersons] = useState<PersonResponse[]>([]);
   const [overtimeData, setOvertimeData] = useState<OvertimePoint[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [activeAlerts, setActiveAlerts] = useState<number>(0);
@@ -55,9 +48,9 @@ const EngineerTeam = () => {
         ]);
 
         setPersons(personsData || []);
-        setOvertimeData(overtimeJson?.data || overtimeJson || []);
+        setOvertimeData(Array.isArray(overtimeJson) ? overtimeJson : (overtimeJson as any)?.data ?? []);
         setStats(statsJson);
-        setActiveAlerts(alertsJson?.activeAlertCount || 0);
+        setActiveAlerts((alertsJson as any)?.activeAlertCount || 0);
 
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -72,13 +65,9 @@ const EngineerTeam = () => {
   // ================= FILTER ================= //
   const filteredWorkers = useMemo(() => {
     return persons.filter(p =>
-      `${p.firstName} ${p.lastName}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+      (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [persons, searchTerm]);
-
-  const mapName = (p: Person) => `${p.firstName} ${p.lastName}`;
 
   // ================= UI ================= //
   return (
@@ -190,11 +179,11 @@ const EngineerTeam = () => {
                   filteredWorkers.map((p) => (
                     <tr key={p.id} className="border-b hover:bg-slate-50">
                       <td className="p-4 text-slate-900">
-                        {mapName(p)}
+                        {p.name}
                       </td>
-                      <td>{p.role}</td>
+                      <td>{(p as any).role || 'WORKER'}</td>
                       <td>
-                        <Link to={`/worker-profile/${p.id}`} className="text-blue-500">
+                        <Link to={`/worker-profile?id=${p.id}`} className="text-blue-500">
                           View
                         </Link>
                       </td>
