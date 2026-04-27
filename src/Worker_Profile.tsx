@@ -5,6 +5,10 @@ import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getPersonById, type PersonResponse } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
+import {
+  updateWorkerProfile,
+  type WorkerProfileUpdateDTO,
+} from './api/workerProfile';
 
 // NOTE: These API functions should be moved to a dedicated file like `src/api/health.ts`
 // and use a shared API client instance (e.g., axios).
@@ -52,6 +56,9 @@ const WorkerProfile = () => {
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editData, setEditData] = useState<WorkerProfileUpdateDTO>({});
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<HealthLogDTO>({});
@@ -99,6 +106,52 @@ const WorkerProfile = () => {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleEditClick = () => {
+    if (!worker) return;
+    setEditData({
+      name: worker.name,
+      address: (worker as any).address,
+      phoneNumber: (worker as any).phoneNumber,
+      age: (worker as any).age,
+      birthDate: (worker as any).birthDate,
+      position: worker.position,
+      employmentYear: (worker as any).employmentYear,
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelClick = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveClick = async () => {
+    if (!worker) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      // Filter out undefined values from editData
+      const dto: WorkerProfileUpdateDTO = {};
+      for (const key in editData) {
+        if (editData[key] !== undefined && editData[key] !== null) {
+          dto[key] = editData[key];
+        }
+      }
+
+      const updatedWorker = await updateWorkerProfile(worker.id, dto);
+      setWorker(updatedWorker);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,8 +231,28 @@ const WorkerProfile = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* ========== Left Column: Personal_Info ========== */}
           <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white p-10 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex flex-col items-center mb-10">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <button onClick={handleCancelClick} className="text-slate-600 font-bold px-4 py-2 rounded-lg hover:bg-slate-100">
+                      Cancel
+                    </button>
+                    <button onClick={handleSaveClick} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleEditClick}
+                    className="flex items-center gap-2 text-blue-900 font-bold hover:text-blue-600 transition"
+                  >
+                    <SquarePen size={18} /> EDIT PROFILE
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col items-center mb-6">
                 <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6">
                   <img src={`https://i.pravatar.cc/150?u=${worker.id}`} alt="Worker" className="w-full h-full object-cover" />
                 </div>
@@ -187,36 +260,60 @@ const WorkerProfile = () => {
 
               {/* ========== Form Fields ========== */}
               <div className="space-y-6">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Name</label>
-                  <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-lg text-center">{worker.name || 'N/A'}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Address</label>
-                  <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{(worker as any).address || 'N/A'}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Contact Number</label>
-                  <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{(worker as any).phoneNumber || 'N/A'}</div>
-                </div>
+                <EditableProfileField
+                  label="Name"
+                  name="name"
+                  value={isEditing ? editData.name : worker.name}
+                  isEditing={isEditing}
+                  onChange={handleEditDataChange}
+                />
+                <EditableProfileField
+                  label="Address"
+                  name="address"
+                  value={isEditing ? editData.address : (worker as any).address}
+                  isEditing={isEditing}
+                  onChange={handleEditDataChange}
+                />
+                <EditableProfileField
+                  label="Contact Number"
+                  name="phoneNumber"
+                  value={isEditing ? editData.phoneNumber : (worker as any).phoneNumber}
+                  isEditing={isEditing}
+                  onChange={handleEditDataChange}
+                />
                 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Age</label>
-                    <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{(worker as any).age || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Birthdate</label>
-                    <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{(worker as any).birthDate || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Position</label>
-                    <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{worker.position || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Year of Employment</label>
-                    <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-center">{(worker as any).employmentYear || 'N/A'}</div>
-                  </div>
+                  <EditableProfileField
+                    label="Age"
+                    name="age"
+                    type="number"
+                    value={isEditing ? editData.age : (worker as any).age}
+                    isEditing={isEditing}
+                    onChange={handleEditDataChange}
+                  />
+                  <EditableProfileField
+                    label="Birthdate"
+                    name="birthDate"
+                    type="date"
+                    value={isEditing ? editData.birthDate : (worker as any).birthDate}
+                    isEditing={isEditing}
+                    onChange={handleEditDataChange}
+                  />
+                  <EditableProfileField
+                    label="Position"
+                    name="position"
+                    value={isEditing ? editData.position : worker.position}
+                    isEditing={isEditing}
+                    onChange={handleEditDataChange}
+                  />
+                  <EditableProfileField
+                    label="Year of Employment"
+                    name="employmentYear"
+                    type="number"
+                    value={isEditing ? editData.employmentYear : (worker as any).employmentYear}
+                    isEditing={isEditing}
+                    onChange={handleEditDataChange}
+                  />
                 </div>
               </div>
 
@@ -425,5 +522,22 @@ const WorkerProfile = () => {
     </DashboardLayout>
   );
 };
+
+const EditableProfileField = ({ label, name, value, isEditing, onChange, type = 'text' }: any) => (
+  <div>
+    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">{label}</label>
+    {isEditing ? (
+      <input
+        type={type}
+        name={name}
+        value={value || ''}
+        onChange={onChange}
+        className="w-full p-4 border-2 border-blue-200 bg-blue-50 rounded-xl font-bold text-slate-700 text-lg text-center"
+      />
+    ) : (
+      <div className="w-full p-4 border-2 border-slate-200 rounded-xl font-bold text-slate-700 text-lg text-center">{value || 'N/A'}</div>
+    )}
+  </div>
+);
 
 export default WorkerProfile;
