@@ -136,7 +136,9 @@ const WorkerProfile = () => {
       for (const key in editData) {
         const typedKey = key as keyof WorkerProfileUpdateDTO;
         if (editData[typedKey] !== undefined && editData[typedKey] !== null) {
-          dto[typedKey] = editData[typedKey];
+          // Use 'any' to bypass TypeScript's limitation on assigning to a
+          // property accessed by a union-type key.
+          (dto as any)[typedKey] = editData[typedKey];
         }
       }
 
