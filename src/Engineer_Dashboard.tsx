@@ -19,6 +19,8 @@ import {
   getHotlistOverview,
   getTeamAttendance,
 } from './api/analytics';
+import { getAllPersons } from './api/person';
+import { getActiveAlerts } from './api/alert';
 import DashboardLayout from './components/DashboardLayout';
 
 const EngineerDashboard = () => {
@@ -51,8 +53,8 @@ const EngineerDashboard = () => {
           getDashboardOverview(),
           getHotlistOverview(),
           getTeamAttendance(),
-          fetch('/api/persons').then(r => r.json()),
-          fetch('/api/alerts/active').then(r => r.json()),
+          getAllPersons(),
+          getActiveAlerts(),
         ]);
 
         setSystemStats(stats);

@@ -11,6 +11,9 @@ import {
 } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
+import { getAllPersons } from './api/person';
+import { getOvertimeOverview, getSystemStats } from './api/analytics';
+import { getActiveAlertCount } from './api/alert';
 
 // ================= TYPES ================= //
 type Person = {
@@ -44,22 +47,17 @@ const EngineerTeam = () => {
       try {
         setLoading(true);
 
-        const [personsRes, overtimeRes, statsRes, alertsRes] = await Promise.all([
-          fetch('/api/persons'),
-          fetch('/api/analytics/overtime'),
-          fetch('/api/analytics/stats'),
-          fetch('/api/alerts/count/active')
+        const [personsData, overtimeJson, statsJson, alertsJson] = await Promise.all([
+          getAllPersons(),
+          getOvertimeOverview(),
+          getSystemStats(),
+          getActiveAlertCount(),
         ]);
-
-        const personsData = await personsRes.json();
-        const overtimeJson = await overtimeRes.json();
-        const statsJson = await statsRes.json();
-        const alertsJson = await alertsRes.json();
 
         setPersons(personsData || []);
         setOvertimeData(overtimeJson?.data || overtimeJson || []);
         setStats(statsJson);
-        setActiveAlerts(alertsJson || 0);
+        setActiveAlerts(alertsJson?.activeAlertCount || 0);
 
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
