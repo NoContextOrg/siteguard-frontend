@@ -170,3 +170,24 @@ export const updateHotlistStatus = async (
     throw error;
   }
 };
+
+/* =========================================================
+   DISPATCH ALERT
+========================================================= */
+
+/**
+ * Dispatch alert for real-time notifications
+ */
+export async function dispatchAlert(payload: {
+  alertType: string;
+  personCode?: string;
+  personId?: number;
+}) {
+  const res = await fetch('/api/alerts/dispatch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Filter, UserCheck, UserX, UserPlus, Users
+  Filter, UserCheck, UserX, UserPlus, Users, Bell
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -35,6 +35,9 @@ const EngineerDashboard = () => {
   // NEW: backend-connected states
   const [persons, setPersons] = useState<PersonResponse[]>([]);
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
+  const [floatingAlert, setFloatingAlert] = useState<AlertDTO | null>(null);
+
+  const lastAlertIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -75,6 +78,25 @@ const EngineerDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    const pollAlerts = async () => {
+      try {
+        const alerts = await getActiveAlerts();
+        if (Array.isArray(alerts) && alerts.length > 0) {
+          const latest = alerts[0];
+          if (latest.id && lastAlertIdRef.current !== latest.id) {
+            setFloatingAlert(latest);
+            lastAlertIdRef.current = latest.id;
+            setTimeout(() => setFloatingAlert(null), 7000);
+          }
+        }
+      } catch {}
+    };
+    pollAlerts();
+    const interval = setInterval(pollAlerts, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const containerVars = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1 } }
@@ -88,6 +110,16 @@ const EngineerDashboard = () => {
   return (
     <DashboardLayout>
       <motion.div className="p-8" variants={containerVars} initial="hidden" animate="show">
+        {floatingAlert && (
+          <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
+            <Bell className="text-yellow-500" size={28} />
+            <div>
+              <div className="font-bold text-yellow-800">New Alert: {floatingAlert.alertType}</div>
+              <div className="text-yellow-700 text-sm">{floatingAlert.alertMessage}</div>
+              <div className="text-xs text-yellow-600 mt-1">{floatingAlert.createdAt ? new Date(floatingAlert.createdAt).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">

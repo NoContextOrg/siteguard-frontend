@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
@@ -22,6 +22,8 @@ const NurseDashboard = () => {
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsError, setAlertsError] = useState<string | null>(null);
   const [activeAlerts, setActiveAlerts] = useState<AlertDTO[]>([]);
+  const [floatingAlert, setFloatingAlert] = useState<AlertDTO | null>(null);
+  const lastAlertIdRef = useRef<number | null>(null);
 
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
   const [alertsOverview, setAlertsOverview] = useState<AlertsOverview | null>(null);
@@ -94,9 +96,39 @@ const NurseDashboard = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const pollAlerts = async () => {
+      try {
+        const alerts = await getActiveAlerts();
+        if (Array.isArray(alerts) && alerts.length > 0) {
+          const latest = alerts[0];
+          if (latest.id && lastAlertIdRef.current !== latest.id) {
+            setFloatingAlert(latest);
+            lastAlertIdRef.current = latest.id;
+            setTimeout(() => setFloatingAlert(null), 7000);
+          }
+        }
+      } catch {}
+    };
+    pollAlerts();
+    const interval = setInterval(pollAlerts, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <DashboardLayout title="Nurse Dashboard">
       <div className="p-8">
+        {floatingAlert && (
+          <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
+            <Bell className="text-yellow-500" size={28} />
+            <div>
+              <div className="font-bold text-yellow-800">New Alert: {floatingAlert.alertType}</div>
+              <div className="text-yellow-700 text-sm">{floatingAlert.alertMessage}</div>
+              <div className="text-xs text-yellow-600 mt-1">{floatingAlert.createdAt ? new Date(floatingAlert.createdAt).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        )}
+
           <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
 
           {/* ========== TOP STAT CARDS ========== */}

@@ -23,6 +23,7 @@ interface WorkerRow {
 }
 
 const toWorkerRow = (p: PersonResponse): WorkerRow => {
+  // Only use fingerprint for display, do not send in payloads
   const fingerprint = (p as any).fingerprint ?? null;
 
   return {
