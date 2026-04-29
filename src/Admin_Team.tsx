@@ -180,9 +180,6 @@ const AdminTeam = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  // Add Worker password state
-  const [addWorkerPassword, setAddWorkerPassword] = useState('');
-  const [addWorkerConfirmPassword, setAddWorkerConfirmPassword] = useState('');
 
   const closeModal = () => {
     if (teamSubmitting || accountSubmitting) return;
@@ -284,19 +281,10 @@ const AdminTeam = () => {
       setError('Please select a team and worker');
       return;
     }
-    if (addWorkerPassword && addWorkerPassword !== addWorkerConfirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
     try {
       setError(null);
+      // Assign worker to team, use current date if needed (not shown in UI)
       await assignWorkersToTeam(selectedTeamIdForWorkerAdd, [selectedWorkerId]);
-      if (addWorkerPassword && addWorkerPassword.length >= 6) {
-        await setPersonPassword(selectedWorkerId, addWorkerPassword);
-      }
-      setAddWorkerPassword('');
-      setAddWorkerConfirmPassword('');
       closeModal();
       await load();
     } catch (e2) {
@@ -320,11 +308,21 @@ const AdminTeam = () => {
         setAccountSubmitting(false);
         return;
       }
+      if (!newAccountPhone || !/^\d{10,11}$/.test(newAccountPhone)) {
+        setError('Phone is required and must be 10 or 11 digits (exclude leading 0).');
+        setAccountSubmitting(false);
+        return;
+      }
+      // Format phone as +63XXXXXXXXXX
+      let formattedPhone = newAccountPhone.trim();
+      if (formattedPhone.startsWith('0')) formattedPhone = formattedPhone.slice(1);
+      if (!formattedPhone.startsWith('9')) formattedPhone = '9' + formattedPhone.replace(/^\+?63/, '');
+      formattedPhone = '+63' + formattedPhone;
 
       const payload = {
         name: newAccountName.trim(),
         email: newAccountEmail.trim(),
-        phone: newAccountPhone.trim(),
+        phone: formattedPhone,
         position: newAccountRole === 'WORKER' ? 'Worker' : newAccountRole === 'ENGINEER' ? 'Site Engineer' : newAccountRole === 'NURSE' ? 'Nurse' : 'Admin',
         department: newAccountDepartment.trim(),
         role: newAccountRole,
@@ -606,6 +604,17 @@ const AdminTeam = () => {
     setPasswordSuccess(null);
   };
 
+  // Handler to remove member from team using fetch
+  const handleRemoveMemberFromTeam = async (teamId: number, personId: number) => {
+    try {
+      setError(null);
+      await fetch(`/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
+      await loadTeamMembers(teamId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove member from team');
+    }
+  };
+
   // Skeleton rows shown while loading
   const skeletonRows = [...Array(5)].map((_, i) => (
     <tr key={`skel-${i}`} className="border-b border-slate-100">
@@ -623,6 +632,16 @@ const AdminTeam = () => {
       </td>
     </tr>
   ));
+
+  // Department dropdown options
+  const departmentOptions = [
+    'Structural',
+    'Electrical',
+    'Plumbing',
+    'Safety',
+    'General',
+    'Other',
+  ];
 
   return (
     <DashboardLayout title="Team">
@@ -901,27 +920,39 @@ const AdminTeam = () => {
             </div>
 
             <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Phone (optional)</label>
-              <input
-                type="text"
-                value={newAccountPhone}
-                onChange={(e) => setNewAccountPhone(e.target.value)}
-                placeholder="e.g. 09xxxxxxxxx"
-                className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-                disabled={accountSubmitting}
-              />
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Phone</label>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-bold text-sm select-none">+63</span>
+                <input
+                  type="text"
+                  value={newAccountPhone}
+                  onChange={(e) => setNewAccountPhone(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="e.g. 9084405567"
+                  className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                  required
+                  minLength={10}
+                  maxLength={11}
+                  disabled={accountSubmitting}
+                  style={{ paddingLeft: 0 }}
+                />
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Enter 10 or 11 digits (exclude leading 0). Will be formatted as +63XXXXXXXXXX.</div>
             </div>
 
             <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Department (optional)</label>
-              <input
-                type="text"
+              <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Department</label>
+              <select
                 value={newAccountDepartment}
                 onChange={(e) => setNewAccountDepartment(e.target.value)}
-                placeholder="e.g. Structural"
                 className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
+                required
                 disabled={accountSubmitting}
-              />
+              >
+                <option value="">-- Select Department --</option>
+                {departmentOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
 
             <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
@@ -1052,41 +1083,6 @@ const AdminTeam = () => {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Assign Date</label>
-            <input
-              type="date"
-              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-            />
-          </div>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password (optional)</label>
-            <input
-              type="password"
-              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-              value={addWorkerPassword}
-              required
-              minLength={6}
-              onChange={e => setAddWorkerPassword(e.target.value)}
-              placeholder="Set password for this worker"
-              autoComplete="off"
-              onBlur={() => { if (addWorkerPassword.length < 6) setError('Password must be at least 6 characters.'); else setError(null); }}
-            />
-          </div>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-            <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Confirm Password</label>
-            <input
-              type="password"
-              className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm"
-              value={addWorkerConfirmPassword}
-              required
-              minLength={6}
-              onChange={(e) => setAddWorkerConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              autoComplete="off"
-              onBlur={() => { if (addWorkerPassword !== addWorkerConfirmPassword) setError('Passwords do not match.'); else setError(null); }}
-            />
           </div>
           <button
             type="submit"
@@ -1222,13 +1218,20 @@ const AdminTeam = () => {
                           <td className="p-3 font-bold text-slate-800">{anyM.name ?? '—'}</td>
                           <td className="p-3 text-slate-700">{String(anyM.role ?? '—').toUpperCase()}</td>
                           <td className="p-3 text-slate-700">{anyM.email ?? '—'}</td>
-                          <td className="p-3">
+                          <td className="p-3 flex gap-2">
                             <button
                               onClick={() => openPasswordModal(m.id)}
                               className="p-2 text-orange-600 hover:text-orange-700 transition-colors"
                               title="Change Password"
                             >
                               Change Password
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMemberFromTeam(selectedTeam.id, m.id)}
+                              className="p-2 text-red-600 hover:text-red-700 transition-colors"
+                              title="Remove from Team"
+                            >
+                              Remove
                             </button>
                           </td>
                         </tr>

@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { getPrimaryRole, initAuthListener } from './api/auth';
 import { initStorageDebugger } from './utils/storageDebugger';
+import WorkerLandingPage from './WorkerLandingPage';
 
 // ========== Sub-Components ========== //
 
@@ -238,6 +239,8 @@ const LandingPage = () => {
         dashboardRoute = '/admin_dashboard';
       } else if (primaryRole === 'engineer') {
         dashboardRoute = '/engineer_dashboard';
+      } else if (primaryRole === 'worker') {
+        dashboardRoute = '/worker_landing';
       }
       
       navigate(dashboardRoute);
@@ -417,13 +420,15 @@ const DashboardRouter = () => {
     // Determine the primary role and redirect to appropriate dashboard
     if (roles && roles.length > 0) {
       const primaryRole = roles[0].replace('ROLE_', '').toLowerCase();
-      
       switch (primaryRole) {
         case 'admin':
           navigate('/admin_dashboard', { replace: true });
           break;
         case 'engineer':
           navigate('/engineer_dashboard', { replace: true });
+          break;
+        case 'worker':
+          navigate('/worker_landing', { replace: true });
           break;
         case 'nurse':
         case 'staff':
@@ -561,6 +566,23 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <WorkerProfile />
+          </ProtectedRoute>
+        } 
+      />
+      {/* Worker landing page for their profile only */}
+      <Route 
+        path="/worker_landing" 
+        element={
+          <ProtectedRoute requiredRoles={['worker']}>
+            <WorkerLandingPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/worker_profile" 
+        element={
+          <ProtectedRoute requiredRoles={['worker']}>
+            <WorkerLandingPage />
           </ProtectedRoute>
         } 
       />

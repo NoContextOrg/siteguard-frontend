@@ -21,6 +21,8 @@ import {
 interface AuthContextType {
   isAuthenticated: boolean;
   userEmail: string | null;
+  userId: number | null;
+  personCode: string | null;
   roles: string[];
   loading: boolean;
   error: string | null;
@@ -35,6 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [personCode, setPersonCode] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +57,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const userRoles = getUserRoles();
             setUserEmail(email);
             setRoles(userRoles);
+            
+            const storedUserId = localStorage.getItem('userId');
+            const storedPersonCode = localStorage.getItem('personCode');
+            if (storedUserId) setUserId(Number(storedUserId));
+            if (storedPersonCode) setPersonCode(storedPersonCode);
           } else {
             logoutUser();
             setIsAuthenticated(false);
@@ -83,6 +92,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUserEmail(response.username);
       setRoles(response.roles);
       
+      // Store userDetails in state and localStorage
+      const userDetails = (response as any).userDetails;
+      if (userDetails) {
+        setUserId(userDetails.id);
+        setPersonCode(userDetails.personCode);
+        localStorage.setItem('userId', String(userDetails.id));
+        localStorage.setItem('personCode', userDetails.personCode);
+      }
+      
       // Store roles in localStorage for sidebar configuration
       localStorage.setItem('userRoles', JSON.stringify(response.roles));
       
@@ -102,8 +120,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logoutUser();
     setIsAuthenticated(false);
     setUserEmail(null);
+    setUserId(null);
+    setPersonCode(null);
     setRoles([]);
     setError(null);
+    localStorage.removeItem('userId');
+    localStorage.removeItem('personCode');
     navigate('/', { replace: true });
   };
 
@@ -116,6 +138,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         isAuthenticated,
         userEmail,
+        userId,
+        personCode,
         roles,
         loading,
         error,

@@ -5,12 +5,12 @@
  */
 
 import React from 'react';
-import { LayoutDashboard, Users, BellRing, Users2 } from 'lucide-react';
+import { LayoutDashboard, Users, BellRing, Users2, User } from 'lucide-react';
 import { getPrimaryRole } from '../api/auth';
 
 // ========== Type Exports ==========
-export type UserRole = 'admin' | 'engineer' | 'nurse' | 'staff';
-export type SidebarIconType = 'dashboard' | 'workers' | 'alerts' | 'teams';
+export type UserRole = 'admin' | 'engineer' | 'nurse' | 'staff' | 'worker';
+export type SidebarIconType = 'dashboard' | 'workers' | 'alerts' | 'teams' | 'profile';
 
 // ========== Interface Exports ==========
 /**
@@ -46,6 +46,8 @@ export const getTabIcon = (iconType: SidebarIconType): React.ReactNode => {
       return <BellRing size={20} />;
     case 'teams':
       return <Users2 size={20} />;
+    case 'profile':
+      return <User size={20} />;
     default:
       return <Users size={20} />;
   }
@@ -79,6 +81,12 @@ export const TAB_DEFINITIONS: Record<string, SidebarTab> = {
     iconType: 'teams',
     path: '/teams',
   },
+  PROFILE: {
+    id: 'profile',
+    label: 'Profile',
+    iconType: 'profile',
+    path: '/worker_profile',
+  },
 };
 
 /**
@@ -90,6 +98,7 @@ export const ROLE_TAB_CONFIG: Record<UserRole, string[]> = {
   engineer: ['DASHBOARD', 'WORKERS', 'ALERTS', 'TEAMS'],
   nurse: ['DASHBOARD', 'WORKERS', 'ALERTS'],
   staff: ['DASHBOARD', 'WORKERS', 'ALERTS'],
+  worker: ['DASHBOARD', 'PROFILE'],
 };
 
 /**
@@ -115,6 +124,10 @@ export const ROLE_PATH_OVERRIDES: Record<UserRole, Record<string, string>> = {
   staff: {
     DASHBOARD: '/nurse_dashboard',
     WORKERS: '/workers',
+  },
+  worker: {
+    DASHBOARD: '/worker_landing',
+    PROFILE: '/worker_profile',
   },
 };
 
@@ -204,7 +217,7 @@ export const getAllTabsForRole = (role: UserRole): string => {
  */
 export const isValidRole = (role: string | null): role is UserRole => {
   if (!role) return false;
-  return ['admin', 'engineer', 'nurse', 'staff'].includes(role.toLowerCase());
+  return ['admin', 'engineer', 'nurse', 'staff', 'worker'].includes(role.toLowerCase());
 };
 
 /**
