@@ -10,6 +10,7 @@ import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
 import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
 import { createPersonUi, deletePersonById, updatePersonUi } from './api/person';
+import { authenticatedFetch } from './api/fetch';
 import { setPersonPassword } from './api/person';
 
 // ========== Types & Sub-Components ========== //
@@ -608,7 +609,7 @@ const AdminTeam = () => {
   const handleRemoveMemberFromTeam = async (teamId: number, personId: number) => {
     try {
       setError(null);
-      await fetch(`/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
+      await authenticatedFetch(`http://siteguardph.duckdns.org/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
       await loadTeamMembers(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member from team');

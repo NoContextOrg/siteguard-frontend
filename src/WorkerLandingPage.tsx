@@ -49,7 +49,7 @@ const WorkerLandingPage: React.FC = () => {
         }
         
         if (activeTab === 'dashboard' && currentCode) {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+          const apiUrl = 'http://siteguardph.duckdns.org/api';
           const [summaryRes, logsRes] = await Promise.all([
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}/summary`),
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`)
