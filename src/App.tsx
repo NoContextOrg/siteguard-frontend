@@ -90,6 +90,7 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
   const { login, loading, error, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [localError, setLocalError] = useState('');
 
   if (!isOpen) return null;
@@ -105,7 +106,7 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
     }
 
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       setEmail('');
       setPassword('');
       onClose();
@@ -160,6 +161,19 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
                 disabled={loading}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="rememberMe" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+              />
+              <label htmlFor="rememberMe" className="text-sm font-medium text-slate-700 cursor-pointer">
+                Remember me
+              </label>
             </div>
             
             <button 

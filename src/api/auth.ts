@@ -8,6 +8,7 @@ const API_BASE_URL = 'http://localhost:8080/api';
 export interface LoginRequest {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface AuthResponse {
@@ -140,7 +141,7 @@ export const hasRole = (role: string): boolean => {
  * Store auth data in local storage with STRICT validation
  * CRITICAL: This MUST save the JWT to localStorage
  */
-export const storeAuthData = (authResponse: AuthResponse): void => {
+export const storeAuthData = (authResponse: AuthResponse, rememberMe: boolean = false): void => {
   try {
     console.log('💾 [AUTH_STORAGE_START] Storing auth response');
     
@@ -174,7 +175,9 @@ export const storeAuthData = (authResponse: AuthResponse): void => {
     console.log('✅ [ROLES_STORED] userRoles:', authResponse.roles);
 
     // Step 5: Store tokenExpiry
-    const expiryMs = new Date().getTime() + ((authResponse.expiresIn || 3600) * 1000);
+    // Trust the backend's calculated expiresIn, with a safe fallback
+    const expirySeconds = authResponse.expiresIn || (rememberMe ? 2592000 : 21600);
+    const expiryMs = new Date().getTime() + (expirySeconds * 1000);
     localStorage.setItem('tokenExpiry', expiryMs.toString());
     console.log('✅ [EXPIRY_STORED] Expires at:', new Date(expiryMs).toLocaleString());
 
@@ -341,7 +344,7 @@ export const normalizeAuthResponse = (response: any): AuthResponse => {
   const token = response.accessToken || response.token || response.access_token;
   const username = response.username || response.email || response.user || 'Unknown';
   const roles = response.roles || response.user?.roles || [];
-  const expiresIn = response.expiresIn || response.expires_in || 3600;
+  const expiresIn = response.expiresIn || response.expires_in || 21600; // Default to 6 hours
   const tokenType = response.tokenType || response.token_type || 'Bearer';
 
   if (!token) {

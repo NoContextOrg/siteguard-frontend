@@ -13,10 +13,8 @@ const WorkerLandingPage: React.FC = () => {
   const userEmail = auth.userEmail || '';
   
   const [fallbackId, setFallbackId] = useState<number | null>(null);
-  const [fallbackCode, setFallbackCode] = useState<string>('');
   
   const workerId = auth.userId || fallbackId;
-  const personCode = auth.personCode || fallbackCode;
   
   const activeTab = location.pathname === '/worker_profile' ? 'profile' : 'dashboard';
   
@@ -45,7 +43,6 @@ const WorkerLandingPage: React.FC = () => {
             currentId = personData.id;
             currentCode = (personData as any).personCode;
             setFallbackId(currentId);
-            setFallbackCode(currentCode || '');
           } else {
             throw new Error('Worker profile not found.');
           }

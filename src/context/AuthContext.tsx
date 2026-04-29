@@ -26,7 +26,7 @@ interface AuthContextType {
   roles: string[];
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -82,12 +82,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     checkAuthentication();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await loginUser({ email, password });
-      storeAuthData(response);
+      const response = await loginUser({ email, password, rememberMe });
+      storeAuthData(response, rememberMe);
       setIsAuthenticated(true);
       setUserEmail(response.username);
       setRoles(response.roles);
