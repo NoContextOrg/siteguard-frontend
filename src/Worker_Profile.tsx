@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SquarePen, X } from 'lucide-react';
+import { SquarePen, X, Trash2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getPersonById, type PersonResponse } from './api/person';
@@ -9,9 +9,9 @@ import {
   updateWorkerProfile,
   type WorkerProfileUpdateDTO,
 } from './api/workerProfile';
+import { authenticatedFetch } from './api/fetch';
 
-// NOTE: These API functions should be moved to a dedicated file like `src/api/health.ts`
-// and use a shared API client instance (e.g., axios).
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface HealthLogDTO {
   id?: number;
@@ -32,22 +32,45 @@ interface HealthLogDTO {
   date?: string;
 }
 
-const getHealthLogsForPerson = async (_personCode: string): Promise<HealthLogDTO[]> => {
-  // const response = await api.get<HealthLogDTO[]>(`/api/health-logs/person/${personCode}`);
-  // return response.data;
-  // Mocking for now. Replace with actual API call.
-  return [];
+const getHealthLogsForPerson = async (personCode: string): Promise<HealthLogDTO[]> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/health-logs/person/${personCode}`);
+  if (!response.ok) return [];
+  return response.json();
 };
 
-const addHealthLog = async (_personCode: string, logDto: HealthLogDTO): Promise<HealthLogDTO> => {
-  // const response = await api.post<HealthLogDTO>(`/api/health-logs/person/${personCode}`, logDto);
-  // return response.data;
-  // Mocking for now.
-  return { id: Math.random(), ...logDto };
+const addHealthLog = async (personCode: string, logDto: HealthLogDTO): Promise<HealthLogDTO> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/health-logs/person/${personCode}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(logDto),
+  });
+  if (!response.ok) throw new Error('Failed to add health log');
+  return response.json();
+};
+
+const updateHealthLog = async (id: number, logDto: HealthLogDTO): Promise<HealthLogDTO> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/health-logs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(logDto),
+  });
+  if (!response.ok) throw new Error('Failed to update health log');
+  return response.json();
+};
+
+const deleteHealthLog = async (id: number): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/health-logs/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete health log');
 };
 
 const WorkerProfile = () => {
-  const { logout } = useAuth();
+  const { logout, roles } = useAuth();
+  const primaryRole = roles?.[0]?.replace('ROLE_', '').toLowerCase();
+  const canEditProfile = primaryRole === 'admin' || primaryRole === 'nurse';
+  const canAddMedicalLog = primaryRole === 'admin' || primaryRole === 'nurse';
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const workerId = searchParams.get('id');
@@ -62,6 +85,7 @@ const WorkerProfile = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<HealthLogDTO>({});
+  const [editingLogId, setEditingLogId] = useState<number | null>(null);
 
   const loadData = async () => {
     if (!workerId) {
@@ -170,12 +194,28 @@ const WorkerProfile = () => {
     }
 
     try {
-      const newLog = await addHealthLog(personCode, formData);
-      setHealthLogs(prev => [...prev, newLog]);
+      if (editingLogId) {
+        const updatedLog = await updateHealthLog(editingLogId, formData);
+        setHealthLogs(prev => prev.map(log => log.id === editingLogId ? updatedLog : log));
+      } else {
+        const newLog = await addHealthLog(personCode, formData);
+        setHealthLogs(prev => [...prev, newLog]);
+      }
       setIsModalOpen(false);
       setFormData({});
+      setEditingLogId(null);
     } catch (err) {
       alert(`Failed to submit health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleDeleteLog = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this health record?')) return;
+    try {
+      await deleteHealthLog(id);
+      setHealthLogs(prev => prev.filter(log => log.id !== id));
+    } catch (err) {
+      alert(`Failed to delete health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -237,22 +277,24 @@ const WorkerProfile = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <button onClick={handleCancelClick} className="text-slate-600 font-bold px-4 py-2 rounded-lg hover:bg-slate-100">
-                      Cancel
+                {canEditProfile && (
+                  isEditing ? (
+                    <div className="flex gap-2">
+                      <button onClick={handleCancelClick} className="text-slate-600 font-bold px-4 py-2 rounded-lg hover:bg-slate-100">
+                        Cancel
+                      </button>
+                      <button onClick={handleSaveClick} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold" disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleEditClick}
+                      className="flex items-center gap-2 text-blue-900 font-bold hover:text-blue-600 transition"
+                    >
+                      <SquarePen size={18} /> EDIT PROFILE
                     </button>
-                    <button onClick={handleSaveClick} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold" disabled={isSaving}>
-                      {isSaving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleEditClick}
-                    className="flex items-center gap-2 text-blue-900 font-bold hover:text-blue-600 transition"
-                  >
-                    <SquarePen size={18} /> EDIT PROFILE
-                  </button>
+                  )
                 )}
               </div>
               <div className="flex flex-col items-center mb-6">
@@ -372,22 +414,34 @@ const WorkerProfile = () => {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-fit">
             <div className="p-6 text-center border-b border-slate-100">
               <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Medical Form</h2>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center justify-center gap-2 text-blue-900 font-bold mt-2 mx-auto hover:text-blue-600 transition"
-              >
-                <SquarePen size={18} /> ADD CHECKUP LOG
-              </button>
+              {canAddMedicalLog && (
+                <button 
+                  onClick={() => { setEditingLogId(null); setFormData({}); setIsModalOpen(true); }}
+                  className="flex items-center justify-center gap-2 text-blue-900 font-bold mt-2 mx-auto hover:text-blue-600 transition"
+                >
+                  <SquarePen size={18} /> ADD CHECKUP LOG
+                </button>
+              )}
             </div>
 
             <div className="p-4 space-y-3">
               {healthLogs.length > 0 ? healthLogs.map(log => (
-                <div key={log.id} className={`${log.classification === 'HOTLIST' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border p-4 rounded-lg`}>
+                <div key={log.id} className={`${log.classification === 'HOTLIST' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border p-4 rounded-lg relative group`}>
+                  {canAddMedicalLog && (
+                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => { setEditingLogId(log.id!); setFormData(log); setIsModalOpen(true); }} className="p-1.5 bg-white/80 rounded-md hover:bg-white text-blue-600 shadow-sm" title="Edit">
+                        <SquarePen size={14} />
+                      </button>
+                      <button onClick={() => handleDeleteLog(log.id!)} className="p-1.5 bg-white/80 rounded-md hover:bg-white text-red-600 shadow-sm" title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                   <p className={`text-[16px] font-bold ${log.classification === 'HOTLIST' ? 'text-red-900' : 'text-green-900'} leading-tight uppercase text-center`}>
                     {log.findings || 'No findings'}
                   </p>
                   <p className="text-[12px] text-slate-500 mt-1 text-center">
-                    {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'No date'}
+                    {log.date ? new Date(log.date).toLocaleDateString() : log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'No date'}
                   </p>
                 </div>
               )) : <p className="text-center text-slate-500 text-sm py-4">No medical logs found.</p>}
@@ -405,14 +459,14 @@ const WorkerProfile = () => {
           {/* Blurred Backdrop */}
           <div 
           className="absolute inset-0 bg-black/40 backdrop-blur-md"
-          onClick={() => setIsModalOpen(false)}
+          onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({}); }}
           ></div>
 
           <div className="relative bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-200">
           <div className="relative p-6 flex justify-center items-center border-b border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Medical Form</h2>
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Medical Form'}</h2>
               <button 
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({}); }}
               className="absolute right-8 top-6 p-2 hover:bg-slate-100 rounded-full transition"
               >
               <X size={28} className="text-slate-800" />
