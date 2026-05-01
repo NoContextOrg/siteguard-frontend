@@ -3,20 +3,21 @@ import type { PersonResponse } from './person';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
-export interface WorkerProfileUpdateDTO {
-  contactNumber?: string;
+export interface WorkerFullUpdateDTO {
+  name?: string;
+  phoneNumber?: string;
   address?: string;
-  age?: number;
   birthdate?: string;
-  position?: string;
+  age?: number;
   yearOfEmployment?: number;
+  position?: string;
 }
 
-export const updateWorkerProfile = async (
+export const updateFullWorkerProfile = async (
   personId: number,
-  dto: WorkerProfileUpdateDTO,
+  dto: WorkerFullUpdateDTO,
 ): Promise<any> => {
-  const response = await authenticatedFetch(`${API_BASE_URL}/worker-profiles/person/${personId}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/worker-profiles/person/${personId}/full`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(dto),

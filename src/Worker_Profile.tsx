@@ -7,14 +7,14 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
-import { getPersonById, type PersonResponse } from './api/person';
-import { updatePersonUi } from './api/person';
+import { getPersonById } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
 import {
-  updateWorkerProfile,
-  type WorkerProfileUpdateDTO,
+  updateFullWorkerProfile,
+  type WorkerFullUpdateDTO,
 } from './api/workerProfile';
 import { authenticatedFetch } from './api/fetch';
+import { updateHotlistStatus, dispatchAlert } from './api/alert';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -80,7 +80,6 @@ const WorkerProfile = () => {
   const [searchParams] = useSearchParams();
   const workerId = searchParams.get('id');
 
-  const [worker, setWorker] = useState<PersonResponse | null>(null);
   const [workerProfile, setWorkerProfile] = useState<any>(null);
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
@@ -128,7 +127,6 @@ const WorkerProfile = () => {
       // NOTE: getPersonById is assumed to exist in `api/person.ts`
       // and that PersonResponse contains a `personCode`.
       const workerData = await getPersonById(numericWorkerId);
-      setWorker(workerData);
 
       const personCode = (workerData as any)?.personCode;
       if (personCode) {
@@ -136,6 +134,8 @@ const WorkerProfile = () => {
           const profileRes = await authenticatedFetch(`${API_BASE_URL}/worker-profiles/person/${personCode}`);
           if (profileRes.ok) {
             setWorkerProfile(await profileRes.json());
+          } else {
+            setWorkerProfile({ person: workerData });
           }
         } catch (err) {
           console.warn('Could not load worker profile', err);
@@ -185,15 +185,18 @@ const WorkerProfile = () => {
     setFormData((prev) => ({ ...prev, [name]: cleaned }));
   };
 
+  const fullName = workerProfile?.person ? (workerProfile.person.name || [workerProfile.person.firstName, workerProfile.person.lastName].filter(Boolean).join(' ').trim()) : '';
+  const position = workerProfile?.position || workerProfile?.person?.role || '';
+
   const handleEditClick = () => {
-    if (!worker) return;
+    if (!workerProfile) return;
     setEditData({
-      name: worker.name,
+      name: fullName,
       address: workerProfile?.address || '',
-      phoneNumber: worker.phoneNumber || '',
+      phoneNumber: workerProfile?.person?.phoneNumber || '',
       age: workerProfile?.age || '',
       birthdate: workerProfile?.birthdate || '',
-      position: workerProfile?.position || worker.position || '',
+      position: position,
       yearOfEmployment: workerProfile?.yearOfEmployment || '',
     });
     setIsEditing(true);
@@ -204,12 +207,13 @@ const WorkerProfile = () => {
   };
 
   const handleSaveClick = async () => {
-    if (!worker) return;
+    if (!workerProfile) return;
     setIsSaving(true);
     setError(null);
     try {
-      const dto: WorkerProfileUpdateDTO = {
-        contactNumber: editData.phoneNumber,
+      const dto: WorkerFullUpdateDTO = {
+        name: editData.name,
+        phoneNumber: editData.phoneNumber,
         address: editData.address,
         age: editData.age ? Number(editData.age) : undefined,
         birthdate: editData.birthdate,
@@ -217,13 +221,8 @@ const WorkerProfile = () => {
         yearOfEmployment: editData.yearOfEmployment ? Number(editData.yearOfEmployment) : undefined,
       };
 
-      const updatedProfile = await updateWorkerProfile(worker.id, dto);
+      const updatedProfile = await updateFullWorkerProfile(workerProfile.person.id, dto);
       setWorkerProfile(updatedProfile);
-
-      if (editData.name !== worker.name || editData.phoneNumber !== worker.phoneNumber) {
-        const updatedPerson = await updatePersonUi(worker.id, { name: editData.name, phone: editData.phoneNumber });
-        setWorker(updatedPerson);
-      }
 
       setIsEditing(false);
     } catch (e) {
@@ -244,7 +243,7 @@ const WorkerProfile = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const personCode = (worker as any)?.personCode;
+    const personCode = workerProfile?.person?.personCode;
     if (!personCode) {
       alert('Cannot submit log: worker personCode is missing.');
       return;
@@ -258,6 +257,17 @@ const WorkerProfile = () => {
         const newLog = await addHealthLog(personCode, formData);
         setHealthLogs(prev => [...prev, newLog]);
       }
+
+      // Sync hotlist status with the backend based on classification
+      if (formData.classification) {
+        const isHotlisted = formData.classification === 'HOTLIST';
+        await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
+        
+        if (isHotlisted) {
+          await dispatchAlert({ alertType: 'HOTLIST_ALERT', personCode });
+        }
+      }
+
       setIsModalOpen(false);
       setFormData({});
       setEditingLogId(null);
@@ -315,7 +325,7 @@ const WorkerProfile = () => {
     return <DashboardLayout title="Worker Profile"><div className="p-8 text-red-500">{error}</div></DashboardLayout>;
   }
 
-  if (!worker) {
+  if (!workerProfile) {
     return <DashboardLayout title="Worker Profile"><div className="p-8">Worker not found.</div></DashboardLayout>;
   }
 
@@ -387,7 +397,7 @@ const WorkerProfile = () => {
               </div>
               <div className="flex flex-col items-center mb-6">
                 <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6">
-                  <img src={`https://i.pravatar.cc/150?u=${worker.id}`} alt="Worker" className="w-full h-full object-cover" />
+              <img src={`https://i.pravatar.cc/150?u=${workerProfile.person.id}`} alt="Worker" className="w-full h-full object-cover" />
                 </div>
               </div>
 
@@ -396,7 +406,7 @@ const WorkerProfile = () => {
                 <EditableProfileField
                   label="Name"
                   name="name"
-                  value={isEditing ? editData.name : worker.name}
+              value={isEditing ? editData.name : fullName}
                   isEditing={isEditing}
                   onChange={handleEditDataChange}
                 />
@@ -410,7 +420,7 @@ const WorkerProfile = () => {
                 <EditableProfileField
                   label="Contact Number"
                   name="phoneNumber"
-                  value={isEditing ? editData.phoneNumber : worker.phoneNumber}
+              value={isEditing ? editData.phoneNumber : workerProfile?.person?.phoneNumber}
                   isEditing={isEditing}
                   onChange={handleEditDataChange}
                 />
@@ -435,7 +445,7 @@ const WorkerProfile = () => {
                   <EditableProfileField
                     label="Position"
                     name="position"
-                    value={isEditing ? editData.position : (workerProfile?.position || worker.position)}
+                value={isEditing ? editData.position : position}
                     isEditing={isEditing}
                     onChange={handleEditDataChange}
                   />

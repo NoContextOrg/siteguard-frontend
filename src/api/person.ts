@@ -295,9 +295,16 @@ export type CreatePersonUiPayload = {
 };
 
 export const createPersonUi = async (payload: CreatePersonUiPayload): Promise<PersonResponse> => {
+  const body: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (value !== undefined && value !== null) {
+      body[key] = String(value);
+    }
+  }
+
   const response = await authenticatedFetch(`${API_BASE_URL}/persons/ui`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -311,39 +318,14 @@ export const createPersonUi = async (payload: CreatePersonUiPayload): Promise<Pe
 };
 
 export const updatePersonUi = async (id: number, payload: Partial<CreatePersonUiPayload>): Promise<PersonResponse> => {
-  // Use /api/persons/{id} (PersonCreateDTO). Map name -> first/last like backend /ui endpoint.
-  const body: Record<string, unknown> = {};
-
-  if (payload.name) {
-    const name = payload.name.trim();
-    let firstName = name;
-    let lastName = '';
-    const idx = name.lastIndexOf(' ');
-    if (idx > 0) {
-      lastName = name.substring(idx + 1).trim();
-      firstName = name.substring(0, idx).trim();
+  const body: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (value !== undefined && value !== null) {
+      body[key] = String(value);
     }
-    body.firstName = firstName;
-    body.lastName = lastName;
   }
 
-  if (payload.email) {
-    body.email = payload.email.trim();
-  }
-
-  if (payload.phone) {
-    body.phoneNumber = payload.phone;
-  }
-
-  if (payload.role) {
-    body.role = payload.role;
-  }
-
-  if (payload.fingerprint) {
-    body.fingerprint = String(payload.fingerprint);
-  }
-
-  const response = await authenticatedFetch(`${API_BASE_URL}/persons/${id}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/persons/ui/${id}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   });

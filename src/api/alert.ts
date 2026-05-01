@@ -156,7 +156,7 @@ export const updateHotlistStatus = async (
 ): Promise<void> => {
   try {
     await safeFetch(
-      `${API_BASE_URL}/health-profile/${personCode}/hotlist`,
+      `${API_BASE_URL}/health-profile/person/${personCode}/hotlist`,
       {
         method: 'PUT',
         body: JSON.stringify({
@@ -183,11 +183,9 @@ export async function dispatchAlert(payload: {
   personCode?: string;
   personId?: number;
 }) {
-  const res = await fetch('/api/alerts/dispatch', {
+  const res = await safeFetch(`${API_BASE_URL}/alerts/trigger`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return await res.json();
+  return await res.json().catch(() => ({}));
 }

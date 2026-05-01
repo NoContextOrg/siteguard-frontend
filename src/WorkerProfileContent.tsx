@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { SquarePen, X, Trash2 } from 'lucide-react';
-import { getPersonById, type PersonResponse } from './api/person';
-import { updatePersonUi } from './api/person';
+import { getPersonById } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
-import { updateWorkerProfile, type WorkerProfileUpdateDTO } from './api/workerProfile';
+import { updateFullWorkerProfile, type WorkerFullUpdateDTO } from './api/workerProfile';
 import dayjs, { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import { authenticatedFetch } from './api/fetch';
+import { updateHotlistStatus, dispatchAlert } from './api/alert';
 
 /* ---------------- TYPES ---------------- */
 
@@ -81,7 +81,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const canEditProfile = primaryRole === 'admin' || primaryRole === 'nurse';
   const canAddMedicalLog = primaryRole === 'admin' || primaryRole === 'nurse';
 
-  const [worker, setWorker] = useState<PersonResponse | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<any>(null);
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
@@ -103,11 +103,16 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
       setLoading(true);
 
       const workerData = await getPersonById(Number(workerId));
-      setWorker(workerData);
 
       const personCode = (workerData as any)?.personCode;
 
       if (personCode) {
+        const profileRes = await authenticatedFetch(`${API_BASE_URL}/worker-profiles/person/${personCode}`);
+        if (profileRes.ok) {
+          setWorkerProfile(await profileRes.json());
+        } else {
+          setWorkerProfile({ person: workerData });
+        }
         setHealthLogs(await getHealthLogsForPerson(personCode));
         setCalendar(await getAttendanceCalendar(personCode));
       }
@@ -164,7 +169,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const personCode = (worker as any)?.personCode;
+    const personCode = workerProfile?.person?.personCode;
     if (!personCode) return;
 
     try {
@@ -175,6 +180,17 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         const newLog = await addHealthLog(personCode, formData);
         setHealthLogs(prev => [...prev, newLog]);
       }
+
+      // Sync hotlist status with the backend based on classification
+      if (formData.classification) {
+        const isHotlisted = formData.classification === 'HOTLIST';
+        await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
+        
+        if (isHotlisted) {
+          await dispatchAlert({ alertType: 'HOTLIST_ALERT', personCode });
+        }
+      }
+
       setFormData({});
       setIsModalOpen(false);
       setEditingLogId(null);
@@ -195,34 +211,31 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
 
   /* ---------------- EDIT PROFILE ---------------- */
 
+  const fullName = workerProfile?.person ? (workerProfile.person.name || [workerProfile.person.firstName, workerProfile.person.lastName].filter(Boolean).join(' ').trim()) : '';
+  const position = workerProfile?.position || workerProfile?.person?.role || '';
+
   const handleEditClick = () => {
-    if (!worker) return;
+    if (!workerProfile) return;
 
     setEditData({
-      name: worker.name,
-      position: worker.position,
+      name: fullName,
+      position: position,
     });
 
     setIsEditing(true);
   };
 
   const handleSave = async () => {
-    if (!worker) return;
+    if (!workerProfile) return;
 
     setIsSaving(true);
 
     try {
-      if (editData.position !== worker.position) {
-        await updateWorkerProfile(worker.id, { position: editData.position });
-      }
-
-      if (editData.name !== worker.name || editData.position !== worker.position) {
-        const updatedPerson = await updatePersonUi(worker.id, { 
-          name: editData.name, 
-          position: editData.position 
-        });
-        setWorker(updatedPerson);
-      }
+      const updated = await updateFullWorkerProfile(workerProfile.person.id, {
+        name: editData.name,
+        position: editData.position
+      });
+      setWorkerProfile(updated);
       setIsEditing(false);
     } catch {
       setError('Failed to save profile');
@@ -252,7 +265,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
 
   if (loading) return <div className="py-12 flex justify-center"><div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" /></div>;
   if (error) return <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>;
-  if (!worker) return <div className="p-8 text-slate-500">Not found</div>;
+  if (!workerProfile) return <div className="p-8 text-slate-500">Not found</div>;
 
   return (
     <>
@@ -284,7 +297,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
               <EditableField
                 label="Name"
                 name="name"
-                value={isEditing ? editData.name : worker.name}
+                value={isEditing ? editData.name : fullName}
                 isEditing={isEditing}
                 onChange={(e: any) =>
                   setEditData({ ...editData, name: e.target.value })
@@ -294,7 +307,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
               <EditableField
                 label="Position"
                 name="position"
-                value={isEditing ? editData.position : worker.position}
+                value={isEditing ? editData.position : position}
                 isEditing={isEditing}
                 onChange={(e: any) =>
                   setEditData({ ...editData, position: e.target.value })
