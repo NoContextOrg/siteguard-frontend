@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SquarePen, X, Trash2 } from 'lucide-react';
+import dayjs, { type Dayjs } from 'dayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getPersonById, type PersonResponse } from './api/person';
@@ -86,6 +90,31 @@ const WorkerProfile = () => {
 
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
+  const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
+
+  const datePickerInputClassName =
+    'w-full bg-white/70 outline-none font-bold text-slate-700 text-sm cursor-pointer rounded-xl px-3 py-2 border border-blue-200 focus:border-blue-400';
+
+  // Auto-calculate BMI when height/weight changes
+  useEffect(() => {
+    const h = Number(formData.height);
+    const w = Number(formData.weight);
+
+    if (!Number.isFinite(h) || !Number.isFinite(w) || h <= 0 || w <= 0) {
+      if (formData.bmi) setFormData((prev) => ({ ...prev, bmi: '' }));
+      return;
+    }
+
+    // height input is assumed to be in cm
+    const meters = h / 100;
+    const bmi = w / (meters * meters);
+    const rounded = Number.isFinite(bmi) ? bmi.toFixed(1) : '';
+
+    if (rounded !== String(formData.bmi ?? '')) {
+      setFormData((prev) => ({ ...prev, bmi: rounded }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.height, formData.weight]);
 
   const loadData = async () => {
     if (!workerId) {
@@ -129,7 +158,44 @@ const WorkerProfile = () => {
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+
+    // Numeric-only fields (units are shown in UI, not typed)
+    const numericFields = new Set([
+      'temperature',
+      'height',
+      'weight',
+      'bmi',
+      'heartRate',
+      'respiratoryRate',
+    ]);
+
+    const cleaned = numericFields.has(name)
+      ? value.replace(/[^0-9.]/g, '')
+      : value;
+
+    setFormData((prev) => ({ ...prev, [name]: cleaned }));
+  };
+
+  const setDatePart = (date: Date | null) => {
+    if (!date) {
+      setFormData((prev) => ({ ...prev, date: '' }));
+      return;
+    }
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    setFormData((prev) => ({ ...prev, date: `${yyyy}-${mm}-${dd}` }));
+  };
+
+  const setTimePart = (date: Date | null) => {
+    if (!date) {
+      setFormData((prev) => ({ ...prev, time: '' }));
+      return;
+    }
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    setFormData((prev) => ({ ...prev, time: `${hh}:${min}` }));
   };
 
   const handleEditClick = () => {
@@ -217,6 +283,38 @@ const WorkerProfile = () => {
     } catch (err) {
       alert(`Failed to delete health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
+  };
+
+  // Initialize combined datetime when opening modal / editing
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const datePart = formData.date;
+    const timePart = formData.time;
+
+    if (datePart && timePart) {
+      const candidate = dayjs(`${datePart}T${timePart}`);
+      setLogDateTime(candidate.isValid() ? candidate : null);
+      return;
+    }
+
+    setLogDateTime(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModalOpen]);
+
+  const handleDateTimeChange = (val: Dayjs | null) => {
+    setLogDateTime(val);
+
+    if (!val || !val.isValid()) {
+      setFormData((prev) => ({ ...prev, date: '', time: '' }));
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      date: val.format('YYYY-MM-DD'),
+      time: val.format('HH:mm'),
+    }));
   };
 
   if (loading) {
@@ -478,44 +576,164 @@ const WorkerProfile = () => {
               
               {/* Row 1: Vitals */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              {[
-                  { label: 'Temperature', placeholder: '36.5 °C', type: 'text' },
-                  { label: 'Blood Pressure', placeholder: '120/80', type: 'text' },
-                  { label: 'Heart Rate / Pulse', placeholder: '72 bpm', type: 'text' },
-                  { label: 'Time', type: 'time' },
-                  { label: 'Date', type: 'date' },
-              ].map((field) => (
-                  <div key={field.label} className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
-                  <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">{field.label}</label>
-                  <input 
-                      type={field.type} 
-                      name={field.label.toLowerCase().replace(/ \/ /g, '').replace(/ /g, '')}
-                      placeholder={field.placeholder}
+                {/* Temperature */}
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                  <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Temperature</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="decimal"
+                      type="text"
+                      name="temperature"
+                      placeholder="36.5"
                       onChange={handleFormChange}
-                      value={(formData as any)[field.label.toLowerCase().replace(/ \/ /g, '').replace(/ /g, '')] || ''}
-                      className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm cursor-pointer"
-                  />
+                      value={formData.temperature || ''}
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm"
+                    />
+                    <span className="text-xs font-black text-slate-400 select-none">°C</span>
                   </div>
-              ))}
+                </div>
+
+                {/* Blood Pressure */}
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                  <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Blood Pressure</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="numeric"
+                      type="text"
+                      placeholder="120"
+                      value={(formData.bloodPressure || '').split('/')[0] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        const [, dia = ''] = (formData.bloodPressure || '').split('/');
+                        setFormData(prev => ({ ...prev, bloodPressure: val || dia ? `${val}/${dia}` : '' }));
+                      }}
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm text-center"
+                    />
+                    <span className="text-slate-400 font-black text-lg select-none">/</span>
+                    <input
+                      inputMode="numeric"
+                      type="text"
+                      placeholder="80"
+                      value={(formData.bloodPressure || '').split('/')[1] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        const [sys = ''] = (formData.bloodPressure || '').split('/');
+                        setFormData(prev => ({ ...prev, bloodPressure: sys || val ? `${sys}/${val}` : '' }));
+                      }}
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* Heart Rate */}
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                  <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Heart Rate / Pulse</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="numeric"
+                      type="text"
+                      name="heartRate"
+                      placeholder="72"
+                      onChange={handleFormChange}
+                      value={formData.heartRate || ''}
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm"
+                    />
+                    <span className="text-xs font-black text-slate-400 select-none">bpm</span>
+                  </div>
+                </div>
+
+                {/* Date & Time (MUI) */}
+                <div className="md:col-span-2 bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                  <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Date & Time</label>
+
+                  <div className="relative z-[9999]">
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DateTimePicker
+                        value={logDateTime}
+                        onChange={handleDateTimeChange}
+                        format="MM/DD/YYYY hh:mm A"
+                        slotProps={{
+                          textField: {
+                            size: 'small',
+                            fullWidth: true,
+                            inputProps: {
+                              readOnly: true,
+                            },
+                          },
+                          popper: {
+                            placement: 'top-start',
+                            sx: { zIndex: 10000 },
+                          },
+                          dialog: {
+                            sx: { zIndex: 10000 },
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </div>
+
+                  <div className="text-[10px] font-bold text-slate-400 mt-1">Pick from calendar/clock (typing disabled)</div>
+                </div>
               </div>
 
               {/* Row 2: Physicals */}
               <div className="grid grid-cols-12 gap-3">
               <div className="col-span-3 bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
                   <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Height</label>
-                  <input type="text" name="height" value={formData.height || ''} onChange={handleFormChange} placeholder="170 cm" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal" />
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="decimal"
+                      type="text"
+                      name="height"
+                      value={formData.height || ''}
+                      onChange={handleFormChange}
+                      placeholder="170"
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal"
+                    />
+                    <span className="text-xs font-black text-slate-400 select-none">cm</span>
+                  </div>
               </div>
               <div className="col-span-3 bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
                   <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Weight</label>
-                  <input type="text" name="weight" value={formData.weight || ''} onChange={handleFormChange} placeholder="65 kg" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal" />
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="decimal"
+                      type="text"
+                      name="weight"
+                      value={formData.weight || ''}
+                      onChange={handleFormChange}
+                      placeholder="65"
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal"
+                    />
+                    <span className="text-xs font-black text-slate-400 select-none">kg</span>
+                  </div>
               </div>
               <div className="col-span-2 bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
                   <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Bmi</label>
-                  <input type="text" name="bmi" value={formData.bmi || ''} onChange={handleFormChange} placeholder="22.4" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal" />
+                  <input
+                    type="text"
+                    name="bmi"
+                    value={formData.bmi || ''}
+                    readOnly
+                    placeholder="Auto"
+                    className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal cursor-not-allowed"
+                  />
+                  <div className="text-[10px] font-bold text-slate-400 mt-1">Auto-calculated</div>
               </div>
               <div className="col-span-4 bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
                   <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Respiratory Rate</label>
-                  <input type="text" name="respiratoryRate" value={formData.respiratoryRate || ''} onChange={handleFormChange} placeholder="16 breaths/min" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal" />
+                  <div className="flex items-center gap-2">
+                    <input
+                      inputMode="numeric"
+                      type="text"
+                      name="respiratoryRate"
+                      value={formData.respiratoryRate || ''}
+                      onChange={handleFormChange}
+                      placeholder="16"
+                      className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm placeholder:font-normal"
+                    />
+                    <span className="text-xs font-black text-slate-400 select-none">/min</span>
+                  </div>
               </div>
               </div>
 

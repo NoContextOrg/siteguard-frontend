@@ -3,6 +3,10 @@ import { SquarePen, X, Trash2 } from 'lucide-react';
 import { getPersonById, type PersonResponse } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
 import { updateWorkerProfile, type WorkerProfileUpdateDTO } from './api/workerProfile';
+import dayjs, { type Dayjs } from 'dayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import { authenticatedFetch } from './api/fetch';
 
@@ -89,6 +93,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const [editData, setEditData] = useState<WorkerProfileUpdateDTO>({});
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
+  const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
 
   /* ---------------- LOAD ---------------- */
 
@@ -115,6 +120,28 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   useEffect(() => {
     void loadData();
   }, [workerId]);
+
+  // Initialize combined datetime when opening modal / editing
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const datePart = formData.date;
+    const timePart = formData.time;
+    if (datePart && timePart) {
+      const candidate = dayjs(`${datePart}T${timePart}`);
+      setLogDateTime(candidate.isValid() ? candidate : null);
+      return;
+    }
+    setLogDateTime(null);
+  }, [isModalOpen, formData.date, formData.time]);
+
+  const handleDateTimeChange = (val: Dayjs | null) => {
+    setLogDateTime(val);
+    if (!val || !val.isValid()) {
+      setFormData((prev) => ({ ...prev, date: '', time: '' }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, date: val.format('YYYY-MM-DD'), time: val.format('HH:mm') }));
+  };
 
   /* ---------------- FORM ---------------- */
 
@@ -373,6 +400,37 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
               </div>
 
               <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Blood Pressure</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    inputMode="numeric"
+                    type="text"
+                    placeholder="120"
+                    value={(formData.bloodPressure || '').split('/')[0] || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      const [, dia = ''] = (formData.bloodPressure || '').split('/');
+                      setFormData(prev => ({ ...prev, bloodPressure: val || dia ? `${val}/${dia}` : '' }));
+                    }}
+                    className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm text-center"
+                  />
+                  <span className="text-slate-400 font-black text-lg select-none">/</span>
+                  <input
+                    inputMode="numeric"
+                    type="text"
+                    placeholder="80"
+                    value={(formData.bloodPressure || '').split('/')[1] || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      const [sys = ''] = (formData.bloodPressure || '').split('/');
+                      setFormData(prev => ({ ...prev, bloodPressure: sys || val ? `${sys}/${val}` : '' }));
+                    }}
+                    className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm text-center"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
                 <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Findings</label>
                 <textarea
                   name="findings"
@@ -380,6 +438,21 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                   onChange={handleFormChange}
                   className="w-full bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-normal text-sm resize-none h-16"
                 />
+              </div>
+
+              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 transition-focus focus-within:border-blue-400">
+                <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Date & Time</label>
+                <div className="relative z-[9999]">
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DateTimePicker
+                      label="Date & Time"
+                      value={logDateTime}
+                      onChange={handleDateTimeChange}
+                      sx={{ width: '100%', bgcolor: 'transparent' }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                  </LocalizationProvider>
+                </div>
               </div>
 
               <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center justify-between">
