@@ -8,6 +8,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getPersonById, type PersonResponse } from './api/person';
+import { updatePersonUi } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
 import {
   updateWorkerProfile,
@@ -15,7 +16,7 @@ import {
 } from './api/workerProfile';
 import { authenticatedFetch } from './api/fetch';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 interface HealthLogDTO {
   id?: number;
@@ -80,20 +81,18 @@ const WorkerProfile = () => {
   const workerId = searchParams.get('id');
 
   const [worker, setWorker] = useState<PersonResponse | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<any>(null);
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editData, setEditData] = useState<WorkerProfileUpdateDTO>({});
+  const [editData, setEditData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
-
-  const datePickerInputClassName =
-    'w-full bg-white/70 outline-none font-bold text-slate-700 text-sm cursor-pointer rounded-xl px-3 py-2 border border-blue-200 focus:border-blue-400';
 
   // Auto-calculate BMI when height/weight changes
   useEffect(() => {
@@ -133,6 +132,15 @@ const WorkerProfile = () => {
 
       const personCode = (workerData as any)?.personCode;
       if (personCode) {
+        try {
+          const profileRes = await authenticatedFetch(`${API_BASE_URL}/worker-profiles/person/${personCode}`);
+          if (profileRes.ok) {
+            setWorkerProfile(await profileRes.json());
+          }
+        } catch (err) {
+          console.warn('Could not load worker profile', err);
+        }
+
         const logs = await getHealthLogsForPerson(personCode);
         setHealthLogs(logs);
         const calendarData = await getAttendanceCalendar(personCode);
@@ -177,37 +185,16 @@ const WorkerProfile = () => {
     setFormData((prev) => ({ ...prev, [name]: cleaned }));
   };
 
-  const setDatePart = (date: Date | null) => {
-    if (!date) {
-      setFormData((prev) => ({ ...prev, date: '' }));
-      return;
-    }
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    setFormData((prev) => ({ ...prev, date: `${yyyy}-${mm}-${dd}` }));
-  };
-
-  const setTimePart = (date: Date | null) => {
-    if (!date) {
-      setFormData((prev) => ({ ...prev, time: '' }));
-      return;
-    }
-    const hh = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    setFormData((prev) => ({ ...prev, time: `${hh}:${min}` }));
-  };
-
   const handleEditClick = () => {
     if (!worker) return;
     setEditData({
       name: worker.name,
-      address: (worker as any).address,
-      phoneNumber: (worker as any).phoneNumber,
-      age: (worker as any).age,
-      birthDate: (worker as any).birthDate,
-      position: worker.position,
-      employmentYear: (worker as any).employmentYear,
+      address: workerProfile?.address || '',
+      phoneNumber: worker.phoneNumber || '',
+      age: workerProfile?.age || '',
+      birthdate: workerProfile?.birthdate || '',
+      position: workerProfile?.position || worker.position || '',
+      yearOfEmployment: workerProfile?.yearOfEmployment || '',
     });
     setIsEditing(true);
   };
@@ -221,19 +208,23 @@ const WorkerProfile = () => {
     setIsSaving(true);
     setError(null);
     try {
-      // Filter out undefined values from editData
-      const dto: WorkerProfileUpdateDTO = {};
-      for (const key in editData) {
-        const typedKey = key as keyof WorkerProfileUpdateDTO;
-        if (editData[typedKey] !== undefined && editData[typedKey] !== null) {
-          // Use 'any' to bypass TypeScript's limitation on assigning to a
-          // property accessed by a union-type key.
-          (dto as any)[typedKey] = editData[typedKey];
-        }
+      const dto: WorkerProfileUpdateDTO = {
+        contactNumber: editData.phoneNumber,
+        address: editData.address,
+        age: editData.age ? Number(editData.age) : undefined,
+        birthdate: editData.birthdate,
+        position: editData.position,
+        yearOfEmployment: editData.yearOfEmployment ? Number(editData.yearOfEmployment) : undefined,
+      };
+
+      const updatedProfile = await updateWorkerProfile(worker.id, dto);
+      setWorkerProfile(updatedProfile);
+
+      if (editData.name !== worker.name || editData.phoneNumber !== worker.phoneNumber) {
+        const updatedPerson = await updatePersonUi(worker.id, { name: editData.name, phone: editData.phoneNumber });
+        setWorker(updatedPerson);
       }
 
-      const updatedWorker = await updateWorkerProfile(worker.id, dto);
-      setWorker(updatedWorker);
       setIsEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save profile.');
@@ -290,10 +281,9 @@ const WorkerProfile = () => {
     if (!isModalOpen) return;
 
     const datePart = formData.date;
-    const timePart = formData.time;
 
-    if (datePart && timePart) {
-      const candidate = dayjs(`${datePart}T${timePart}`);
+    if (datePart) {
+      const candidate = dayjs(datePart);
       setLogDateTime(candidate.isValid() ? candidate : null);
       return;
     }
@@ -312,7 +302,7 @@ const WorkerProfile = () => {
 
     setFormData((prev) => ({
       ...prev,
-      date: val.format('YYYY-MM-DD'),
+      date: val.format('YYYY-MM-DDTHH:mm:ss'),
       time: val.format('HH:mm'),
     }));
   };
@@ -413,14 +403,14 @@ const WorkerProfile = () => {
                 <EditableProfileField
                   label="Address"
                   name="address"
-                  value={isEditing ? editData.address : (worker as any).address}
+                  value={isEditing ? editData.address : workerProfile?.address}
                   isEditing={isEditing}
                   onChange={handleEditDataChange}
                 />
                 <EditableProfileField
                   label="Contact Number"
                   name="phoneNumber"
-                  value={isEditing ? editData.phoneNumber : (worker as any).phoneNumber}
+                  value={isEditing ? editData.phoneNumber : worker.phoneNumber}
                   isEditing={isEditing}
                   onChange={handleEditDataChange}
                 />
@@ -430,30 +420,30 @@ const WorkerProfile = () => {
                     label="Age"
                     name="age"
                     type="number"
-                    value={isEditing ? editData.age : (worker as any).age}
+                    value={isEditing ? editData.age : workerProfile?.age}
                     isEditing={isEditing}
                     onChange={handleEditDataChange}
                   />
                   <EditableProfileField
                     label="Birthdate"
-                    name="birthDate"
+                    name="birthdate"
                     type="date"
-                    value={isEditing ? editData.birthDate : (worker as any).birthDate}
+                    value={isEditing ? editData.birthdate : workerProfile?.birthdate}
                     isEditing={isEditing}
                     onChange={handleEditDataChange}
                   />
                   <EditableProfileField
                     label="Position"
                     name="position"
-                    value={isEditing ? editData.position : worker.position}
+                    value={isEditing ? editData.position : (workerProfile?.position || worker.position)}
                     isEditing={isEditing}
                     onChange={handleEditDataChange}
                   />
                   <EditableProfileField
                     label="Year of Employment"
-                    name="employmentYear"
+                    name="yearOfEmployment"
                     type="number"
-                    value={isEditing ? editData.employmentYear : (worker as any).employmentYear}
+                    value={isEditing ? editData.yearOfEmployment : workerProfile?.yearOfEmployment}
                     isEditing={isEditing}
                     onChange={handleEditDataChange}
                   />
@@ -652,27 +642,18 @@ const WorkerProfile = () => {
                         value={logDateTime}
                         onChange={handleDateTimeChange}
                         format="MM/DD/YYYY hh:mm A"
+                        sx={{ width: '100%', bgcolor: 'transparent' }}
                         slotProps={{
                           textField: {
                             size: 'small',
                             fullWidth: true,
-                            inputProps: {
-                              readOnly: true,
-                            },
-                          },
-                          popper: {
-                            placement: 'top-start',
-                            sx: { zIndex: 10000 },
-                          },
-                          dialog: {
-                            sx: { zIndex: 10000 },
                           },
                         }}
                       />
                     </LocalizationProvider>
                   </div>
 
-                  <div className="text-[10px] font-bold text-slate-400 mt-1">Pick from calendar/clock (typing disabled)</div>
+                  <div className="text-[10px] font-bold text-slate-400 mt-1">Pick from calendar/clock</div>
                 </div>
               </div>
 

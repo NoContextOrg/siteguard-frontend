@@ -609,7 +609,7 @@ const AdminTeam = () => {
   const handleRemoveMemberFromTeam = async (teamId: number, personId: number) => {
     try {
       setError(null);
-      await authenticatedFetch(`http://siteguardph.duckdns.org/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
+      await authenticatedFetch(`http://localhost:8080/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
       await loadTeamMembers(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member from team');

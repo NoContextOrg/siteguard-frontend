@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SquarePen, X, Trash2 } from 'lucide-react';
 import { getPersonById, type PersonResponse } from './api/person';
+import { updatePersonUi } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
 import { updateWorkerProfile, type WorkerProfileUpdateDTO } from './api/workerProfile';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -12,7 +13,7 @@ import { authenticatedFetch } from './api/fetch';
 
 /* ---------------- TYPES ---------------- */
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 interface HealthLogDTO {
   id?: number;
@@ -90,7 +91,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [editData, setEditData] = useState<WorkerProfileUpdateDTO>({});
+  const [editData, setEditData] = useState<any>({});
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
@@ -125,14 +126,13 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   useEffect(() => {
     if (!isModalOpen) return;
     const datePart = formData.date;
-    const timePart = formData.time;
-    if (datePart && timePart) {
-      const candidate = dayjs(`${datePart}T${timePart}`);
+    if (datePart) {
+      const candidate = dayjs(datePart);
       setLogDateTime(candidate.isValid() ? candidate : null);
       return;
     }
     setLogDateTime(null);
-  }, [isModalOpen, formData.date, formData.time]);
+  }, [isModalOpen, formData.date]);
 
   const handleDateTimeChange = (val: Dayjs | null) => {
     setLogDateTime(val);
@@ -140,7 +140,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
       setFormData((prev) => ({ ...prev, date: '', time: '' }));
       return;
     }
-    setFormData((prev) => ({ ...prev, date: val.format('YYYY-MM-DD'), time: val.format('HH:mm') }));
+    setFormData((prev) => ({ ...prev, date: val.format('YYYY-MM-DDTHH:mm:ss'), time: val.format('HH:mm') }));
   };
 
   /* ---------------- FORM ---------------- */
@@ -212,8 +212,17 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
     setIsSaving(true);
 
     try {
-      const updated = await updateWorkerProfile(worker.id, editData);
-      setWorker(updated);
+      if (editData.position !== worker.position) {
+        await updateWorkerProfile(worker.id, { position: editData.position });
+      }
+
+      if (editData.name !== worker.name || editData.position !== worker.position) {
+        const updatedPerson = await updatePersonUi(worker.id, { 
+          name: editData.name, 
+          position: editData.position 
+        });
+        setWorker(updatedPerson);
+      }
       setIsEditing(false);
     } catch {
       setError('Failed to save profile');

@@ -49,7 +49,7 @@ const WorkerLandingPage: React.FC = () => {
         }
         
         if (activeTab === 'dashboard' && currentCode) {
-          const apiUrl = 'http://siteguardph.duckdns.org/api';
+          const apiUrl = 'http://localhost:8080/api';
           const [summaryRes, logsRes] = await Promise.all([
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}/summary`),
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`)
