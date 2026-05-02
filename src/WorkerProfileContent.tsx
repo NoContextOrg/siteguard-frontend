@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { SquarePen, X, Trash2 } from 'lucide-react';
 import { getPersonById } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
-import { updateFullWorkerProfile, type WorkerFullUpdateDTO } from './api/workerProfile';
+import { updateFullWorkerProfile } from './api/workerProfile';
 import dayjs, { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
