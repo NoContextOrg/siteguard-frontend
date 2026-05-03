@@ -35,7 +35,7 @@ SiteGuard is a comprehensive workforce management system designed for constructi
 
 - **Node.js** 20.x or higher
 - **npm** 10.x or higher
-- **Backend** - SiteGuard Spring Boot API running on `http://localhost:8080`
+- **Backend** - SiteGuard Spring Boot API running on `http://siteguardph.duckdns.org`
 
 ### Installation & Development
 
@@ -177,7 +177,7 @@ curl -X POST http://localhost:8080/api/auth/register \
   }'
 
 # Create a test engineer user
-curl -X POST http://localhost:8080/api/auth/register \
+curl -X POST http://siteguardph.duckdns.org/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "firstName": "Jane",
@@ -278,7 +278,7 @@ import { authenticatedFetch } from './api/fetch';
 async function fetchWorkers() {
   try {
     const response = await authenticatedFetch(
-      'http://localhost:8080/api/workers',
+      'http://siteguardph.duckdns.org/api/workers',
       { method: 'GET' }
     );
     const data = await response.json();
@@ -706,7 +706,7 @@ function MyComponent() {
 **Problem**: Login fails with "Invalid email or password"
 
 **Solutions**:
-- Verify backend is running on `http://localhost:8080`
+- Verify backend is running on `http://siteguardph.duckdns.org`
 - Check that the user exists in the database
 - Verify CORS is enabled in backend
 - Check browser console (F12) for network errors
@@ -723,7 +723,7 @@ function MyComponent() {
 **Problem**: "Cannot POST /api/auth/login" error
 
 **Solutions**:
-- Verify backend is running: `http://localhost:8080`
+- Verify backend is running: `http://siteguardph.duckdns.org`
 - Check `VITE_API_URL` in `.env.local` matches backend URL
 - Verify backend has `/api/auth/login` endpoint
 - Check network tab in browser DevTools for 404/500 errors
@@ -883,7 +883,7 @@ Create `.env.local` in the project root:
 
 ```env
 # Development
-VITE_API_URL=http://localhost:8080/api
+VITE_API_URL=http://siteguardph.duckdns.org/api
 
 # Production (uncomment and update)
 # VITE_API_URL=https://api.siteguard.com/api

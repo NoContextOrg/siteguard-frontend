@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Calendar, Filter, X, Save } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
-import { createPersonUi, getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
+import { getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 
 // ========== Types ==========
@@ -66,15 +66,6 @@ export default function WorkersPage() {
 
   // In-app guide state
   const [guideOpen, setGuideOpen] = useState(true);
-
-  // Quick create worker (inline CRUD-lite)
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newWorkerName, setNewWorkerName] = useState('');
-  const [newWorkerEmail, setNewWorkerEmail] = useState('');
-  const [newWorkerPhone, setNewWorkerPhone] = useState('');
-  const [newWorkerPassword, setNewWorkerPassword] = useState('');
-  const [newWorkerConfirmPassword, setNewWorkerConfirmPassword] = useState('');
 
   // Password modal state
   const [passwordModalId, setPasswordModalId] = useState<number | null>(null);
@@ -249,43 +240,6 @@ export default function WorkersPage() {
     }
   };
 
-  const createWorker = async () => {
-    const name = newWorkerName.trim();
-    if (!name) {
-      setError('Worker name is required');
-      return;
-    }
-    if (newWorkerPassword && newWorkerPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-    if (newWorkerPassword !== newWorkerConfirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    try {
-      setCreating(true);
-      setError(null);
-      await createPersonUi({
-        name: name.toUpperCase(),
-        email: newWorkerEmail.trim(),
-        phone: newWorkerPhone.trim(),
-        role: 'WORKER',
-      });
-      setNewWorkerName('');
-      setNewWorkerEmail('');
-      setNewWorkerPhone('');
-      setNewWorkerPassword('');
-      setNewWorkerConfirmPassword('');
-      setCreateOpen(false);
-      await loadPersons({ silent: true });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create worker');
-    } finally {
-      setCreating(false);
-    }
-  };
-
   // Password modal handlers
   const openPasswordModal = (id: number) => {
     setPasswordModalId(id);
@@ -333,115 +287,6 @@ export default function WorkersPage() {
           <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             {loading ? 'Loading…' : `${filteredWorkers.length} shown / ${workers.length} total`}
           </div>
-        </div>
-
-        {/* Quick add worker */}
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div>
-              <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">Quick add worker</div>
-              <div className="text-xs text-slate-500 mt-1">Create a WORKER user without leaving this page</div>
-            </div>
-            <button
-              type="button"
-              className="text-blue-600 font-black text-[11px] uppercase tracking-widest hover:underline"
-              onClick={() => setCreateOpen((v) => !v)}
-            >
-              {createOpen ? 'Close' : 'Add worker'}
-            </button>
-          </div>
-
-          {createOpen && (
-            <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Full name</label>
-                  <input
-                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={newWorkerName}
-                    onChange={(e) => setNewWorkerName(e.target.value.toUpperCase())}
-                    placeholder="JUAN DELA CRUZ"
-                    disabled={creating}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Email</label>
-                  <input
-                    type="email"
-                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={newWorkerEmail}
-                    onChange={(e) => setNewWorkerEmail(e.target.value)}
-                    placeholder="worker@example.com"
-                    disabled={creating}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Phone</label>
-                  <input
-                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={newWorkerPhone}
-                    onChange={(e) => setNewWorkerPhone(e.target.value)}
-                    placeholder="09xxxxxxxxx"
-                    disabled={creating}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Password</label>
-                  <input
-                    type="password"
-                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={newWorkerPassword}
-                    required
-                    minLength={6}
-                    onChange={(e) => setNewWorkerPassword(e.target.value)}
-                    placeholder="Set password"
-                    disabled={creating}
-                    onBlur={() => { if (newWorkerPassword.length < 6) setError('Password must be at least 6 characters.'); else setError(null); }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">Confirm Password</label>
-                  <input
-                    type="password"
-                    className="mt-2 w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={newWorkerConfirmPassword}
-                    required
-                    minLength={6}
-                    onChange={(e) => setNewWorkerConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
-                    disabled={creating}
-                    onBlur={() => { if (newWorkerPassword !== newWorkerConfirmPassword) setError('Passwords do not match.'); else setError(null); }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void createWorker()}
-                  disabled={creating}
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {creating ? 'Creating…' : 'Create worker'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(false)}
-                  disabled={creating}
-                  className="px-4 py-2 rounded-md border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <div className="text-xs text-slate-500">
-                  Tip: create first, then follow the enrollment guide below to link a fingerprint.
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* In-app guide: fingerprint enrollment */}

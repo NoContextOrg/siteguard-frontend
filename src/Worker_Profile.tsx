@@ -16,7 +16,7 @@ import {
 import { authenticatedFetch } from './api/fetch';
 import { updateHotlistStatus, dispatchAlert } from './api/alert';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
 
 interface HealthLogDTO {
   id?: number;
@@ -234,7 +234,7 @@ const WorkerProfile = () => {
 
   const handleEditDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditData((prev) => ({ ...prev, [name]: value }));
+    setEditData((prev: any) => ({ ...prev, [name]: value }));
   };
 
   const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
