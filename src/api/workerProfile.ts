@@ -1,6 +1,7 @@
 import { authenticatedFetch } from './fetch';
+import type { PersonResponse } from './person';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface WorkerFullUpdateDTO {
   name?: string;

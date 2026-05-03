@@ -14,7 +14,7 @@ import PersonManagement from './components/PersonManagement';
 import TeamManagement from './components/TeamManagement';
 import AttendanceManagement from './components/AttendanceManagement';
 import AlertManagement from './components/AlertManagement';
-import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send, Moon } from 'lucide-react';
+import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send } from 'lucide-react';
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -27,8 +27,8 @@ import WorkerLandingPage from './WorkerLandingPage';
 const Navbar = ({ onOpenSignIn }: { onOpenSignIn: () => void }) => (
   <nav className="flex items-center justify-between px-8 md:px-16 lg:px-24 py-6 w-full absolute top-0 left-0 right-0 z-50">
     <div className="flex items-center gap-2">
-      <div className="bg-white p-1.5 rounded-full shadow-lg">
-        <ShieldCheck className="text-blue-600 w-7 h-7" />
+      <div className="bg-white p-1.5 rounded-full shadow-lg inline-block">
+        <img src="/sg_logo.png" alt="Icon" className="w-7 h-7 object-contain"/>
       </div>
       <span className="text-white font-semibold text-2xl tracking-tighter hidden md:block">
         SiteGuard
@@ -36,18 +36,17 @@ const Navbar = ({ onOpenSignIn }: { onOpenSignIn: () => void }) => (
     </div>
 
     <div className="hidden md:flex gap-12 text-white font-semibold text-lg">
-      <a href="#" className="hover:text-blue-200 transition-colors">Home</a>
-      <a href="#" className="hover:text-blue-200 transition-colors">Features</a>
-      <a href="#" className="hover:text-blue-200 transition-colors">About Us</a>
+      <a href="#home" className="hover:text-blue-200 transition-colors">Home</a>
+      <a href="#features" className="hover:text-blue-200 transition-colors">Features</a>
+      <a href="#about" className="hover:text-blue-200 transition-colors">About Us</a>
+      <a href="#footer" className="hover:text-blue-200 transition-colors">Contacts</a>
     </div>
 
     <div className="flex items-center gap-4">
       <button onClick={onOpenSignIn} className="bg-white text-blue-900 px-8 py-2.5 rounded-full font-bold shadow-xl hover:scale-105 transition active:scale-95">
         Get Started
       </button>
-      <button className="p-2.5 bg-white/10 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition">
-        <Moon size={20} />
-      </button>
+      
     </div>
   </nav>
 );
@@ -207,6 +206,7 @@ const LandingPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isAuthenticated: contextAuth } = useAuth();
   const navigate = useNavigate();
+  
 
   // Check if token is valid even outside AuthContext
   const [isTokenValid, setIsTokenValid] = useState(false);
@@ -266,6 +266,48 @@ const LandingPage = () => {
     // Navigation is handled by AuthContext.login()
   };
 
+  const sentences: string[] = [
+    "Guarding Lives. Securing Sites.",
+    "Where Workforce Security Meets Site Safety.",
+    "Precise Attendance Tracking.",
+    "Real-time Construction Monitoring."
+  ];
+
+  const [displayText, setDisplayText] = useState<string>("");
+  const [sentenceIndex, setSentenceIndex] = useState<number>(0);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [speed, setSpeed] = useState<number>(150);
+
+  useEffect(() => {
+    const handleTyping = () => {
+      const currentFullText = sentences[sentenceIndex];
+      
+      if (!isDeleting) {
+        // Typing letters
+        setDisplayText(currentFullText.substring(0, displayText.length + 1));
+        setSpeed(100); 
+        
+        if (displayText === currentFullText) {
+          setSpeed(2000); // Pause when finished typing
+          setIsDeleting(true);
+        }
+      } else {
+        // Deleting letters
+        setDisplayText(currentFullText.substring(0, displayText.length - 1));
+        setSpeed(50);
+        
+        if (displayText === "") {
+          setIsDeleting(false);
+          setSentenceIndex((prev) => (prev + 1) % sentences.length);
+          setSpeed(500);
+        }
+      }
+    };
+
+    const timer = setTimeout(handleTyping, speed);
+    return () => clearTimeout(timer);
+  }, [displayText, isDeleting, sentenceIndex, speed]);
+
   return (
     <div className="min-h-screen w-full bg-white font-sans text-slate-900 overflow-x-hidden">
       <Navbar onOpenSignIn={() => setIsModalOpen(true)}/>
@@ -286,13 +328,12 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center z-10">
           <div>
             <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6">SiteGuard</h1>
-            <p className="text-xl md:text-2xl text-blue-100 font-semibold mb-4 leading-snug">
-              Guarding Lives. Securing Sites.<br />
-              Where Workforce Security Meets Site Safety.
-            </p>
-            <p className="text-blue-100">
-              SiteGuard is a biometric attendance and construction safety system that ensures accurate workforce tracking and safer construction sites.
-            </p>
+            <div className="h-24 md:h-32 mb-4">
+                <p className="text-xl md:text-2xl text-blue-100 font-semibold leading-snug">
+                  {displayText}
+                <span className="border-r-4 border-white ml-1 animate-ping"></span>
+                </p>
+            </div>
           </div>
           <div className="flex justify-center group cursor-pointer">
             <div className="relative w-64 h-64 md:w-80 md:h-80 bg-blue-400/30 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/10 transition-all duration-700 ease-in-out group-hover:scale-110">  
@@ -305,9 +346,9 @@ const LandingPage = () => {
       </section>
 
       {/* ========== Benefits Bar ========== */}
-      <section className="py-12 bg-white">
+      <section id="features" className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-center font-bold text-slate-800 mb-10 text-xl tracking-wider">Key System Benefits</h2>
+          <h2 className="text-center font-bold !text-black mb-10 text-xl tracking-wider">Key System Benefits</h2>
           <div className="flex flex-wrap justify-center gap-8 md:gap-16">
             {[
               { icon: <ShieldCheck />, label: "Verification" },
@@ -330,7 +371,7 @@ const LandingPage = () => {
       {/* ========== Offer Section ========== */}
       <section className="py-20 max-w-7xl mx-auto px-6">
         <div className="flex flex-col items-center text-center mb-16">
-          <h2 className="text-4xl font-extrabold mb-6">What we offer?</h2>
+          <h2 className="text-4xl !text-black font-extrabold mb-6">What we offer?</h2>
           <p className="text-slate-600 leading-relaxed mb-8 max-w-3xl">
             We deliver reliable industrial, commercial, and residential projects with a strong commitment to quality, safety, and efficiency. Backed by skilled professionals and modern construction practices, it ensures timely project completion while meeting industry standards and client expectations.
           </p>
@@ -349,7 +390,7 @@ const LandingPage = () => {
  {/* ========== Features Section ========== */}
   <section className="py-20 bg-slate-50">
     <div className="max-w-7xl mx-auto px-6">
-      <h2 className="text-center text-4xl font-extrabold mb-16">Features</h2>
+      <h2 className="text-center text-4xl !text-black font-extrabold mb-16">Features</h2>
       <div className="grid md:grid-cols-3 gap-6 mb-6">
         <FeatureCard dark title="Biometric Attendance System" desc="Utilizes fingerprint or biometric verification to ensure accurate worker identification and prevent attendance fraud. This feature enhances site security by allowing access only to authorized personnel." />
         <FeatureCard title="Real-Time Tracking" desc="Enables continuous monitoring of worker attendance and on-site activity across construction projects. Site Engineers can quickly respond to manpower issues, delays, or irregularities as they occur." />
@@ -363,7 +404,7 @@ const LandingPage = () => {
   </section>
 
  {/* ========== About Us Section ========== */}
-  <section className="py-24 bg-slate-900 w-full overflow-hidden">
+  <section id="about" className="py-24 bg-slate-900 w-full overflow-hidden">
     <div className="max-w-7xl mx-auto px-6 text-center">
       <h2 className="text-4xl md:text-6xl font-black mb-8 !text-white uppercase tracking-tighter">About Us</h2>
       <p className="mb-8 !text-white tracking-tighter">
@@ -381,7 +422,7 @@ const LandingPage = () => {
   </section>
 
   {/* ========== Footer ========== */}
-  <footer className="bg-slate-950 text-white py-16">
+  <footer id="footer" className="bg-slate-950 text-white py-16">
     <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12">
       <div className="col-span-1">
         <h3 className="text-2xl font-bold mb-6">SiteGuard</h3>
@@ -395,9 +436,9 @@ const LandingPage = () => {
         <div>
           <h4 className="font-bold mb-4 text-slate-300">Home</h4>
           <ul className="text-slate-500 text-sm space-y-2">
-            <li><a href="#">Features</a></li>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Contacts</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#footer">Contacts</a></li>
           </ul>
         </div>
         <div>

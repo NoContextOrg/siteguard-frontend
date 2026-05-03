@@ -234,7 +234,7 @@ const WorkerProfile = () => {
 
   const handleEditDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditData((prev: any) => ({ ...prev, [name]: value }));
+    setEditData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
