@@ -26,9 +26,10 @@ const AdminDashboard = () => {
   const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    let cancelled = false;
+    const fetchDashboardData = async (isBackground = false) => {
       try {
-        setLoading(true);
+        if (!isBackground) setLoading(true);
 
         // Fetch all data in parallel
         const [stats, overview, attendance, hotlist, teamAttend] = await Promise.all([
@@ -38,6 +39,8 @@ const AdminDashboard = () => {
           getHotlistOverview(),
           getTeamAttendance(),
         ]);
+
+        if (cancelled) return;
 
         setSystemStats(stats);
         setDashboardOverview(overview);
@@ -59,55 +62,95 @@ const AdminDashboard = () => {
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled && !isBackground) setLoading(false);
       }
     };
 
     fetchDashboardData();
+    const interval = setInterval(() => fetchDashboardData(true), 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const fetchActiveAlerts = async () => {
+    let ws: WebSocket;
+    let reconnectTimeout: number;
+
+    const fetchAlerts = async (isBackground = false) => {
       try {
-        setAlertsLoading(true);
-        setAlertsError(null);
+        if (!isBackground) {
+          setAlertsLoading(true);
+          setAlertsError(null);
+        }
         const alerts = await getActiveAlerts();
-        if (!cancelled) setActiveAlerts(Array.isArray(alerts) ? alerts : []);
+        if (cancelled) return;
+
+        if (Array.isArray(alerts)) {
+          setActiveAlerts(alerts);
+          if (alerts.length > 0 && alerts[0].id) {
+            const latest = alerts[0];
+            if (lastAlertIdRef.current !== null && lastAlertIdRef.current !== latest.id) {
+              setFloatingAlert(latest);
+              setTimeout(() => setFloatingAlert(null), 7000);
+            }
+            lastAlertIdRef.current = latest.id;
+          } else if (alerts.length === 0) {
+            lastAlertIdRef.current = null;
+          }
+        }
       } catch (err) {
         console.error('Error fetching active alerts:', err);
-        if (!cancelled) {
+        if (!cancelled && !isBackground) {
           setActiveAlerts([]);
           setAlertsError(err instanceof Error ? err.message : 'Failed to load alerts');
         }
       } finally {
-        if (!cancelled) setAlertsLoading(false);
+        if (!cancelled && !isBackground) setAlertsLoading(false);
       }
     };
 
-    fetchActiveAlerts();
+    fetchAlerts();
+    const interval = setInterval(() => fetchAlerts(true), 15000);
+
+    const connectWebSocket = () => {
+      ws = new WebSocket('ws://siteguardph.duckdns.org/ws/alerts');
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const latest = data.alert || data;
+          
+          if (latest && latest.id && lastAlertIdRef.current !== latest.id) {
+            setFloatingAlert(latest);
+            setTimeout(() => setFloatingAlert(null), 7000);
+
+            setActiveAlerts(prev => {
+              if (prev.some(a => a.id === latest.id)) return prev;
+              return [latest, ...prev];
+            });
+            lastAlertIdRef.current = latest.id;
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message', e);
+        }
+      };
+
+      ws.onclose = () => {
+        reconnectTimeout = window.setTimeout(connectWebSocket, 5000);
+      };
+    };
+
+    connectWebSocket();
+
     return () => {
       cancelled = true;
+      clearInterval(interval);
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
-  }, []);
-
-  useEffect(() => {
-    const pollAlerts = async () => {
-      try {
-        const alerts = await getActiveAlerts();
-        if (Array.isArray(alerts) && alerts.length > 0) {
-          const latest = alerts[0];
-          if (latest.id && lastAlertIdRef.current !== latest.id) {
-            setFloatingAlert(latest);
-            lastAlertIdRef.current = latest.id;
-            setTimeout(() => setFloatingAlert(null), 7000);
-          }
-        }
-      } catch {}
-    };
-    pollAlerts();
-    const interval = setInterval(pollAlerts, 15000);
-    return () => clearInterval(interval);
   }, []);
 
   return (

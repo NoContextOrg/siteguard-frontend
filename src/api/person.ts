@@ -37,6 +37,7 @@ export interface PersonResponse {
   department?: string;
   createdAt?: string;
   updatedAt?: string;
+  biometricId?: number | null;
 
   // fingerprint indicators (backend may not expose these directly; kept for UI compatibility)
   fingerprint?: boolean | string;
@@ -72,6 +73,7 @@ const toPersonResponse = (dto: any): PersonResponse => {
     teamId: dto.teamId ?? null,
     position: dto.position,
     department: dto.department,
+    biometricId: dto.biometricId,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     fingerprint: dto.fingerprint,
@@ -280,7 +282,7 @@ export const getFingerprintEnrolledPersons = async (): Promise<PersonResponse[]>
   // The current backend returns fingerprint templates via other endpoints, so keep this permissive.
   return persons.filter((p) => {
     const anyP = p as any;
-    return Boolean(anyP.fingerprint ?? anyP.fingerprintTemplate ?? anyP.fingerprints);
+    return Boolean(anyP.biometricId ?? anyP.fingerprint ?? anyP.fingerprintTemplate ?? anyP.fingerprints);
   });
 };
 
@@ -292,6 +294,21 @@ export type CreatePersonUiPayload = {
   department?: string;
   role: 'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN' | 'STAFF';
   fingerprint?: number | string;
+};
+
+/**
+ * Assign a biometric ID from the ESP32 to a person
+ */
+export const assignBiometricId = async (id: number, biometricId: number): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE_URL}/persons/${id}/biometric`, {
+    method: 'PUT',
+    body: JSON.stringify({ biometricId: String(biometricId) }),
+  });
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to assign biometric ID (${response.status})`);
+  }
 };
 
 export const createPersonUi = async (payload: CreatePersonUiPayload): Promise<PersonResponse> => {

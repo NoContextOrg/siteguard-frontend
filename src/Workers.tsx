@@ -4,6 +4,7 @@ import { Search, Calendar, Filter, X, Save } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
+import { authenticatedFetch } from './api/fetch';
 
 // ========== Types ==========
 type WorkerStatus = 'NORMAL' | 'HOTLIST' | 'NO_FINGERPRINT';
@@ -22,9 +23,10 @@ interface WorkerRow {
   fingerprint?: number | null;
 }
 
+
 const toWorkerRow = (p: PersonResponse): WorkerRow => {
   // Only use fingerprint for display, do not send in payloads
-  const fingerprint = (p as any).fingerprint ?? null;
+  const fingerprint = p.biometricId ?? (p as any).fingerprint ?? null;
 
   return {
     id: p.id,
@@ -168,7 +170,7 @@ export default function WorkersPage() {
   }, []);
 
   const registeredFingerprintsCount = useMemo(
-    () => persons.filter((p) => Boolean(p.fingerprint)).length,
+    () => persons.filter((p) => Boolean(p.biometricId ?? (p as any).fingerprint)).length,
     [persons]
   );
 
@@ -224,15 +226,25 @@ export default function WorkersPage() {
 
   // ✅ B. Assign Fingerprint handler
   const assignFingerprint = async (workerId: number) => {
-    if (!biometricLastId) {
-      setError('No fingerprint ID available from device');
+    if (!biometricLastId || biometricLastId <= 0) {
+      setError('No fingerprint ID available in the pool. Please enroll on the scanner first.');
       return;
     }
 
     try {
-      await updatePersonUi(workerId, {
-        fingerprint: biometricLastId,
+      setError(null);
+      
+      const res = await authenticatedFetch(`http://siteguardph.duckdns.org/api/persons/${workerId}/biometric`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ biometricId: String(biometricLastId) }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to assign fingerprint');
+      }
+      
+      setBiometricLastId(null); // Clear local state immediately to prevent double-assignment
 
       await loadPersons({ silent: true });
     } catch (e) {
@@ -388,7 +400,7 @@ export default function WorkersPage() {
               Biometric hardware (lastId)
             </div>
             <div className="mt-2 text-2xl font-black text-slate-800">
-              {lastIdLoading ? '…' : biometricLastId ?? '—'}
+              {lastIdLoading ? '…' : (biometricLastId && biometricLastId > 0 ? biometricLastId : 'None')}
             </div>
             <div className="mt-1 text-xs text-slate-500">
               Polled from <span className="font-mono">/api/biometric</span>
@@ -530,7 +542,11 @@ export default function WorkersPage() {
                             {worker.status}
                           </span>
 
-                          {!worker.fingerprint && (
+                          {worker.fingerprint ? (
+                            <span className="block text-green-600 text-xs mt-1 font-bold">
+                              ID: {worker.fingerprint}
+                            </span>
+                          ) : (
                             <span className="block text-red-500 text-xs mt-1">
                               No Fingerprint
                             </span>

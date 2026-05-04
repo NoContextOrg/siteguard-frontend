@@ -40,9 +40,10 @@ const EngineerDashboard = () => {
   const lastAlertIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    let cancelled = false;
+    const fetchDashboardData = async (isBackground = false) => {
       try {
-        setLoading(true);
+        if (!isBackground) setLoading(true);
 
         const [
           stats,
@@ -50,15 +51,15 @@ const EngineerDashboard = () => {
           hotlist,
           teamAttend,
           personsRes,
-          alertsRes
         ] = await Promise.all([
           getSystemStats(),
           getDashboardOverview(),
           getHotlistOverview(),
           getTeamAttendance(),
           getAllPersons(),
-          getActiveAlerts(),
         ]);
+
+        if (cancelled) return;
 
         setSystemStats(stats);
         setDashboardOverview(overview);
@@ -66,35 +67,86 @@ const EngineerDashboard = () => {
         setTeamAttendanceData(Array.isArray(teamAttend) ? teamAttend : (teamAttend as any)?.data ?? []);
 
         setPersons(personsRes || []);
-        setAlerts(alertsRes || []);
 
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled && !isBackground) setLoading(false);
       }
     };
 
     fetchDashboardData();
+    const interval = setInterval(() => fetchDashboardData(true), 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
-    const pollAlerts = async () => {
+    let cancelled = false;
+    let ws: WebSocket;
+    let reconnectTimeout: number;
+
+    const fetchAlerts = async () => {
       try {
-        const alerts = await getActiveAlerts();
-        if (Array.isArray(alerts) && alerts.length > 0) {
-          const latest = alerts[0];
-          if (latest.id && lastAlertIdRef.current !== latest.id) {
-            setFloatingAlert(latest);
+        const fetchedAlerts = await getActiveAlerts();
+        if (cancelled) return;
+
+        if (Array.isArray(fetchedAlerts)) {
+          setAlerts(fetchedAlerts);
+          if (fetchedAlerts.length > 0 && fetchedAlerts[0].id) {
+            const latest = fetchedAlerts[0];
+            if (lastAlertIdRef.current !== null && lastAlertIdRef.current !== latest.id) {
+              setFloatingAlert(latest);
+              setTimeout(() => setFloatingAlert(null), 7000);
+            }
             lastAlertIdRef.current = latest.id;
-            setTimeout(() => setFloatingAlert(null), 7000);
+          } else if (fetchedAlerts.length === 0) {
+            lastAlertIdRef.current = null;
           }
         }
       } catch {}
     };
-    pollAlerts();
-    const interval = setInterval(pollAlerts, 15000);
-    return () => clearInterval(interval);
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 15000);
+
+    const connectWebSocket = () => {
+      ws = new WebSocket('ws://siteguardph.duckdns.org/ws/alerts');
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const latest = data.alert || data;
+          
+          if (latest && latest.id && lastAlertIdRef.current !== latest.id) {
+            setFloatingAlert(latest);
+            setTimeout(() => setFloatingAlert(null), 7000);
+
+            setAlerts(prev => {
+              if (prev.some(a => a.id === latest.id)) return prev;
+              return [latest, ...prev];
+            });
+            lastAlertIdRef.current = latest.id;
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message', e);
+        }
+      };
+
+      ws.onclose = () => {
+        reconnectTimeout = window.setTimeout(connectWebSocket, 5000);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   const containerVars = {
