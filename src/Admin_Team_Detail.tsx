@@ -30,7 +30,7 @@ const AdminTeamDetail = () => {
         const membersRes = await getTeamMembers(numericTeamId);
         setMembers(membersRes);
         const attendanceRes = await getTeamAttendance();
-        setAttendance(attendanceRes || []);
+        setAttendance(Array.isArray(attendanceRes) ? attendanceRes : []);
       } catch (e) {
         // handle error (optional)
       } finally {

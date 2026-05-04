@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
+import { useNavigate } from 'react-router-dom';
 import type { 
   HotlistOverview,
   AlertsOverview,
-  StaffEfficiency,
 } from './api/analytics';
 import { 
   getHotlistOverview,
@@ -18,6 +18,7 @@ import type { AlertDTO } from './api/alert';
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const NurseDashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsError, setAlertsError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ const NurseDashboard = () => {
 
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
   const [alertsOverview, setAlertsOverview] = useState<AlertsOverview | null>(null);
-  const [staffEfficiency, setStaffEfficiency] = useState<StaffEfficiency[]>([]);
+  const [staffEfficiency, setStaffEfficiency] = useState<any[]>([]);
   const [alertsBreakdownPie, setAlertsBreakdownPie] = useState<any[]>([]);
 
   useEffect(() => {
@@ -48,19 +49,19 @@ const NurseDashboard = () => {
         setHotlistOverview(hotlist);
         setAlertsOverview(alerts);
 
-        // Handle cases where API returns `{ data: [...] }` or just `[...]`
-        const efficiencyData = Array.isArray(efficiency)
-          ? efficiency
-          : (efficiency as any)?.data ?? [];
-        setStaffEfficiency(efficiencyData);
+        const effArray = Object.entries((efficiency as any)?.staffByTeam || {}).map(([team, count]) => ({
+            name: team,
+            checkups_completed: count
+        }));
+        setStaffEfficiency(effArray as any);
 
-        // Format alert breakdown for pie chart
-        if (alerts?.breakdown) {
-          const breakdownData = Object.entries(alerts.breakdown).map(([name, value]) => ({
-            name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            value,
-          }));
-          setAlertsBreakdownPie(breakdownData);
+        // Format alerts directly from AnalyticsService flat structure
+        if (alerts) {
+          setAlertsBreakdownPie([
+            { name: 'Hotlist Alerts', value: (alerts as any).hotlistAlerts || 0 },
+            { name: 'Overtime Alerts', value: (alerts as any).overtimeAlerts || 0 },
+            { name: 'Medical Alerts', value: (alerts as any).medicalAlerts || 0 },
+          ]);
         } else {
           setAlertsBreakdownPie([]);
         }
@@ -101,7 +102,7 @@ const NurseDashboard = () => {
               setFloatingAlert(latest);
               setTimeout(() => setFloatingAlert(null), 7000);
             }
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           } else if (alerts.length === 0) {
             lastAlertIdRef.current = null;
           }
@@ -136,7 +137,7 @@ const NurseDashboard = () => {
               if (prev.some(a => a.id === latest.id)) return prev;
               return [latest, ...prev];
             });
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           }
         } catch (e) {
           console.error('Error parsing WebSocket message', e);
@@ -180,12 +181,12 @@ const NurseDashboard = () => {
               <div className="col-span-full text-center py-8">Loading...</div>
             ) : (
               <>
-                <StatCard label="Active Alerts" value={(alertsOverview?.active_alerts ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" />
-                <StatCard label="Today's Alerts" value={(alertsOverview?.total_alerts_today ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" />
-                <StatCard label="Hotlisted Persons" value={(hotlistOverview?.total_hotlist ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" />
-                <StatCard label="Overtime Alerts" value={(alertsOverview?.breakdown?.overtime ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" />
-                <StatCard label="Hotlist Login Alerts" value={(alertsOverview?.breakdown?.hotlist ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" />
-                <StatCard label="Unauthorized Alerts" value={(alertsOverview?.breakdown?.unauthorized ?? 0).toString()} icon={<ShieldAlert className="text-rose-400" size={28}/>} borderColor="border-l-rose-500" />
+                <StatCard label="Active Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" onClick={() => navigate('/alerts')} />
+                <StatCard label="Today's Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" onClick={() => navigate('/alerts')} />
+                <StatCard label="Hotlisted Persons" value={(hotlistOverview?.count ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" onClick={() => navigate('/alerts')} />
+                <StatCard label="Overtime Alerts" value={((alertsOverview as any)?.overtimeAlerts ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" onClick={() => navigate('/alerts')} />
+                <StatCard label="Hotlist Login Alerts" value={((alertsOverview as any)?.hotlistAlerts ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" onClick={() => navigate('/alerts')} />
+                <StatCard label="Medical Alerts" value={((alertsOverview as any)?.medicalAlerts ?? 0).toString()} icon={<ShieldAlert className="text-rose-400" size={28}/>} borderColor="border-l-rose-500" onClick={() => navigate('/alerts')} />
               </>
             )}
           </div>   
@@ -296,9 +297,9 @@ const NurseDashboard = () => {
                         </div>
                     </div>
                     <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                        {hotlistOverview?.recent_alerts && hotlistOverview.recent_alerts.length > 0 ? (
-                          hotlistOverview.recent_alerts.map((alert, i) => (
-                            <div key={i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
+                        {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                          hotlistOverview.list.map((alert: any, i: number) => (
+                            <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
                                         <Users size={16} className="text-slate-400" />
@@ -307,15 +308,15 @@ const NurseDashboard = () => {
                                         <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
                                         <div className="flex items-center gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                            <span className="text-[9px] font-bold text-slate-400 italic">{alert.alert_type}</span>
+                                            <span className="text-[9px] font-bold text-slate-400 italic">{alert.role}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <button 
-                                    onClick={() => { /* navigate('/worker-profile') */ }}
+                                    onClick={() => navigate('/workers')}
                                     className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
                                 >
-                                    See profile
+                                    See workers
                                 </button>
                             </div>
                           ))
@@ -373,15 +374,22 @@ const NurseDashboard = () => {
   );
 };
 
-const StatCard = ({ label, value, icon, borderColor }: any) => (
-  <div className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm flex items-center justify-between hover:scale-[1.02] transition cursor-pointer`}>
-    <div>
-        <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-          {label}
-        </p>
-        <span className="text-4xl font-black text-slate-800">{value}</span>
+const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
+  <div onClick={onClick} className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm flex flex-col justify-between ${onClick ? 'hover:scale-[1.02] cursor-pointer transition' : ''}`}>
+    <div className="flex items-center justify-between">
+      <div>
+          <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
+            {label}
+          </p>
+          <span className="text-4xl font-black text-slate-800">{value}</span>
+      </div>
+      <div className="opacity-40">{icon}</div>
     </div>
-    <div className="opacity-40">{icon}</div>
+    {onClick && (
+      <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
+        Click to view →
+      </div>
+    )}
   </div>
 );
 

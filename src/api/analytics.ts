@@ -19,73 +19,66 @@ export interface SystemStats {
 }
 
 export interface DashboardOverview {
-  total_persons: number;
-  total_teams: number;
-  todays_attendance: number;
-  todays_hotlist_alerts: number;
+  totalPersons?: number;
+  onsitePersonsToday?: number;
+  siteEngineersTotal?: number;
+  hotlistWorkers?: number;
+  workersAdmitted?: number;
+  siteEngineersAdmitted?: number;
+  totalTeams?: number;
+  admittedTeams?: number;
+  attendanceRate?: string;
+  attendanceOverview?: Record<string, string[]>;
+  alerts?: any[];
+  timestamp?: string;
   [key: string]: any;
 }
 
 export interface HotlistOverview {
-  total_hotlist: number;
-  recent_alerts: Array<{
-    id: string;
+  count: number;
+  list: Array<{
+    personCode: string;
     name: string;
+    role: string;
     team: string;
-    alert_type: string;
-    timestamp: string;
   }>;
+  graph: Record<string, number>;
   [key: string]: any;
 }
 
-export interface AttendanceData {
-  date: string;
-  hotlist: number;
-  workers: number;
-  engineers: number;
-}
-
 export interface AttendancePlot {
-  data: AttendanceData[];
-  summary: {
-    total_days: number;
-    avg_hotlist: number;
-    avg_workers: number;
-    avg_engineers: number;
-  };
+  start: string;
+  end: string;
+  counts: Record<string, number>;
 }
 
-export interface TeamAttendance {
-  team_name: string;
-  total_members: number;
-  present: number;
-  absent: number;
-  on_leave: number;
-  overtime: number;
+export interface TeamAttendanceResponse {
+  teamDateCounts: Record<string, Record<string, number>>;
+  hotlistPerTeam: Record<string, number>;
 }
 
 export interface OvertimeData {
-  date: string;
-  overtime_count: number;
+  note?: string;
+  data?: any[];
   [key: string]: any;
 }
 
 export interface AlertsOverview {
-  active_alerts: number;
-  total_alerts_today: number;
-  breakdown: {
-    overtime: number;
-    hotlist: number;
-    unauthorized: number;
-    [key: string]: number;
-  };
+  totalActive: number;
+  hotlistAlerts: number;
+  overtimeAlerts: number;
+  medicalAlerts: number;
+  lastUpdated: string;
 }
 
-export interface StaffEfficiency {
-  staff_member: string;
-  checkups_completed: number;
-  efficiency_rate: number;
-  [key: string]: any;
+export interface StaffEfficiencyResponse {
+  periodStart: string;
+  periodEnd: string;
+  totalStaff: number;
+  staffByRole: Record<string, number>;
+  staffByTeam: Record<string, number>;
+  metrics: any[];
+  note?: string;
 }
 
 // ========== ANALYTICS ENDPOINTS ========== //
@@ -206,7 +199,7 @@ export const getAttendancePlot = async (startDate?: string, endDate?: string): P
 /**
  * Get team attendance data
  */
-export const getTeamAttendance = async (startDate?: string, endDate?: string): Promise<TeamAttendance[]> => {
+export const getTeamAttendance = async (startDate?: string, endDate?: string): Promise<TeamAttendanceResponse> => {
   try {
     const url = new URL(`${API_BASE_URL}/analytics/team-attendance`);
     if (startDate) {
@@ -228,7 +221,7 @@ export const getTeamAttendance = async (startDate?: string, endDate?: string): P
       throw new Error(`Failed to fetch team attendance: ${response.statusText}`);
     }
 
-    const data: TeamAttendance[] = await response.json();
+    const data: TeamAttendanceResponse = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching team attendance:', error);
@@ -264,7 +257,7 @@ export const getMembersPerTeam = async (): Promise<Record<string, number>> => {
 /**
  * Get overtime overview
  */
-export const getOvertimeOverview = async (date?: string): Promise<Map<string, OvertimeData[]>> => {
+export const getOvertimeOverview = async (date?: string): Promise<OvertimeData> => {
   try {
     const url = new URL(`${API_BASE_URL}/analytics/overtime`);
     if (date) {
@@ -283,7 +276,7 @@ export const getOvertimeOverview = async (date?: string): Promise<Map<string, Ov
       throw new Error(`Failed to fetch overtime overview: ${response.statusText}`);
     }
 
-    const data: Map<string, OvertimeData[]> = await response.json();
+    const data: OvertimeData = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching overtime overview:', error);
@@ -368,7 +361,7 @@ export const getAlertsOverview = async (): Promise<AlertsOverview> => {
 /**
  * Get staff efficiency metrics
  */
-export const getStaffEfficiency = async (startDate?: string, endDate?: string): Promise<StaffEfficiency[]> => {
+export const getStaffEfficiency = async (startDate?: string, endDate?: string): Promise<StaffEfficiencyResponse> => {
   try {
     const url = new URL(`${API_BASE_URL}/analytics/staff-efficiency`);
     if (startDate) {
@@ -390,7 +383,7 @@ export const getStaffEfficiency = async (startDate?: string, endDate?: string): 
       throw new Error(`Failed to fetch staff efficiency: ${response.statusText}`);
     }
 
-    const data: StaffEfficiency[] = await response.json();
+    const data: StaffEfficiencyResponse = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching staff efficiency:', error);

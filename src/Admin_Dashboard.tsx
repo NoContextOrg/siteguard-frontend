@@ -6,7 +6,7 @@ import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { getSystemStats, getDashboardOverview, getAttendancePlot, getHotlistOverview, getTeamAttendance } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
-import type { SystemStats, DashboardOverview, HotlistOverview, TeamAttendance } from './api/analytics';
+import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
 
 const AdminDashboard = () => {
@@ -22,7 +22,7 @@ const AdminDashboard = () => {
   const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
-  const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
+  const [teamAttendanceData, setTeamAttendanceData] = useState<any[]>([]);
   const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
 
   useEffect(() => {
@@ -44,21 +44,31 @@ const AdminDashboard = () => {
 
         setSystemStats(stats);
         setDashboardOverview(overview);
-        setAttendanceData(attendance.data || []);
         setHotlistOverview(hotlist);
-        setTeamAttendanceData(teamAttend);
+        
+        // Align with AnalyticsController's map structure
+        const attArray = Object.entries((attendance as any)?.counts || {}).map(([date, count]) => ({
+            name: date,
+            Workers: count,
+            Hotlist: 0,
+            Engineers: 0
+        }));
+        setAttendanceData(attArray);
 
-        // Format team attendance pie data
-        if (teamAttend.length > 0) {
-          const firstTeam = teamAttend[0];
-          const pieData = [
-            { name: 'Present', value: firstTeam.present, color: '#818cf8' },
-            { name: 'Absent', value: firstTeam.absent, color: '#f87171' },
-            { name: 'On Leave', value: firstTeam.on_leave, color: '#2dd4bf' },
-            { name: 'Overtime', value: firstTeam.overtime, color: '#fb923c' },
-          ];
-          setTeamAttendancePie(pieData);
-        }
+        const tdArray = Object.entries((teamAttend as any)?.teamDateCounts || {}).map(([teamName, dates]) => ({
+            name: teamName,
+            present: Object.values(dates as Record<string, number>).reduce((a, b) => a + b, 0),
+            absent: 0,
+            on_leave: 0,
+            overtime: 0
+        }));
+        setTeamAttendanceData(tdArray as any);
+
+        const pieData = Object.entries((teamAttend as any)?.hotlistPerTeam || {}).map(([teamName, count], idx) => {
+            const colors = ['#818cf8', '#f87171', '#2dd4bf', '#fb923c'];
+            return { name: teamName, value: count, color: colors[idx % colors.length] };
+        });
+        setTeamAttendancePie(pieData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
@@ -96,7 +106,7 @@ const AdminDashboard = () => {
               setFloatingAlert(latest);
               setTimeout(() => setFloatingAlert(null), 7000);
             }
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           } else if (alerts.length === 0) {
             lastAlertIdRef.current = null;
           }
@@ -131,7 +141,7 @@ const AdminDashboard = () => {
               if (prev.some(a => a.id === latest.id)) return prev;
               return [latest, ...prev];
             });
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           }
         } catch (e) {
           console.error('Error parsing WebSocket message', e);
@@ -181,118 +191,77 @@ const AdminDashboard = () => {
             value={(systemStats?.workers ?? 0).toLocaleString()}
             icon={<Users className="text-blue-400" size={28} />}
             borderColor="border-l-blue-500"
-            footer={
-              <Link
-                to="/workers"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                View workers →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
           <StatCard
             label="Site Engineers"
             value={(systemStats?.engineers ?? 0).toLocaleString()}
             icon={<HardHat className="text-blue-300" size={28} />}
             borderColor="border-l-blue-300"
-            footer={
-              <Link
-                to="/person-management"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                Add account →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
           <StatCard
             label="Nurses"
             value={(systemStats?.nurses ?? 0).toLocaleString()}
             icon={<UserX className="text-red-400" size={28} />}
             borderColor="border-l-red-500"
-            footer={
-              <Link
-                to="/person-management"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                Add account →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
           <StatCard
             label="Admins"
             value={(systemStats?.admins ?? 0).toLocaleString()}
             icon={<UserCheck className="text-teal-400" size={28} />}
             borderColor="border-l-teal-500"
-            footer={
-              <Link
-                to="/person-management"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                Add account →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
           <StatCard
             label="Staff"
             value={(systemStats?.staff ?? 0).toLocaleString()}
             icon={<Users size={28} />}
             borderColor="border-l-purple-500"
-            footer={
-              <Link
-                to="/person-management"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                Manage people →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
           <StatCard
             label="Total Persons"
             value={(systemStats?.total_persons ?? 0).toLocaleString()}
             icon={<HardHat size={28} />}
             borderColor="border-l-indigo-500"
-            footer={
-              <Link
-                to="/person-management"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600"
-              >
-                View all →
-              </Link>
-            }
+            onClick={() => navigate('/admin_team')}
           />
         </div>
 
         {/* Bottom stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center">
+          <div 
+            onClick={() => navigate('/admin_team')}
+            className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
+          >
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Teams</p>
               <div className="flex items-center gap-3 mt-2">
                 <Users2 size={32} />
-                <span className="text-4xl font-black">{dashboardOverview?.total_teams || 0}</span>
+                <span className="text-4xl font-black">{dashboardOverview?.totalTeams || 0}</span>
               </div>
             </div>
-            <Link
-              to="/admin_team"
-              className="text-[12px] font-bold text-slate-400 flex items-center gap-1 hover:text-blue-600"
-            >
-              View Teams <ArrowUpRight size={12} />
-            </Link>
+            <ArrowUpRight size={24} className="text-slate-300" />
           </div>
-          <div className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center">
+          <div 
+            onClick={() => navigate('/attendance')}
+            className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
+          >
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Attendance</p>
               <div className="flex items-center gap-3 mt-2">
                 <Users size={32} className="text-orange-400" />
                 <span className="text-4xl font-black text-orange-400">
-                  {dashboardOverview?.todays_attendance || 0}
+                  {dashboardOverview?.onsitePersonsToday || 0}
                 </span>
               </div>
             </div>
             <div className="text-right">
               <div className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1 text-[12px] font-bold">
                 <ArrowUpRight size={12} className="text-green-500" />{' '}
-                {dashboardOverview?.todays_hotlist_alerts || 0}
+                {dashboardOverview?.hotlistWorkers || 0}
               </div>
               <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Today's Alerts</p>
             </div>
@@ -450,9 +419,9 @@ const AdminDashboard = () => {
                       </div>
                   </div>
                   <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                      {hotlistOverview?.recent_alerts && hotlistOverview.recent_alerts.length > 0 ? (
-                        hotlistOverview.recent_alerts.map((alert, i) => (
-                          <div key={i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
+                      {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                        hotlistOverview.list.map((alert: any, i: number) => (
+                          <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
                               <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
                                       <Users size={16} className="text-slate-400" />
@@ -461,15 +430,15 @@ const AdminDashboard = () => {
                                       <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
                                       <div className="flex items-center gap-1">
                                           <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                          <span className="text-[9px] font-bold text-slate-400 italic">{alert.alert_type}</span>
+                                          <span className="text-[9px] font-bold text-slate-400 italic">{alert.role}</span>
                                       </div>
                                   </div>
                               </div>
                               <button 
-                                  onClick={() => navigate('/worker-profile')}
+                                  onClick={() => navigate('/workers')}
                                   className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
                               >
-                                  See profile
+                                  See workers
                               </button>
                           </div>
                         ))
@@ -532,8 +501,9 @@ const AdminDashboard = () => {
   );
 };
 
-const StatCard = ({ label, value, icon, borderColor, footer }: any) => (
+const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
   <div
+    onClick={onClick}
     className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm hover:scale-[1.02] transition cursor-pointer`}
   >
     <div className="flex items-center justify-between">
@@ -543,7 +513,11 @@ const StatCard = ({ label, value, icon, borderColor, footer }: any) => (
       </div>
       <div className="opacity-40">{icon}</div>
     </div>
-    {footer ? <div className="mt-4">{footer}</div> : null}
+    {onClick && (
+      <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
+        Click to view →
+      </div>
+    )}
   </div>
 );
 

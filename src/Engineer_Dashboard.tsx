@@ -11,7 +11,6 @@ import type {
   SystemStats,
   DashboardOverview,
   HotlistOverview,
-  TeamAttendance,
 } from './api/analytics';
 import {
   getSystemStats,
@@ -22,15 +21,17 @@ import {
 import { getAllPersons, type PersonResponse } from './api/person';
 import { getActiveAlerts, type AlertDTO } from './api/alert';
 import DashboardLayout from './components/DashboardLayout';
+import { useNavigate } from 'react-router-dom';
 
 const EngineerDashboard = () => {
+  const navigate = useNavigate();
   const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null);
   const [hotlistOverview, setHotlistOverview] = useState<HotlistOverview | null>(null);
-  const [teamAttendanceData, setTeamAttendanceData] = useState<TeamAttendance[]>([]);
+  const [teamAttendanceData, setTeamAttendanceData] = useState<any[]>([]);
 
   // NEW: backend-connected states
   const [persons, setPersons] = useState<PersonResponse[]>([]);
@@ -64,7 +65,14 @@ const EngineerDashboard = () => {
         setSystemStats(stats);
         setDashboardOverview(overview);
         setHotlistOverview(hotlist);
-        setTeamAttendanceData(Array.isArray(teamAttend) ? teamAttend : (teamAttend as any)?.data ?? []);
+        
+        const tdArray = Object.entries((teamAttend as any)?.teamDateCounts || {}).map(([teamName, dates]) => ({
+            name: teamName,
+            present: Object.values(dates as Record<string, number>).reduce((a, b) => a + b, 0),
+            absent: 0,
+            leave: 0,
+        }));
+        setTeamAttendanceData(tdArray as any);
 
         setPersons(personsRes || []);
 
@@ -101,7 +109,7 @@ const EngineerDashboard = () => {
               setFloatingAlert(latest);
               setTimeout(() => setFloatingAlert(null), 7000);
             }
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           } else if (fetchedAlerts.length === 0) {
             lastAlertIdRef.current = null;
           }
@@ -127,7 +135,7 @@ const EngineerDashboard = () => {
               if (prev.some(a => a.id === latest.id)) return prev;
               return [latest, ...prev];
             });
-            lastAlertIdRef.current = latest.id;
+            lastAlertIdRef.current = latest.id ?? null;
           }
         } catch (e) {
           console.error('Error parsing WebSocket message', e);
@@ -185,10 +193,10 @@ const EngineerDashboard = () => {
             <div className="col-span-full text-center py-8">Loading...</div>
           ) : (
             <>
-              <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} color="border-l-blue-400" icon={<Users size={28}/>} />
-              <StatCard label="Total Admins" value={(systemStats?.admins ?? 0).toString()} color="border-l-teal-400" icon={<UserCheck size={28}/>} />
-              <StatCard label="Hotlist Count" value={(dashboardOverview?.todays_hotlist_alerts ?? 0).toString()} color="border-l-red-400" icon={<UserX size={28}/>} />
-              <StatCard label="Today's Attendance" value={(dashboardOverview?.todays_attendance ?? 0).toString()} color="border-l-purple-400" icon={<UserPlus size={28}/>} />
+              <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} color="border-l-blue-400" icon={<Users size={28}/>} onClick={() => navigate('/engineer_team')} />
+              <StatCard label="Total Admins" value={(systemStats?.admins ?? 0).toString()} color="border-l-teal-400" icon={<UserCheck size={28}/>} onClick={() => navigate('/engineer_team')} />
+              <StatCard label="Hotlist Count" value={(dashboardOverview?.hotlistWorkers ?? 0).toString()} color="border-l-red-400" icon={<UserX size={28}/>} onClick={() => navigate('/alerts')} />
+              <StatCard label="Today's Attendance" value={(dashboardOverview?.onsitePersonsToday ?? 0).toString()} color="border-l-purple-400" icon={<UserPlus size={28}/>} onClick={() => navigate('/engineer_team')} />
             </>
           )}
         </div>
@@ -304,10 +312,10 @@ const EngineerDashboard = () => {
                 </div>
 
                 <div className="p-4 space-y-3">
-                  {hotlistOverview.recent_alerts?.slice(0, 5).map((alert, i) => (
-                    <div key={i} className="p-3 border rounded-lg">
+                  {hotlistOverview.list?.slice(0, 5).map((alert: any, i: number) => (
+                    <div key={alert.personCode ?? i} className="p-3 border rounded-lg">
                       <p className="font-bold text-sm">{alert.name}</p>
-                      <p className="text-xs text-slate-500">{alert.alert_type}</p>
+                      <p className="text-xs text-slate-500">{alert.role}</p>
                     </div>
                   ))}
                 </div>
@@ -334,13 +342,20 @@ const EngineerDashboard = () => {
   );
 };
 
-const StatCard = ({ label, value, color, icon }: any) => (
-  <div className={`bg-white p-6 border-l-8 ${color} rounded-xl flex justify-between`}>
-    <div>
-      <p className="text-xs font-bold uppercase">{label}</p>
-      <p className="text-3xl font-black">{value}</p>
+const StatCard = ({ label, value, color, icon, onClick }: any) => (
+  <div onClick={onClick} className={`bg-white p-6 border-l-8 ${color} rounded-xl flex flex-col justify-between shadow-sm ${onClick ? 'hover:scale-[1.02] cursor-pointer transition' : ''}`}>
+    <div className="flex justify-between items-start">
+      <div>
+        <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
+        <p className="text-3xl font-black text-slate-800">{value}</p>
+      </div>
+      <div className="opacity-40">{icon}</div>
     </div>
-    {icon}
+    {onClick && (
+      <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
+        Click to view →
+      </div>
+    )}
   </div>
 );
 
