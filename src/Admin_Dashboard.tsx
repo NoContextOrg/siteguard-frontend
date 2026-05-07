@@ -4,7 +4,7 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { getSystemStats, getDashboardOverview, getAttendancePlot, getHotlistOverview, getTeamAttendance } from './api/analytics';
+import { getUnifiedDashboard } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
@@ -31,42 +31,46 @@ const AdminDashboard = () => {
       try {
         if (!isBackground) setLoading(true);
 
-        // Fetch all data in parallel
-        const [stats, overview, attendance, hotlist, teamAttend] = await Promise.all([
-          getSystemStats(),
-          getDashboardOverview(),
-          getAttendancePlot(),
-          getHotlistOverview(),
-          getTeamAttendance(),
-        ]);
+        // Fetch all data via unified endpoint
+        const unified = await getUnifiedDashboard();
 
         if (cancelled) return;
 
-        setSystemStats(stats);
-        setDashboardOverview(overview);
-        setHotlistOverview(hotlist);
+        setSystemStats(unified.systemStats || null);
+        setDashboardOverview(unified.dashboardOverview || null);
         
-        // Align with AnalyticsController's map structure
-        const attArray = Object.entries((attendance as any)?.counts || {}).map(([date, count]) => ({
-            name: date,
-            Workers: count,
+        if (unified.enhancedHotlistOverview) {
+          setHotlistOverview({
+            count: unified.enhancedHotlistOverview.totalHotlisted,
+            list: unified.enhancedHotlistOverview.list,
+            graph: (unified.enhancedHotlistOverview.teamBreakdown || []).reduce((acc: any, cur: any) => {
+              acc[cur.name] = cur.value;
+              return acc;
+            }, {})
+          });
+        }
+        
+        // Align with enhanced map structure
+        const attArray = (unified.enhancedAttendanceOverview?.timeSeries || []).map((t) => ({
+            name: t.date,
+            Workers: t.count,
             Hotlist: 0,
             Engineers: 0
         }));
         setAttendanceData(attArray);
 
-        const tdArray = Object.entries((teamAttend as any)?.teamDateCounts || {}).map(([teamName, dates]) => ({
-            name: teamName,
-            present: Object.values(dates as Record<string, number>).reduce((a, b) => a + b, 0),
-            absent: 0,
-            on_leave: 0,
+        const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t) => ({
+            name: t.name,
+            present: t.present,
+            absent: t.absent,
+            on_leave: t.leave,
             overtime: 0
         }));
         setTeamAttendanceData(tdArray as any);
 
-        const pieData = Object.entries((teamAttend as any)?.hotlistPerTeam || {}).map(([teamName, count], idx) => {
+        const pieData = (unified.enhancedHotlistOverview?.teamBreakdown || []).map((item, idx) => {
             const colors = ['#818cf8', '#f87171', '#2dd4bf', '#fb923c'];
-            return { name: teamName, value: count, color: colors[idx % colors.length] };
+            return { name: item.name, value: item.value, color: colors[idx % colors.length] };
         });
         setTeamAttendancePie(pieData);
       } catch (err) {

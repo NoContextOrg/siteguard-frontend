@@ -8,9 +8,7 @@ import type {
   AlertsOverview,
 } from './api/analytics';
 import { 
-  getHotlistOverview,
-  getAlertsOverview,
-  getStaffEfficiency,
+  getUnifiedDashboard,
 } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
@@ -37,33 +35,40 @@ const NurseDashboard = () => {
       try {
         if (!isBackground) setLoading(true);
 
-        // Fetch all data a nurse is allowed to see
-        const [hotlist, alerts, efficiency] = await Promise.all([
-          getHotlistOverview().catch(() => null),
-          getAlertsOverview().catch(() => null),
-          getStaffEfficiency().catch(() => []),
-        ]);
+        // Fetch all data a nurse is allowed to see via unified endpoint
+        const unified = await getUnifiedDashboard().catch(() => null);
 
         if (cancelled) return;
 
-        setHotlistOverview(hotlist);
-        setAlertsOverview(alerts);
+        if (unified) {
+          if (unified.enhancedHotlistOverview) {
+            setHotlistOverview({
+              count: unified.enhancedHotlistOverview.totalHotlisted,
+              list: unified.enhancedHotlistOverview.list,
+              graph: (unified.enhancedHotlistOverview.teamBreakdown || []).reduce((acc: any, cur: any) => {
+                acc[cur.name] = cur.value;
+                return acc;
+              }, {})
+            });
+          }
+          setAlertsOverview(unified.alertsOverview || null);
 
-        const effArray = Object.entries((efficiency as any)?.staffByTeam || {}).map(([team, count]) => ({
-            name: team,
-            checkups_completed: count
-        }));
-        setStaffEfficiency(effArray as any);
+          const effArray = (unified.staffEfficiency?.staffByTeam || []).map((item: any) => ({
+            name: item.name,
+            checkups_completed: item.value
+          }));
+          setStaffEfficiency(effArray);
 
-        // Format alerts directly from AnalyticsService flat structure
-        if (alerts) {
-          setAlertsBreakdownPie([
-            { name: 'Hotlist Alerts', value: (alerts as any).hotlistAlerts || 0 },
-            { name: 'Overtime Alerts', value: (alerts as any).overtimeAlerts || 0 },
-            { name: 'Medical Alerts', value: (alerts as any).medicalAlerts || 0 },
-          ]);
-        } else {
-          setAlertsBreakdownPie([]);
+          // Format alerts directly from AnalyticsService flat structure
+          if (unified.alertsOverview) {
+            setAlertsBreakdownPie([
+              { name: 'Hotlist Alerts', value: unified.alertsOverview.hotlistAlerts || 0 },
+              { name: 'Overtime Alerts', value: unified.alertsOverview.overtimeAlerts || 0 },
+              { name: 'Medical Alerts', value: unified.alertsOverview.medicalAlerts || 0 },
+            ]);
+          } else {
+            setAlertsBreakdownPie([]);
+          }
         }
       } catch (err) {
         console.error('Error fetching dashboard data:', err);

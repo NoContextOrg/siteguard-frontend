@@ -5,7 +5,7 @@
 
 import { getAuthHeader } from './auth';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 // ========== INTERFACES ========== //
 
@@ -81,6 +81,90 @@ export interface StaffEfficiencyResponse {
   note?: string;
 }
 
+export interface NameValuePair {
+  name: string;
+  value: number;
+}
+
+export interface UnifiedAnalyticsResponse {
+  systemStats?: SystemStats;
+  dashboardOverview?: DashboardOverview;
+  hotlistOverview?: {
+    count: number;
+    list: Array<{
+      personCode: string;
+      name: string;
+      role: string;
+      team: string;
+    }>;
+    graph: NameValuePair[];
+  };
+  alertsOverview?: AlertsOverview;
+  staffEfficiency?: {
+    periodStart: string;
+    periodEnd: string;
+    totalStaff: number;
+    staffByRole: NameValuePair[];
+    staffByTeam: NameValuePair[];
+  };
+  attendancePlot?: AttendancePlot;
+  teamAttendance?: TeamAttendanceResponse;
+  overallAttendanceOverview?: {
+    totalPersons: number;
+    presentToday: number;
+    absentToday: number;
+    attendanceRate: number;
+    trend: string;
+    trendPercentage: number;
+    roleBreakdown: NameValuePair[];
+    teamBreakdown: NameValuePair[];
+    timestamp: string;
+  };
+  hotlistAttendanceOverview?: {
+    totalHotlisted: number;
+    presentHotlisted: number;
+    absentHotlisted: number;
+    hotlistAttendanceRate: number;
+    trend: string;
+    trendPercentage: number;
+    dailyTrend: Array<{date: string, present: number, absent: number, rate: number}>;
+    riskIndicators: Array<{personCode: string, name: string, team: string, riskLevel: string, consecutiveAbsentDays: number, lastSeenDate: string}>;
+    timestamp: string;
+  };
+  enhancedAttendanceOverview?: {
+    timeSeries: Array<{date: string, count: number}>;
+    teamBreakdown: Array<{name: string, present: number, absent: number, leave: number}>;
+    roleBreakdown: NameValuePair[];
+    totalPresent: number;
+    totalAbsent: number;
+    overallRate: number;
+    trend: string;
+    trendPercentage: number;
+    startDate: string;
+    endDate: string;
+  };
+  enhancedHotlistOverview?: {
+    totalHotlisted: number;
+    list: Array<{personCode: string, name: string, role: string, team: string}>;
+    teamBreakdown: NameValuePair[];
+    trends: Array<{date: string, present: number, absent: number, rate: number}>;
+    riskIndicators: Array<{personCode: string, name: string, team: string, riskLevel: string, consecutiveAbsentDays: number, lastSeenDate: string}>;
+    attendanceRate: number;
+    trend: string;
+    trendPercentage: number;
+    timestamp: string;
+  };
+  teamAttendanceOverview?: {
+    teamMetrics: Array<{teamName: string, totalMembers: number, presentToday: number, absentToday: number, attendanceRate: number, trend: string, trendPercentage: number, historicalTrend: Array<{date: string, count: number}>}>;
+    topPerformingTeams: Array<{teamName: string, attendanceRate: number, trend: string, trendPercentage: number, rank: number}>;
+    lowestPerformingTeams: Array<{teamName: string, attendanceRate: number, trend: string, trendPercentage: number, rank: number}>;
+    overallAverageRate: number;
+    overallTrend: string;
+    startDate: string;
+    endDate: string;
+  };
+}
+
 // ========== ANALYTICS ENDPOINTS ========== //
 
 /**
@@ -104,6 +188,39 @@ export const getSystemStats = async (): Promise<SystemStats> => {
     return data;
   } catch (error) {
     console.error('Error fetching system stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get unified analytics data for all dashboards
+ */
+export const getUnifiedDashboard = async (
+  date?: string,
+  start?: string,
+  end?: string
+): Promise<UnifiedAnalyticsResponse> => {
+  try {
+    const url = new URL(`${API_BASE_URL}/analytics/dashboard`);
+    if (date) url.searchParams.append('date', date);
+    if (start) url.searchParams.append('start', start);
+    if (end) url.searchParams.append('end', end);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch unified dashboard: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching unified dashboard:', error);
     throw error;
   }
 };

@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons } from './api/person';
 import { authenticatedFetch } from './api/fetch';
+import { getUnifiedDashboard, type UnifiedAnalyticsResponse } from './api/analytics';
 
 
 const WorkerLandingPage: React.FC = () => {
@@ -20,6 +21,7 @@ const WorkerLandingPage: React.FC = () => {
   
   const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [unifiedData, setUnifiedData] = useState<UnifiedAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,10 +51,11 @@ const WorkerLandingPage: React.FC = () => {
         }
         
         if (activeTab === 'dashboard' && currentCode) {
-          const apiUrl = 'http://siteguardph.duckdns.org/api';
-          const [summaryRes, logsRes] = await Promise.all([
+          const apiUrl = 'http://localhost:8080/api';
+          const [summaryRes, logsRes, unified] = await Promise.all([
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}/summary`),
-            authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`)
+            authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`),
+            getUnifiedDashboard()
           ]);
           
           const summary = summaryRes.ok ? await summaryRes.json() : null;
@@ -60,6 +63,7 @@ const WorkerLandingPage: React.FC = () => {
           
           setAttendanceSummary(summary);
           setAttendanceLogs(Array.isArray(logs) ? logs : []);
+          setUnifiedData(unified);
         }
       } catch (err) {
         setError('Failed to load dashboard data');
@@ -85,6 +89,23 @@ const WorkerLandingPage: React.FC = () => {
               <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
             ) : (
               <>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">Site Overview</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Onsite Today</div>
+                    <div className="text-4xl font-black text-slate-800">{unifiedData?.dashboardOverview?.onsitePersonsToday ?? '—'}</div>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Site Attendance Rate</div>
+                    <div className="text-4xl font-black text-blue-600">{unifiedData?.overallAttendanceOverview?.attendanceRate?.toFixed(1) ?? '—'}%</div>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Active Alerts</div>
+                    <div className="text-4xl font-black text-red-500">{unifiedData?.alertsOverview?.totalActive ?? '—'}</div>
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Attendance</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
                     <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Days Present</div>

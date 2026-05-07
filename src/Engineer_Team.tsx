@@ -13,7 +13,7 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { getAllPersons } from './api/person';
 import type { PersonResponse } from './api/person';
-import { getOvertimeOverview, getSystemStats } from './api/analytics';
+import { getOvertimeOverview, getUnifiedDashboard } from './api/analytics';
 import { getActiveAlertCount } from './api/alert';
 
 // ================= TYPES ================= //
@@ -40,16 +40,19 @@ const EngineerTeam = () => {
       try {
         setLoading(true);
 
-        const [personsData, overtimeJson, statsJson, alertsJson] = await Promise.all([
+        const [personsData, overtimeJson, unifiedData, alertsJson] = await Promise.all([
           getAllPersons(),
           getOvertimeOverview(),
-          getSystemStats(),
+          getUnifiedDashboard(),
           getActiveAlertCount(),
         ]);
 
         setPersons(personsData || []);
         setOvertimeData(Array.isArray(overtimeJson) ? overtimeJson : (overtimeJson as any)?.data ?? []);
-        setStats(statsJson);
+        setStats({
+          ...unifiedData?.systemStats,
+          hotlistCount: unifiedData?.enhancedHotlistOverview?.totalHotlisted || unifiedData?.dashboardOverview?.hotlistWorkers
+        });
         setActiveAlerts((alertsJson as any)?.activeAlertCount || 0);
 
       } catch (err) {
