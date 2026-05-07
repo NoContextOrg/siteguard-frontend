@@ -132,6 +132,8 @@ const AdminTeam = () => {
   const [modalType, setModalType] = useState<'account' | 'team' | 'worker' | 'teamEdit' | 'teamDelete' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{teamId: number, personId: number} | null>(null);
 
   const [persons, setPersons] = useState<PersonResponse[]>([]);
   const [teams, setTeams] = useState<TeamResponse[]>([]);
@@ -267,6 +269,8 @@ const AdminTeam = () => {
       setNewTeamLocation('');
       setNewTeamSiteEngineerId(null);
 
+      setSuccess('Team created successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
       setModalType(null);
     } catch (e2) {
@@ -287,6 +291,8 @@ const AdminTeam = () => {
       // Assign worker to team, use current date if needed (not shown in UI)
       await assignWorkersToTeam(selectedTeamIdForWorkerAdd, [selectedWorkerId]);
       closeModal();
+      setSuccess('Worker added to team successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to add worker to team');
@@ -345,6 +351,8 @@ const AdminTeam = () => {
       setAddAccountPassword('');
       setAddAccountConfirmPassword('');
       closeModal();
+      setSuccess('Account created successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to create account');
@@ -387,6 +395,8 @@ const AdminTeam = () => {
       setNewAccountPhone('');
       setNewAccountDepartment('');
       closeModal();
+      setSuccess('Account updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to update account');
@@ -402,6 +412,8 @@ const AdminTeam = () => {
       await deletePersonById(deletingPerson.id);
       setDeletingPerson(null);
       closeModal();
+      setSuccess('Account deleted successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : 'Failed to delete account');
@@ -480,6 +492,8 @@ const AdminTeam = () => {
       setNewTeamLocation('');
       setNewTeamSiteEngineerId(null);
 
+      setSuccess('Team updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
       setModalType(null);
     } catch (e2) {
@@ -496,6 +510,8 @@ const AdminTeam = () => {
       setTeamSubmitting(true);
       await deleteTeam(teamDeleting.id);
       setTeamDeleting(null);
+      setSuccess('Team deleted successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await load();
       setModalType(null);
     } catch (e2) {
@@ -605,14 +621,22 @@ const AdminTeam = () => {
     setPasswordSuccess(null);
   };
 
-  // Handler to remove member from team using fetch
-  const handleRemoveMemberFromTeam = async (teamId: number, personId: number) => {
+  const handleRemoveMemberFromTeam = (teamId: number, personId: number) => {
+    setMemberToRemove({ teamId, personId });
+  };
+
+  const confirmRemoveMemberFromTeam = async () => {
+    if (!memberToRemove) return;
     try {
       setError(null);
-      await authenticatedFetch(`http://siteguardph.duckdns.org/api/teams/${teamId}/members/${personId}`, { method: 'DELETE' });
-      await loadTeamMembers(teamId);
+      await authenticatedFetch(`http://siteguardph.duckdns.org/api/teams/${memberToRemove.teamId}/members/${memberToRemove.personId}`, { method: 'DELETE' });
+      await loadTeamMembers(memberToRemove.teamId);
+      setSuccess('Member removed from team successfully!');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member from team');
+    } finally {
+      setMemberToRemove(null);
     }
   };
 
@@ -654,6 +678,18 @@ const AdminTeam = () => {
               <p className="text-sm text-red-700">{error}</p>
             </div>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800" type="button">
+              <X size={18} />
+            </button>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mt-6 mb-2 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start justify-between animate-in fade-in">
+            <div>
+              <h3 className="font-semibold text-green-800">Success</h3>
+              <p className="text-sm text-green-700">{success}</p>
+            </div>
+            <button onClick={() => setSuccess(null)} className="text-green-600 hover:text-green-800" type="button">
               <X size={18} />
             </button>
           </div>
@@ -1332,6 +1368,31 @@ const AdminTeam = () => {
               className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-black uppercase tracking-widest hover:bg-red-700"
             >
               Delete Team
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Remove Member Confirmation Modal */}
+      <Modal isOpen={memberToRemove !== null} onClose={() => setMemberToRemove(null)} title="Confirm Remove Member">
+        <div className="space-y-4">
+          <div className="text-sm text-slate-700">
+            Are you sure you want to remove this member from the team?
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setMemberToRemove(null)}
+              className="flex-1 border border-slate-200 rounded-2xl py-3 font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmRemoveMemberFromTeam}
+              className="flex-1 bg-red-600 text-white rounded-2xl py-3 font-black uppercase tracking-widest hover:bg-red-700"
+            >
+              Remove
             </button>
           </div>
         </div>

@@ -29,6 +29,7 @@ const TeamManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -36,6 +37,7 @@ const TeamManagement: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<number | null>(null);
 
   const [selectedTeam, setSelectedTeam] = useState<TeamResponse | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -129,6 +131,7 @@ const TeamManagement: React.FC = () => {
       return;
     }
     try {
+      setIsSubmitting(true);
       setError(null);
       const payload: Team = {
         ...formData,
@@ -142,6 +145,8 @@ const TeamManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create team');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -153,6 +158,7 @@ const TeamManagement: React.FC = () => {
       return;
     }
     try {
+      setIsSubmitting(true);
       setError(null);
       const payload: Partial<Team> = {
         ...formData,
@@ -166,12 +172,15 @@ const TeamManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update team');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedTeam) return;
     try {
+      setIsSubmitting(true);
       setError(null);
       await deleteTeam(selectedTeam.id);
       setSuccess('Team deleted successfully!');
@@ -180,6 +189,8 @@ const TeamManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete team');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -198,6 +209,7 @@ const TeamManagement: React.FC = () => {
       return;
     }
     try {
+      setIsSubmitting(true);
       setError(null);
       await addPersonToTeam(selectedTeam.id, selectedPersonForTeam);
       if (addMemberPassword) {
@@ -214,14 +226,21 @@ const TeamManagement: React.FC = () => {
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add person to team');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleRemoveMember = async (personId: number) => {
-    if (!selectedTeam) return;
+  const handleRemoveMember = (personId: number) => {
+    setMemberToRemove(personId);
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!selectedTeam || !memberToRemove) return;
     try {
+      setIsSubmitting(true);
       setError(null);
-      await removePersonFromTeam(selectedTeam.id, personId);
+      await removePersonFromTeam(selectedTeam.id, memberToRemove);
       setSuccess('Person removed from team successfully!');
       const members = await getPersonsByTeam(selectedTeam.id);
       setTeamMembers(members);
@@ -229,6 +248,9 @@ const TeamManagement: React.FC = () => {
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove person from team');
+    } finally {
+      setMemberToRemove(null);
+      setIsSubmitting(false);
     }
   };
 
@@ -417,6 +439,7 @@ const TeamManagement: React.FC = () => {
               onSubmit={handleSubmitCreate}
               submitLabel="Create Team"
               engineers={engineers}
+              isSubmitting={isSubmitting}
             />
           </Modal>
         )}
@@ -431,6 +454,7 @@ const TeamManagement: React.FC = () => {
               onSubmit={handleSubmitEdit}
               submitLabel="Update Team"
               engineers={engineers}
+              isSubmitting={isSubmitting}
             />
           </Modal>
         )}
@@ -444,6 +468,7 @@ const TeamManagement: React.FC = () => {
             onCancel={() => setShowDeleteConfirm(false)}
             confirmLabel="Delete"
             confirmColor="red"
+            isSubmitting={isSubmitting}
           />
         )}
 
@@ -558,15 +583,17 @@ const TeamManagement: React.FC = () => {
                     setAddMemberPassword('');
                     setAddMemberConfirmPassword('');
                   }}
-                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
                 >
-                  Add Member
+                  {isSubmitting ? 'Adding...' : 'Add Member'}
                 </button>
               </div>
             </form>
@@ -629,6 +656,19 @@ const TeamManagement: React.FC = () => {
             </form>
           </Modal>
         )}
+
+        {/* Remove Member Confirmation Modal */}
+        {memberToRemove !== null && selectedTeam && (
+          <ConfirmModal
+            title="Remove Member"
+            message="Are you sure you want to remove this member from the team?"
+            onConfirm={confirmRemoveMember}
+            onCancel={() => setMemberToRemove(null)}
+            confirmLabel="Remove"
+            confirmColor="red"
+            isSubmitting={isSubmitting}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
@@ -640,9 +680,10 @@ interface TeamFormProps {
   onSubmit: (e: React.FormEvent) => void;
   submitLabel: string;
   engineers: PersonResponse[];
+  isSubmitting?: boolean;
 }
 
-const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel, engineers }) => {
+const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, submitLabel, engineers, isSubmitting }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -713,9 +754,10 @@ const TeamForm: React.FC<TeamFormProps> = ({ formData, setFormData, onSubmit, su
       <div className="flex gap-3 pt-4 border-t border-slate-200">
         <button
           type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          disabled={isSubmitting}
+          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
         >
-          {submitLabel}
+          {isSubmitting ? 'Saving...' : submitLabel}
         </button>
       </div>
     </form>
@@ -755,6 +797,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
   confirmLabel: string;
   confirmColor: 'red' | 'blue' | 'green';
+  isSubmitting?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -764,6 +807,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onCancel,
   confirmLabel,
   confirmColor,
+  isSubmitting
 }) => {
   const colorClasses = {
     red: 'bg-red-600 hover:bg-red-700',
@@ -781,15 +825,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium ${colorClasses[confirmColor]}`}
+              disabled={isSubmitting}
+              className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 ${colorClasses[confirmColor]}`}
             >
-              {confirmLabel}
+              {isSubmitting ? 'Processing...' : confirmLabel}
             </button>
           </div>
         </div>

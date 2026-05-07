@@ -31,6 +31,10 @@ const AlertManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'alerts' | 'hotlist'>('alerts');
 
   const [showHotlistModal, setShowHotlistModal] = useState(false);
+  const [alertToDelete, setAlertToDelete] = useState<number | null>(null);
+  
+  const [actionLoading, setActionLoading] = useState<{ id: number, type: 'ack' | 'del' } | null>(null);
+  const [isSubmittingHotlist, setIsSubmittingHotlist] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     personCode: '',
@@ -67,6 +71,7 @@ const AlertManagement: React.FC = () => {
   // ================= ACTIONS =================
   const handleAcknowledgeAlert = async (alertId?: number) => {
     if (!alertId) return;
+    setActionLoading({ id: alertId, type: 'ack' });
 
     try {
       await acknowledgeAlert(alertId);
@@ -75,26 +80,31 @@ const AlertManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 2500);
     } catch {
       setError('Failed to acknowledge alert');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleDeleteAlert = async (alertId?: number) => {
-    if (!alertId) return;
-
-    if (!confirm('Are you sure you want to delete this alert?')) return;
+  const confirmDeleteAlert = async () => {
+    if (!alertToDelete) return;
+    setActionLoading({ id: alertToDelete, type: 'del' });
 
     try {
-      await deleteAlert(alertId);
+      await deleteAlert(alertToDelete);
       setSuccess('Alert deleted successfully');
       await loadData();
       setTimeout(() => setSuccess(null), 2500);
     } catch {
       setError('Failed to delete alert');
+    } finally {
+      setActionLoading(null);
+      setAlertToDelete(null);
     }
   };
 
   const handleUpdateHotlist = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmittingHotlist(true);
 
     try {
       await updateHotlistStatus(
@@ -114,6 +124,8 @@ const AlertManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 2500);
     } catch {
       setError('Failed to update hotlist');
+    } finally {
+      setIsSubmittingHotlist(false);
     }
   };
 
@@ -255,16 +267,18 @@ const canManageHotlist = useMemo(() => {
                     {!alert.isAcknowledged && (
                       <button
                         onClick={() => handleAcknowledgeAlert(alert.id)}
-                        className="text-blue-600 text-xs"
+                        disabled={actionLoading?.id === alert.id}
+                        className="text-blue-600 hover:text-blue-800 text-xs disabled:opacity-50 transition"
                       >
-                        Acknowledge
+                        {actionLoading?.id === alert.id && actionLoading.type === 'ack' ? 'Acknowledging...' : 'Acknowledge'}
                       </button>
                     )}
                     <button
-                      onClick={() => handleDeleteAlert(alert.id)}
-                      className="text-red-600 text-xs"
+                      onClick={() => setAlertToDelete(alert.id!)}
+                      disabled={actionLoading?.id === alert.id}
+                      className="text-red-600 hover:text-red-800 text-xs disabled:opacity-50 transition"
                     >
-                      Delete
+                      {actionLoading?.id === alert.id && actionLoading.type === 'del' ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>
@@ -287,7 +301,7 @@ const canManageHotlist = useMemo(() => {
 
       {/* MODAL */}
       {showHotlistModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <form onSubmit={handleUpdateHotlist} className="bg-white p-6 rounded w-96 space-y-3">
             <input
               value={formData.personCode}
@@ -305,10 +319,33 @@ const canManageHotlist = useMemo(() => {
               required
             />
 
-            <button className="bg-red-600 text-white w-full py-2 rounded">
-              Save
-            </button>
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={() => setShowHotlistModal(false)} className="w-1/3 border py-2 rounded hover:bg-gray-50 disabled:opacity-50" disabled={isSubmittingHotlist}>
+                Cancel
+              </button>
+              <button type="submit" disabled={isSubmittingHotlist} className="bg-red-600 hover:bg-red-700 transition text-white w-2/3 py-2 rounded disabled:opacity-50">
+                {isSubmittingHotlist ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           </form>
+        </div>
+      )}
+
+      {/* Delete Alert Confirmation Modal */}
+      {alertToDelete !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl animate-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Alert</h3>
+            <p className="text-gray-600 mb-6 text-sm">Are you sure you want to delete this alert? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setAlertToDelete(null)} disabled={actionLoading?.type === 'del'} className="flex-1 py-2 border rounded-md text-gray-600 font-medium hover:bg-gray-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteAlert} disabled={actionLoading?.type === 'del'} className="flex-1 py-2 bg-red-600 text-white rounded-md font-medium hover:bg-red-700 disabled:opacity-50 transition">
+                {actionLoading?.type === 'del' ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>

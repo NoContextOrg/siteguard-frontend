@@ -18,6 +18,7 @@ const AttendanceManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [todaysSummary, setTodaysSummary] = useState<AttendanceSummary | null>(null);
   const [statsData, setStatsData] = useState<AttendanceStats | null>(null);
+  const [isFetchingStats, setIsFetchingStats] = useState(false);
 
   // Modal states
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -56,6 +57,7 @@ const AttendanceManagement = () => {
   const handleExportStats = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsFetchingStats(true);
       setError(null);
       const stats = await getAttendanceStats(dateFrom || undefined, dateTo || undefined);
       setStatsData(stats);
@@ -63,6 +65,8 @@ const AttendanceManagement = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+    } finally {
+      setIsFetchingStats(false);
     }
   };
 
@@ -291,15 +295,17 @@ const AttendanceManagement = () => {
               <button
                 type="button"
                 onClick={() => setShowStatsModal(false)}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                disabled={isFetchingStats}
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
               >
                 Close
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                disabled={isFetchingStats}
+                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
               >
-                Fetch Statistics
+                {isFetchingStats ? 'Fetching...' : 'Fetch Statistics'}
               </button>
             </div>
           </form>

@@ -26,6 +26,7 @@ const PersonManagement: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -97,6 +98,7 @@ const PersonManagement: React.FC = () => {
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true);
       setError(null);
       await createPerson(formData as Person);
       setSuccess('Person created successfully!');
@@ -105,6 +107,8 @@ const PersonManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create person');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -112,6 +116,7 @@ const PersonManagement: React.FC = () => {
     e.preventDefault();
     if (!selectedPerson) return;
     try {
+      setIsSubmitting(true);
       setError(null);
       await updatePerson(selectedPerson.id, formData);
       setSuccess('Person updated successfully!');
@@ -120,12 +125,15 @@ const PersonManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update person');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedPerson) return;
     try {
+      setIsSubmitting(true);
       setError(null);
       await deletePerson(selectedPerson.id);
       setSuccess('Person deleted successfully!');
@@ -134,6 +142,8 @@ const PersonManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete person');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -144,6 +154,7 @@ const PersonManagement: React.FC = () => {
       return;
     }
     try {
+      setIsSubmitting(true);
       setError(null);
       await registerFingerprint(selectedPerson.id, fingerprintData);
       setSuccess('Fingerprint registered successfully!');
@@ -152,6 +163,8 @@ const PersonManagement: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to register fingerprint');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -306,6 +319,7 @@ const PersonManagement: React.FC = () => {
             setFormData={setFormData}
             onSubmit={handleSubmitCreate}
             submitLabel="Create Person"
+            isSubmitting={isSubmitting}
           />
         </Modal>
       )}
@@ -322,6 +336,7 @@ const PersonManagement: React.FC = () => {
             setFormData={setFormData}
             onSubmit={handleSubmitEdit}
             submitLabel="Update Person"
+            isSubmitting={isSubmitting}
           />
         </Modal>
       )}
@@ -335,6 +350,7 @@ const PersonManagement: React.FC = () => {
           onCancel={() => setShowDeleteConfirm(false)}
           confirmLabel="Delete"
           confirmColor="red"
+          isSubmitting={isSubmitting}
         />
       )}
 
@@ -350,6 +366,7 @@ const PersonManagement: React.FC = () => {
             fingerprintData={fingerprintData}
             setFingerprintData={setFingerprintData}
             onSubmit={handleSubmitFingerprint}
+            isSubmitting={isSubmitting}
           />
         </Modal>
       )}
@@ -362,9 +379,10 @@ interface PersonFormProps {
   setFormData: (data: FormData) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitLabel: string;
+  isSubmitting?: boolean;
 }
 
-const PersonForm: React.FC<PersonFormProps> = ({ formData, setFormData, onSubmit, submitLabel }) => {
+const PersonForm: React.FC<PersonFormProps> = ({ formData, setFormData, onSubmit, submitLabel, isSubmitting }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -427,9 +445,10 @@ const PersonForm: React.FC<PersonFormProps> = ({ formData, setFormData, onSubmit
       <div className="flex gap-3 pt-4 border-t border-slate-200">
         <button
           type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          disabled={isSubmitting}
+          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
         >
-          {submitLabel}
+          {isSubmitting ? 'Processing...' : submitLabel}
         </button>
       </div>
     </form>
@@ -441,6 +460,7 @@ interface FingerprintFormProps {
   fingerprintData: string;
   setFingerprintData: (data: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  isSubmitting?: boolean;
 }
 
 const FingerprintForm: React.FC<FingerprintFormProps> = ({
@@ -448,6 +468,7 @@ const FingerprintForm: React.FC<FingerprintFormProps> = ({
   fingerprintData,
   setFingerprintData,
   onSubmit,
+  isSubmitting
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -470,9 +491,10 @@ const FingerprintForm: React.FC<FingerprintFormProps> = ({
       <div className="flex gap-3 pt-4 border-t border-slate-200">
         <button
           type="submit"
-          className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+          disabled={isSubmitting}
+          className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
         >
-          Register Fingerprint
+          {isSubmitting ? 'Processing...' : 'Register Fingerprint'}
         </button>
       </div>
     </form>
@@ -513,6 +535,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
   confirmLabel: string;
   confirmColor: 'red' | 'blue' | 'green';
+  isSubmitting?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -522,6 +545,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onCancel,
   confirmLabel,
   confirmColor,
+  isSubmitting
 }) => {
   const colorClasses = {
     red: 'bg-red-600 hover:bg-red-700',
@@ -539,15 +563,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium ${colorClasses[confirmColor]}`}
+              disabled={isSubmitting}
+              className={`flex-1 text-white px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 ${colorClasses[confirmColor]}`}
             >
-              {confirmLabel}
+              {isSubmitting ? 'Processing...' : confirmLabel}
             </button>
           </div>
         </div>

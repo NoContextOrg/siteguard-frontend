@@ -86,6 +86,9 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<number | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -173,6 +176,8 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
     if (!personCode) return;
 
     try {
+      setIsSubmittingLog(true);
+      
       if (editingLogId) {
         const updatedLog = await updateHealthLog(editingLogId, formData);
         setHealthLogs(prev => prev.map(log => log.id === editingLogId ? updatedLog : log));
@@ -191,21 +196,33 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         }
       }
 
+      setSuccess(editingLogId ? 'Medical log updated successfully!' : 'Medical log added successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       setFormData({});
       setIsModalOpen(false);
       setEditingLogId(null);
     } catch (err) {
       setError('Failed to submit health log');
+    } finally {
+      setIsSubmittingLog(false);
     }
   };
 
-  const handleDeleteLog = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this health record?')) return;
+  const handleDeleteLog = (id: number) => {
+    setLogToDelete(id);
+  };
+
+  const confirmDeleteLog = async () => {
+    if (!logToDelete) return;
     try {
-      await deleteHealthLog(id);
-      setHealthLogs(prev => prev.filter(log => log.id !== id));
+      await deleteHealthLog(logToDelete);
+      setHealthLogs(prev => prev.filter(log => log.id !== logToDelete));
+      setSuccess('Medical log deleted successfully!');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError('Failed to delete health log');
+    } finally {
+      setLogToDelete(null);
     }
   };
 
@@ -236,6 +253,8 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         position: editData.position
       });
       setWorkerProfile(updated);
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       setIsEditing(false);
     } catch {
       setError('Failed to save profile');
@@ -264,12 +283,16 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   /* ---------------- UI ---------------- */
 
   if (loading) return <div className="py-12 flex justify-center"><div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" /></div>;
-  if (error) return <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>;
-  if (!workerProfile) return <div className="p-8 text-slate-500">Not found</div>;
+  if (!workerProfile && !error) return <div className="p-8 text-slate-500">Not found</div>;
 
   return (
     <>
       <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-8">My Profile</h2>
+      
+      {error && <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex justify-between animate-in fade-in"><span>{error}</span><button onClick={() => setError(null)}><X size={16}/></button></div>}
+      {success && <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 flex justify-between animate-in fade-in"><span>{success}</span><button onClick={() => setSuccess(null)}><X size={16}/></button></div>}
+      
+      {workerProfile && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* PROFILE */}
         <div className="lg:col-span-2 space-y-8">
@@ -395,8 +418,8 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
           </div>
         </div>
       </div>
+      )}
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <form
@@ -503,11 +526,25 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                 </div>
               </div>
 
-              <button type="submit" className="w-full mt-4 bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition-all shadow-lg">
-                Submit Log
+              <button disabled={isSubmittingLog} type="submit" className="w-full mt-4 bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition-all shadow-lg disabled:opacity-50">
+                {isSubmittingLog ? 'Submitting...' : 'Submit Log'}
               </button>
             </div>
           </form>
+        </div>
+      )}
+      
+      {/* Delete Log Confirmation Modal */}
+      {logToDelete !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[30px] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
+            <h3 className="text-xl font-black text-slate-800 uppercase mb-2">Delete Record</h3>
+            <p className="text-slate-600 mb-6 text-sm">Are you sure you want to delete this medical record? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setLogToDelete(null)} className="flex-1 py-3 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase hover:bg-slate-50">Cancel</button>
+              <button onClick={confirmDeleteLog} className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black uppercase hover:bg-red-700 transition">Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </>

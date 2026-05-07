@@ -47,6 +47,8 @@ export default function WorkersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [assigningFingerprintId, setAssigningFingerprintId] = useState<number | null>(null);
 
   // Hardware-centric state
   const [biometricLastId, setBiometricLastId] = useState<number | null>(null);
@@ -216,6 +218,8 @@ export default function WorkersPage() {
       });
 
       await loadPersons({ silent: true });
+      setSuccess('Worker renamed successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       cancelEdit();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to rename worker');
@@ -232,6 +236,7 @@ export default function WorkersPage() {
     }
 
     try {
+      setAssigningFingerprintId(workerId);
       setError(null);
       
       const res = await authenticatedFetch(`http://siteguardph.duckdns.org/api/persons/${workerId}/biometric`, {
@@ -246,9 +251,13 @@ export default function WorkersPage() {
       
       setBiometricLastId(null); // Clear local state immediately to prevent double-assignment
 
+      setSuccess('Fingerprint assigned successfully!');
+      setTimeout(() => setSuccess(null), 3000);
       await loadPersons({ silent: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to assign fingerprint');
+    } finally {
+      setAssigningFingerprintId(null);
     }
   };
 
@@ -441,6 +450,18 @@ export default function WorkersPage() {
             </button>
           </div>
         )}
+        
+        {success && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start justify-between">
+            <div>
+              <div className="font-semibold text-green-800">Success</div>
+              <div className="text-sm text-green-700">{success}</div>
+            </div>
+            <button onClick={() => setSuccess(null)} className="text-green-700 hover:text-green-900" type="button">
+              <X size={18} />
+            </button>
+          </div>
+        )}
 
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
           <div className="p-4 border-b flex flex-wrap gap-4 items-center justify-between bg-white">
@@ -599,10 +620,11 @@ export default function WorkersPage() {
                               {/* ✅ A. Assign Fingerprint button */}
                               <button
                                 onClick={() => void assignFingerprint(worker.id)}
+                                disabled={assigningFingerprintId === worker.id}
                                 className="text-purple-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
                                 type="button"
                               >
-                                Assign Fingerprint
+                                {assigningFingerprintId === worker.id ? 'Assigning...' : 'Assign Fingerprint'}
                               </button>
                               <button
                                 onClick={() => openPasswordModal(worker.id)}

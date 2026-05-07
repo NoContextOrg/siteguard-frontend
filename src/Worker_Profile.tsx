@@ -92,6 +92,8 @@ const WorkerProfile = () => {
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<number | null>(null);
 
   // Auto-calculate BMI when height/weight changes
   useEffect(() => {
@@ -250,6 +252,7 @@ const WorkerProfile = () => {
     }
 
     try {
+      setIsSubmittingLog(true);
       if (editingLogId) {
         const updatedLog = await updateHealthLog(editingLogId, formData);
         setHealthLogs(prev => prev.map(log => log.id === editingLogId ? updatedLog : log));
@@ -273,16 +276,24 @@ const WorkerProfile = () => {
       setEditingLogId(null);
     } catch (err) {
       alert(`Failed to submit health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmittingLog(false);
     }
   };
 
-  const handleDeleteLog = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this health record?')) return;
+  const handleDeleteLog = (id: number) => {
+    setLogToDelete(id);
+  };
+
+  const confirmDeleteLog = async () => {
+    if (!logToDelete) return;
     try {
-      await deleteHealthLog(id);
-      setHealthLogs(prev => prev.filter(log => log.id !== id));
+      await deleteHealthLog(logToDelete);
+      setHealthLogs(prev => prev.filter(log => log.id !== logToDelete));
     } catch (err) {
       alert(`Failed to delete health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setLogToDelete(null);
     }
   };
 
@@ -774,14 +785,29 @@ const WorkerProfile = () => {
               </div>
 
               <div className="flex justify-center pt-4">
-              <button 
+              <button
+                  disabled={isSubmittingLog} 
                   type="submit"
-                  className="bg-[#1a2e5a] text-white px-20 py-4 rounded-2xl font-semibold uppercase tracking-widest hover:bg-[#132142] hover:scale-105 transition-all shadow-xl active:scale-95"
+                  className="bg-[#1a2e5a] text-white px-20 py-4 rounded-2xl font-semibold uppercase tracking-widest hover:bg-[#132142] hover:scale-105 transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:scale-100"
               >
-                  Submit Log
+                  {isSubmittingLog ? 'Submitting...' : 'Submit Log'}
               </button>
               </div>
           </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Log Confirmation Modal */}
+      {logToDelete !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[30px] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
+            <h3 className="text-xl font-black text-slate-800 uppercase mb-2">Delete Record</h3>
+            <p className="text-slate-600 mb-6 text-sm">Are you sure you want to delete this medical record? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setLogToDelete(null)} className="flex-1 py-3 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase hover:bg-slate-50">Cancel</button>
+              <button onClick={confirmDeleteLog} className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black uppercase hover:bg-red-700 transition">Delete</button>
+            </div>
           </div>
         </div>
       )}
