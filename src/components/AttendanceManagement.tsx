@@ -44,7 +44,7 @@ const AttendanceManagement = () => {
         getAttendanceStats().catch(() => null),
       ]);
 
-      setAttendanceLogs(logs);
+      setAttendanceLogs(Array.isArray(logs) ? logs : []);
       setTodaysSummary(summary);
       setStatsData(stats);
     } catch (err) {
@@ -59,7 +59,10 @@ const AttendanceManagement = () => {
     try {
       setIsFetchingStats(true);
       setError(null);
+
+      // Backend expects: /api/attendance/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
       const stats = await getAttendanceStats(dateFrom || undefined, dateTo || undefined);
+
       setStatsData(stats);
       setSuccess('Statistics loaded successfully');
       setTimeout(() => setSuccess(null), 3000);

@@ -28,14 +28,27 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
   // Only use fingerprint for display, do not send in payloads
   const fingerprint = p.biometricId ?? (p as any).fingerprint ?? null;
 
+  let status: WorkerStatus = 'NO_FINGERPRINT';
+  if (p.healthProfileStatus === 'HOTLIST' || p.healthProfileStatus === 'HOTLISTED') {
+    status = 'HOTLIST';
+  } else if (fingerprint) {
+    status = 'NORMAL';
+  }
+
+  let lastAdmittedFormatted = 'Never';
+  if (p.lastAdmitted) {
+    const d = new Date(p.lastAdmitted);
+    lastAdmittedFormatted = isNaN(d.getTime()) ? p.lastAdmitted : d.toLocaleDateString();
+  }
+
   return {
     id: p.id,
     name: (p.name || '').toUpperCase(),
-    team: p.teamId ? `TEAM-${p.teamId}` : 'UNASSIGNED',
+    team: p.teamName || (p.teamId ? `TEAM-${p.teamId}` : 'UNASSIGNED'),
     attendance: 'UNKNOWN',
-    engineer: 'N/A',
-    lastAdmitted: 'N/A',
-    status: fingerprint ? 'NORMAL' : 'NO_FINGERPRINT',
+    engineer: p.assignedEngineerName || 'N/A',
+    lastAdmitted: lastAdmittedFormatted,
+    status,
     fingerprint,
   };
 };
@@ -558,7 +571,7 @@ export default function WorkersPage() {
                               ? 'text-red-500'
                               : worker.status === 'NO_FINGERPRINT'
                                 ? 'text-amber-500'
-                                : 'text-slate-500'
+                                : 'text-green-600'
                             }`}>
                             {worker.status}
                           </span>
@@ -618,14 +631,16 @@ export default function WorkersPage() {
                                 Rename
                               </button>
                               {/* ✅ A. Assign Fingerprint button */}
-                              <button
-                                onClick={() => void assignFingerprint(worker.id)}
-                                disabled={assigningFingerprintId === worker.id}
-                                className="text-purple-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
-                                type="button"
-                              >
-                                {assigningFingerprintId === worker.id ? 'Assigning...' : 'Assign Fingerprint'}
-                              </button>
+                              {!worker.fingerprint && (
+                                <button
+                                  onClick={() => void assignFingerprint(worker.id)}
+                                  disabled={assigningFingerprintId === worker.id}
+                                  className="text-purple-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
+                                  type="button"
+                                >
+                                  {assigningFingerprintId === worker.id ? 'Assigning...' : 'Assign Fingerprint'}
+                                </button>
+                              )}
                               <button
                                 onClick={() => openPasswordModal(worker.id)}
                                 className="text-orange-600 font-black text-[11px] uppercase tracking-widest hover:underline px-3 py-2"
@@ -686,17 +701,37 @@ export default function WorkersPage() {
                 ) : (
                   attendanceLogs
                     .slice()
-                    .sort((a, b) => (b.eventTimestamp || '').localeCompare(a.eventTimestamp || ''))
+                    .sort((a, b) => {
+                      const timeA = String((a as any).timestamp || (a as any).eventTimestamp || '');
+                      const timeB = String((b as any).timestamp || (b as any).eventTimestamp || '');
+                      return timeB.localeCompare(timeA);
+                    })
                     .slice(0, 10)
-                    .map((log) => (
-                      <tr key={`${log.personCode}-${log.eventTimestamp}-${log.eventType}`}>
-                        <td className="px-6 py-4 text-slate-700 text-sm font-bold">
-                          {log.personName || log.personCode}
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 text-xs font-bold uppercase">{log.eventType}</td>
-                        <td className="px-6 py-4 text-slate-500 text-xs font-mono">{log.eventTimestamp}</td>
-                      </tr>
-                    ))
+                    .map((log, idx) => {
+                      const anyLog = log as any;
+                      const typeStr = String(anyLog.type || anyLog.eventType || 'UNKNOWN').toUpperCase();
+                      const timeStr = String(anyLog.timestamp || anyLog.eventTimestamp || '');
+                      const displayTime = timeStr ? new Date(timeStr).toLocaleString() : '—';
+
+                      return (
+                        <tr key={`${anyLog.personCode || 'unk'}-${timeStr}-${idx}`}>
+                          <td className="px-6 py-4 text-slate-700 text-sm font-bold">
+                            {anyLog.personName || anyLog.personCode || 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
+                              typeStr === 'LOGIN' ? 'text-green-600 bg-green-50' :
+                              typeStr === 'LOGOUT' ? 'text-red-600 bg-red-50' :
+                              typeStr === 'OVERTIME' ? 'text-orange-600 bg-orange-50' :
+                              'text-blue-600 bg-blue-50'
+                            }`}>
+                              {typeStr}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 text-xs font-mono">{displayTime}</td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>

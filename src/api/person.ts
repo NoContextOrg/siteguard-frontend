@@ -32,6 +32,13 @@ export interface PersonResponse {
   email?: string;
   phoneNumber?: string;
   teamId?: number | null;
+  
+  // Worker-specific enrichment fields (from enriched PersonResponseDTO)
+  teamName?: string;
+  healthProfileStatus?: string;
+  assignedEngineerName?: string;
+  lastAdmitted?: string;
+
   // legacy UI fields (may be absent)
   position?: string;
   department?: string;
@@ -71,6 +78,10 @@ const toPersonResponse = (dto: any): PersonResponse => {
     email: dto.email,
     phoneNumber: dto.phoneNumber ?? dto.phone,
     teamId: dto.teamId ?? null,
+    teamName: dto.teamName,
+    healthProfileStatus: dto.healthProfileStatus,
+    assignedEngineerName: dto.assignedEngineerName,
+    lastAdmitted: dto.lastAdmitted,
     position: dto.position,
     department: dto.department,
     biometricId: dto.biometricId,

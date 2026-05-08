@@ -3,7 +3,7 @@
  * Handles all API calls to the Analytics Controller
  */
 
-import { getAuthHeader } from './auth';
+import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -172,20 +172,14 @@ export interface UnifiedAnalyticsResponse {
  */
 export const getSystemStats = async (): Promise<SystemStats> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/analytics/stats`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/stats`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch system stats: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch system stats: ${response.statusText}`);
     }
 
-    const data: SystemStats = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching system stats:', error);
     throw error;
@@ -201,21 +195,20 @@ export const getUnifiedDashboard = async (
   end?: string
 ): Promise<UnifiedAnalyticsResponse> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/dashboard`);
-    if (date) url.searchParams.append('date', date);
-    if (start) url.searchParams.append('start', start);
-    if (end) url.searchParams.append('end', end);
+    let url = `${API_BASE_URL}/analytics/dashboard`;
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (start) params.append('start', start);
+    if (end) params.append('end', end);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch unified dashboard: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch unified dashboard: ${response.statusText}`);
     }
 
     return await response.json();
@@ -230,25 +223,19 @@ export const getUnifiedDashboard = async (
  */
 export const getDashboardOverview = async (date?: string): Promise<DashboardOverview> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/overview`);
+    let url = `${API_BASE_URL}/analytics/overview`;
     if (date) {
-      url.searchParams.append('date', date);
+      url += `?date=${encodeURIComponent(date)}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch dashboard overview: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch dashboard overview: ${response.statusText}`);
     }
 
-    const data: DashboardOverview = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching dashboard overview:', error);
     throw error;
@@ -260,20 +247,14 @@ export const getDashboardOverview = async (date?: string): Promise<DashboardOver
  */
 export const getHotlistOverview = async (): Promise<HotlistOverview> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/analytics/hotlist`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/hotlist`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch hotlist overview: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch hotlist overview: ${response.statusText}`);
     }
 
-    const data: HotlistOverview = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching hotlist overview:', error);
     throw error;
@@ -285,28 +266,22 @@ export const getHotlistOverview = async (): Promise<HotlistOverview> => {
  */
 export const getAttendancePlot = async (startDate?: string, endDate?: string): Promise<AttendancePlot> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/attendance-plot`);
-    if (startDate) {
-      url.searchParams.append('start', startDate);
-    }
-    if (endDate) {
-      url.searchParams.append('end', endDate);
+    let url = `${API_BASE_URL}/analytics/attendance-plot`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start', startDate);
+    if (endDate) params.append('end', endDate);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch attendance plot: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch attendance plot: ${response.statusText}`);
     }
 
-    const data: AttendancePlot = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching attendance plot:', error);
     throw error;
@@ -318,28 +293,22 @@ export const getAttendancePlot = async (startDate?: string, endDate?: string): P
  */
 export const getTeamAttendance = async (startDate?: string, endDate?: string): Promise<TeamAttendanceResponse> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/team-attendance`);
-    if (startDate) {
-      url.searchParams.append('start', startDate);
-    }
-    if (endDate) {
-      url.searchParams.append('end', endDate);
+    let url = `${API_BASE_URL}/analytics/team-attendance`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start', startDate);
+    if (endDate) params.append('end', endDate);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch team attendance: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch team attendance: ${response.statusText}`);
     }
 
-    const data: TeamAttendanceResponse = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching team attendance:', error);
     throw error;
@@ -351,20 +320,14 @@ export const getTeamAttendance = async (startDate?: string, endDate?: string): P
  */
 export const getMembersPerTeam = async (): Promise<Record<string, number>> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/analytics/members-per-team`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/members-per-team`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch members per team: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch members per team: ${response.statusText}`);
     }
 
-    const data: Record<string, number> = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching members per team:', error);
     throw error;
@@ -376,25 +339,19 @@ export const getMembersPerTeam = async (): Promise<Record<string, number>> => {
  */
 export const getOvertimeOverview = async (date?: string): Promise<OvertimeData> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/overtime`);
+    let url = `${API_BASE_URL}/analytics/overtime`;
     if (date) {
-      url.searchParams.append('date', date);
+      url += `?date=${encodeURIComponent(date)}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch overtime overview: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch overtime overview: ${response.statusText}`);
     }
 
-    const data: OvertimeData = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching overtime overview:', error);
     throw error;
@@ -406,20 +363,16 @@ export const getOvertimeOverview = async (date?: string): Promise<OvertimeData> 
  */
 export const generateDailyReport = async (date?: string): Promise<Blob> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/daily-report`);
+    let url = `${API_BASE_URL}/analytics/daily-report`;
     if (date) {
-      url.searchParams.append('date', date);
+      url += `?date=${encodeURIComponent(date)}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to generate daily report: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to generate daily report: ${response.statusText}`);
     }
 
     const blob = await response.blob();
@@ -455,20 +408,14 @@ export const downloadDailyReport = async (date?: string): Promise<void> => {
  */
 export const getAlertsOverview = async (): Promise<AlertsOverview> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/analytics/alerts`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/alerts`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch alerts overview: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch alerts overview: ${response.statusText}`);
     }
 
-    const data: AlertsOverview = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching alerts overview:', error);
     throw error;
@@ -480,28 +427,22 @@ export const getAlertsOverview = async (): Promise<AlertsOverview> => {
  */
 export const getStaffEfficiency = async (startDate?: string, endDate?: string): Promise<StaffEfficiencyResponse> => {
   try {
-    const url = new URL(`${API_BASE_URL}/analytics/staff-efficiency`);
-    if (startDate) {
-      url.searchParams.append('start', startDate);
-    }
-    if (endDate) {
-      url.searchParams.append('end', endDate);
+    let url = `${API_BASE_URL}/analytics/staff-efficiency`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start', startDate);
+    if (endDate) params.append('end', endDate);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-    });
+    const response = await authenticatedFetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch staff efficiency: ${response.statusText}`);
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch staff efficiency: ${response.statusText}`);
     }
 
-    const data: StaffEfficiencyResponse = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error fetching staff efficiency:', error);
     throw error;
