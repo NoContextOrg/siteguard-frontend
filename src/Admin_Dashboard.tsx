@@ -2,12 +2,24 @@
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2 } from 'lucide-react';
+import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { getUnifiedDashboard } from './api/analytics';
+import {
+  getUnifiedDashboard,
+  getAttendanceTrends,
+  getHotlistTrends,
+  getAlertTrends,
+  getTeamAttendanceTrends,
+  exportAnalyticsExcel,
+  makeDefaultDashboardTimeFilter,
+  makeExportFilename,
+  type DashboardTimeFilterState,
+} from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
+
+const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -25,20 +37,52 @@ const AdminDashboard = () => {
   const [teamAttendanceData, setTeamAttendanceData] = useState<any[]>([]);
   const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
 
+  const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
+    try {
+      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
+    } catch {
+      return makeDefaultDashboardTimeFilter();
+    }
+  });
+
+  // Custom range UI not shown in per-section filters yet
+  const [customStart] = useState(timeFilter.start || '');
+  const [customEnd] = useState(timeFilter.end || '');
+
+  // Remove unused trend states until charts are wired to them
+  // const [attendanceTrend, setAttendanceTrend] = useState<any>(null);
+  // const [hotlistTrend, setHotlistTrend] = useState<any>(null);
+  // const [alertsTrend, setAlertsTrend] = useState<any>(null);
+  // const [teamAttendanceTrend, setTeamAttendanceTrend] = useState<any>(null);
+
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
+    } catch {}
+  }, [timeFilter]);
+
+  const effectiveFilter: DashboardTimeFilterState =
+    timeFilter.key === 'CUSTOM'
+      ? { key: 'CUSTOM', start: customStart || undefined, end: customEnd || undefined }
+      : timeFilter;
+
   useEffect(() => {
     let cancelled = false;
+
     const fetchDashboardData = async (isBackground = false) => {
       try {
         if (!isBackground) setLoading(true);
 
-        // Fetch all data via unified endpoint
-        const unified = await getUnifiedDashboard();
-
+        // Unified dashboard supports start/end (date range)
+        const unified = await getUnifiedDashboard(undefined, effectiveFilter.start, effectiveFilter.end);
         if (cancelled) return;
 
         setSystemStats(unified.systemStats || null);
         setDashboardOverview(unified.dashboardOverview || null);
-        
+
         if (unified.enhancedHotlistOverview) {
           setHotlistOverview({
             count: unified.enhancedHotlistOverview.totalHotlisted,
@@ -46,31 +90,30 @@ const AdminDashboard = () => {
             graph: (unified.enhancedHotlistOverview.teamBreakdown || []).reduce((acc: any, cur: any) => {
               acc[cur.name] = cur.value;
               return acc;
-            }, {})
+            }, {}),
           });
         }
-        
-        // Align with enhanced map structure
+
         const attArray = (unified.enhancedAttendanceOverview?.timeSeries || []).map((t) => ({
-            name: t.date,
-            Workers: t.count,
-            Hotlist: 0,
-            Engineers: 0
+          name: t.date,
+          Workers: t.count,
+          Hotlist: 0,
+          Engineers: 0,
         }));
         setAttendanceData(attArray);
 
         const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t) => ({
-            name: t.name,
-            present: t.present,
-            absent: t.absent,
-            on_leave: t.leave,
-            overtime: 0
+          name: t.name,
+          present: t.present,
+          absent: t.absent,
+          on_leave: t.leave,
+          overtime: 0,
         }));
         setTeamAttendanceData(tdArray as any);
 
         const pieData = (unified.enhancedHotlistOverview?.teamBreakdown || []).map((item, idx) => {
-            const colors = ['#818cf8', '#f87171', '#2dd4bf', '#fb923c'];
-            return { name: item.name, value: item.value, color: colors[idx % colors.length] };
+          const colors = ['#818cf8', '#f87171', '#2dd4bf', '#fb923c'];
+          return { name: item.name, value: item.value, color: colors[idx % colors.length] };
         });
         setTeamAttendancePie(pieData);
       } catch (err) {
@@ -86,7 +129,29 @@ const AdminDashboard = () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTrends = async () => {
+      try {
+        await Promise.all([
+          getAttendanceTrends(effectiveFilter),
+          getHotlistTrends(effectiveFilter),
+          getAlertTrends(effectiveFilter),
+          getTeamAttendanceTrends(effectiveFilter),
+        ]);
+        if (cancelled) return;
+        // Trend responses are fetched to validate endpoints and keep future wiring simple.
+      } catch (e) {
+        console.error('Failed to load trends', e);
+      }
+    };
+    loadTrends();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +195,8 @@ const AdminDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      ws = new WebSocket('ws://siteguardph.duckdns.org/ws/alerts');
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+      ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         try {
@@ -167,9 +233,27 @@ const AdminDashboard = () => {
     };
   }, []);
 
+  const handleExport = async (exportType: string, prefix: string) => {
+    try {
+      setExporting(true);
+      await exportAnalyticsExcel({
+        exportType,
+        filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
+        filename: makeExportFilename(prefix, effectiveFilter),
+      });
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <DashboardLayout title="Admin Dashboard">
       <div className="p-8">
+        {/* Dashboard-wide time filter removed; filters are now per section */}
+
         {floatingAlert && (
           <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
             <Bell className="text-yellow-500" size={28} />
@@ -280,13 +364,37 @@ const AdminDashboard = () => {
             
             {/* Alert Overview Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 flex justify-between items-center border-b border-slate-100">
+              <div className="p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 border-b border-slate-100">
                 <div>
                   <h3 className="text-sm font-black text-slate-800 uppercase">Alert Overview</h3>
                   <p className="text-[12px] text-slate-400 font-medium">Active alerts currently detected by the system.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {([
+                    { k: '3_HOURS', label: '3H' },
+                    { k: '6_HOURS', label: '6H' },
+                    { k: '12_HOURS', label: '12H' },
+                    { k: '24_HOURS', label: '24H' },
+                    { k: '7_DAYS', label: '7D' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.k}
+                      type="button"
+                      onClick={() => setTimeFilter({ key: opt.k as any })}
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => handleExport('ALERTS_OVERVIEW', 'alerts-report')}
+                    className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                  >
+                    <Download size={16} /> Export
+                  </button>
+                  <div className="flex gap-2 ml-1">
                     <Calendar size={18} className="text-slate-400" />
                     <List size={18} className="text-slate-400" />
                   </div>
@@ -356,7 +464,43 @@ const AdminDashboard = () => {
             </div>
 
             {/* Overall Attendance Overview Chart */}
-            <ChartContainer title="Overall Attendance Overview" subtitle="This bar graph shows how many workers are onsite and their time of arrival.">
+            <ChartContainer
+              title={
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 w-full">
+                  <div>
+                    <div className="text-sm font-black text-slate-800 uppercase">Overall Attendance Overview</div>
+                    <div className="text-[12px] text-slate-400 font-medium">This bar graph shows how many workers are onsite and their time of arrival.</div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {([
+                      { k: '3_HOURS', label: '3H' },
+                      { k: '6_HOURS', label: '6H' },
+                      { k: '12_HOURS', label: '12H' },
+                      { k: '24_HOURS', label: '24H' },
+                      { k: '7_DAYS', label: '7D' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.k}
+                        type="button"
+                        onClick={() => setTimeFilter({ key: opt.k as any })}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report')}
+                      className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                    >
+                      <Download size={16} /> Export
+                    </button>
+                  </div>
+                </div>
+              }
+              subtitle={null}
+            >
               <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={attendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -412,48 +556,68 @@ const AdminDashboard = () => {
 
           {/* RIGHT: Hotlist Overview & Pie */}
           <div className="space-y-8">
-              {/* Hotlist Overview List */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                  <div className="p-6 border-b border-slate-100">
-                      <h3 className="text-sm font-black text-slate-800 uppercase">Hotlist Overview</h3>
-                      <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
-                      <div className="flex gap-2 mt-4">
-                          <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
-                          <button className="text-[9px] font-bold bg-slate-100 px-2 py-1 rounded">View All</button>
-                      </div>
-                  </div>
-                  <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                      {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
-                        hotlistOverview.list.map((alert: any, i: number) => (
-                          <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
-                              <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                      <Users size={16} className="text-slate-400" />
-                                  </div>
-                                  <div>
-                                      <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
-                                      <div className="flex items-center gap-1">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                          <span className="text-[9px] font-bold text-slate-400 italic">{alert.role}</span>
-                                      </div>
-                                  </div>
-                              </div>
-                              <button 
-                                  onClick={() => navigate('/workers')}
-                                  className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
-                              >
-                                  See workers
-                              </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-4 text-slate-400 text-[12px]">No hotlist alerts</div>
-                      )}
-                  </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase">Hotlist Overview</h3>
+                  <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {([
+                    { k: '3_HOURS', label: '3H' },
+                    { k: '6_HOURS', label: '6H' },
+                    { k: '12_HOURS', label: '12H' },
+                    { k: '24_HOURS', label: '24H' },
+                    { k: '7_DAYS', label: '7D' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.k}
+                      type="button"
+                      onClick={() => setTimeFilter({ key: opt.k as any })}
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => handleExport('HOTLIST_REPORT', 'hotlist-report')}
+                    className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                  >
+                    <Download size={16} /> Export
+                  </button>
+                </div>
               </div>
 
-              {/* Team Attendance Donut */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                  hotlistOverview.list.map((alert: any, i: number) => (
+                    <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden">
+                          <img src={alert.photoUrl} alt={alert.personName} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{alert.personName}</p>
+                          <p className="text-xs text-slate-500 truncate">{alert.personCode}</p>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded-sm bg-red-50 text-red-700">
+                          HOTLISTED
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-slate-400 text-[12px]">No hotlist alerts</div>
+                )}
+              </div>
+            </div>
+
+            {/* Team Attendance Donut */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Team Attendance</h3>
                   <div className="flex gap-2 mb-6">
                       <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
@@ -528,11 +692,21 @@ const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
 const ChartContainer = ({ title, subtitle, children }: any) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-6">
-            <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase">{title}</h3>
-                <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
+            <div className="min-w-0 flex-1">
+                {typeof title === 'string' ? (
+                  <h3 className="text-sm font-black text-slate-800 uppercase">{title}</h3>
+                ) : (
+                  title
+                )}
+                {subtitle ? (
+                  typeof subtitle === 'string' ? (
+                    <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
+                  ) : (
+                    subtitle
+                  )
+                ) : null}
             </div>
-            <div className="flex gap-2 text-slate-400">
+            <div className="flex gap-2 text-slate-400 flex-shrink-0">
                 <Bell size={16} />
                 <Calendar size={16} />
             </div>

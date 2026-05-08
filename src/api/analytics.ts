@@ -5,7 +5,101 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+
+// ===== shared helpers (required by trends + exports) =====
+const buildQuery = (params: Record<string, string | number | boolean | undefined | null>) => {
+  const sp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    sp.set(k, String(v));
+  });
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+};
+
+const toBackendFilterParam = (key: TimeFilterKey): string => {
+  switch (key) {
+    case '3_HOURS':
+      return '3_HOURS';
+    case '6_HOURS':
+      return '6_HOURS';
+    case '12_HOURS':
+      return '12_HOURS';
+    case '24_HOURS':
+      return '24_HOURS';
+    case '7_DAYS':
+      return '1_WEEK';
+    case 'CUSTOM':
+      // trends endpoints only accept filter; for custom ranges unified dashboard uses start/end.
+      return '1_WEEK';
+    default:
+      return '1_WEEK';
+  }
+};
+
+const exportTimeFilterToFilename = (f: DashboardTimeFilterState) => {
+  if (f.key === 'CUSTOM') return `${f.start ?? 'start'}_${f.end ?? 'end'}`;
+  if (f.key === '7_DAYS') return '7d';
+  if (f.key === '24_HOURS') return '24h';
+  if (f.key === '12_HOURS') return '12h';
+  if (f.key === '6_HOURS') return '6h';
+  if (f.key === '3_HOURS') return '3h';
+  return 'range';
+};
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+// ===== Excel export (global) =====
+export const exportAnalyticsExcel = async (opts: {
+  exportType: ExportType;
+  filter?: string;
+  teamId?: number;
+  role?: string;
+  personCode?: string;
+  alertType?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  filename: string;
+}) => {
+  const qs = buildQuery({
+    exportType: opts.exportType,
+    filter: opts.filter,
+    teamId: opts.teamId,
+    role: opts.role,
+    personCode: opts.personCode,
+    alertType: opts.alertType,
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    sortField: opts.sortField,
+    sortDirection: opts.sortDirection,
+  });
+
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/export${qs}`, {
+    headers: {
+      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    },
+  });
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to export analytics: ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  downloadBlob(blob, opts.filename);
+};
 
 // ========== INTERFACES ========== //
 
@@ -163,6 +257,34 @@ export interface UnifiedAnalyticsResponse {
     startDate: string;
     endDate: string;
   };
+}
+
+export type TimeFilterKey = '3_HOURS' | '6_HOURS' | '12_HOURS' | '24_HOURS' | '7_DAYS' | 'CUSTOM';
+
+export interface DashboardTimeFilterState {
+  key: TimeFilterKey;
+  start?: string; // YYYY-MM-DD
+  end?: string;   // YYYY-MM-DD
+}
+
+export type ExportType =
+  | 'ATTENDANCE_TRENDS'
+  | 'ALERTS_OVERVIEW'
+  | 'HOTLIST_REPORT'
+  | 'OVERTIME_REPORT'
+  | 'ANALYTICS_SUMMARY'
+  | 'WORKER_ATTENDANCE_LOGS'
+  | 'WORKER_TRENDS'
+  | string;
+
+export interface TrendResponseDTO {
+  filter?: string;
+  startDate?: string;
+  endDate?: string;
+  timeline?: Array<{ label: string; value: number }>;
+  breakdown?: Array<{ name: string; value: number }>;
+  summary?: Record<string, any>;
+  [key: string]: any;
 }
 
 // ========== ANALYTICS ENDPOINTS ========== //
@@ -447,4 +569,133 @@ export const getStaffEfficiency = async (startDate?: string, endDate?: string): 
     console.error('Error fetching staff efficiency:', error);
     throw error;
   }
+};
+
+// ===== Trends endpoints =====
+export const getAttendanceTrends = async (timeFilter: DashboardTimeFilterState): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/trends/attendance${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch attendance trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const getHotlistTrends = async (timeFilter: DashboardTimeFilterState): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/trends/hotlist${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch hotlist trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const getAlertTrends = async (timeFilter: DashboardTimeFilterState): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/trends/alerts${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch alert trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const getStaffEfficiencyTrends = async (timeFilter: DashboardTimeFilterState): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/trends/staff-efficiency${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch staff efficiency trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const getTeamAttendanceTrends = async (timeFilter: DashboardTimeFilterState): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/trends/team-attendance${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch team attendance trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const getWorkerAttendanceTrends = async (
+  personCode: string,
+  timeFilter: DashboardTimeFilterState
+): Promise<TrendResponseDTO> => {
+  const filter = toBackendFilterParam(timeFilter.key);
+  const qs = buildQuery({ filter });
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/analytics/trends/worker/${encodeURIComponent(personCode)}${qs}`
+  );
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to fetch worker trends: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const makeDefaultDashboardTimeFilter = (): DashboardTimeFilterState => ({
+  key: '7_DAYS',
+});
+
+export const makeExportFilename = (prefix: string, timeFilter: DashboardTimeFilterState) => {
+  const suffix = exportTimeFilterToFilename(timeFilter);
+  return `${prefix}-${suffix}.xlsx`;
+};
+
+// Remove invalid/duplicate exports added above (helpers are already exported where they are defined).
+// (no-op placeholders kept for clarity)
+
+// Ensure the following are exported (or declared) exactly once in this file:
+// - buildQuery
+// - toBackendFilterParam
+// - exportTimeFilterToFilename
+// - exportAnalyticsExcel
+// - exportWorkerExcel
+
+// Worker export helper (Excel)
+export const exportWorkerExcel = async (opts: {
+  personCode: string;
+  filter?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  filename: string;
+}) => {
+  const qs = buildQuery({
+    filter: opts.filter,
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    sortField: opts.sortField,
+    sortDirection: opts.sortDirection,
+  });
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/analytics/export/worker/${encodeURIComponent(opts.personCode)}${qs}`
+  );
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to export worker data: ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = opts.filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };

@@ -270,7 +270,7 @@ const canManageHotlist = useMemo(() => {
                         disabled={actionLoading?.id === alert.id}
                         className="text-blue-600 hover:text-blue-800 text-xs disabled:opacity-50 transition"
                       >
-                        {actionLoading?.id === alert.id && actionLoading.type === 'ack' ? 'Acknowledging...' : 'Acknowledge'}
+                    {actionLoading?.id === alert.id && actionLoading?.type === 'ack' ? 'Acknowledging...' : 'Acknowledge'}
                       </button>
                     )}
                     <button
@@ -278,7 +278,7 @@ const canManageHotlist = useMemo(() => {
                       disabled={actionLoading?.id === alert.id}
                       className="text-red-600 hover:text-red-800 text-xs disabled:opacity-50 transition"
                     >
-                      {actionLoading?.id === alert.id && actionLoading.type === 'del' ? 'Deleting...' : 'Delete'}
+                  {actionLoading?.id === alert.id && actionLoading?.type === 'del' ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>

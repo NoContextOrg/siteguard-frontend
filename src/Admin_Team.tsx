@@ -629,7 +629,8 @@ const AdminTeam = () => {
     if (!memberToRemove) return;
     try {
       setError(null);
-      await authenticatedFetch(`http://siteguardph.duckdns.org/api/teams/${memberToRemove.teamId}/members/${memberToRemove.personId}`, { method: 'DELETE' });
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+      await authenticatedFetch(`${apiUrl}/teams/${memberToRemove.teamId}/members/${memberToRemove.personId}`, { method: 'DELETE' });
       await loadTeamMembers(memberToRemove.teamId);
       setSuccess('Member removed from team successfully!');
       setTimeout(() => setSuccess(null), 3000);

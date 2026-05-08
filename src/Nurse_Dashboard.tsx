@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert } from 'lucide-react';
+import { UserX, Calendar, Filter, List, Bell, Users, BellRing, Clock, ShieldAlert, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
@@ -9,11 +9,20 @@ import type {
 } from './api/analytics';
 import { 
   getUnifiedDashboard,
+  getHotlistTrends,
+  getAlertTrends,
+  getStaffEfficiencyTrends,
+  exportAnalyticsExcel,
+  makeDefaultDashboardTimeFilter,
+  makeExportFilename,
+  type DashboardTimeFilterState,
 } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
 
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
 const NurseDashboard = () => {
   const navigate = useNavigate();
@@ -29,6 +38,35 @@ const NurseDashboard = () => {
   const [staffEfficiency, setStaffEfficiency] = useState<any[]>([]);
   const [alertsBreakdownPie, setAlertsBreakdownPie] = useState<any[]>([]);
 
+  const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
+    try {
+      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
+    } catch {
+      return makeDefaultDashboardTimeFilter();
+    }
+  });
+  // Custom range UI not shown in per-section filters yet
+  const [customStart] = useState(timeFilter.start || '');
+  const [customEnd] = useState(timeFilter.end || '');
+  const effectiveFilter: DashboardTimeFilterState =
+    timeFilter.key === 'CUSTOM'
+      ? { key: 'CUSTOM', start: customStart || undefined, end: customEnd || undefined }
+      : timeFilter;
+
+  // Trend payloads are fetched on filter change; wire to charts later.
+  // const [hotlistTrend, setHotlistTrend] = useState<any>(null);
+  // const [alertsTrend, setAlertsTrend] = useState<any>(null);
+  // const [staffEfficiencyTrend, setStaffEfficiencyTrend] = useState<any>(null);
+
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
+    } catch {}
+  }, [timeFilter]);
+
   useEffect(() => {
     let cancelled = false;
     const fetchDashboardData = async (isBackground = false) => {
@@ -36,7 +74,7 @@ const NurseDashboard = () => {
         if (!isBackground) setLoading(true);
 
         // Fetch all data a nurse is allowed to see via unified endpoint
-        const unified = await getUnifiedDashboard().catch(() => null);
+        const unified = await getUnifiedDashboard(undefined, effectiveFilter.start, effectiveFilter.end).catch(() => null);
 
         if (cancelled) return;
 
@@ -83,7 +121,27 @@ const NurseDashboard = () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTrends = async () => {
+      try {
+        await Promise.all([
+          getHotlistTrends(effectiveFilter),
+          getAlertTrends(effectiveFilter),
+          getStaffEfficiencyTrends(effectiveFilter),
+        ]);
+        if (cancelled) return;
+      } catch (e) {
+        console.error('Failed to load nurse trends', e);
+      }
+    };
+    loadTrends();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +185,8 @@ const NurseDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      ws = new WebSocket('ws://siteguardph.duckdns.org/ws/alerts');
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+      ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         try {
@@ -164,9 +223,27 @@ const NurseDashboard = () => {
     };
   }, []);
 
+  const handleExport = async (exportType: string, prefix: string) => {
+    try {
+      setExporting(true);
+      await exportAnalyticsExcel({
+        exportType,
+        filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
+        filename: makeExportFilename(prefix, effectiveFilter),
+      });
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <DashboardLayout title="Nurse Dashboard">
       <div className="p-8">
+        {/* Dashboard-wide time filter removed; controls are now per section */}
+
         {floatingAlert && (
           <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
             <Bell className="text-yellow-500" size={28} />
@@ -178,202 +255,264 @@ const NurseDashboard = () => {
           </div>
         )}
 
-          <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
+        <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
 
-          {/* ========== TOP STAT CARDS ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {loading ? (
-              <div className="col-span-full text-center py-8">Loading...</div>
-            ) : (
-              <>
-                <StatCard label="Active Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" onClick={() => navigate('/alerts')} />
-                <StatCard label="Today's Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" onClick={() => navigate('/alerts')} />
-                <StatCard label="Hotlisted Persons" value={(hotlistOverview?.count ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" onClick={() => navigate('/alerts')} />
-                <StatCard label="Overtime Alerts" value={((alertsOverview as any)?.overtimeAlerts ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" onClick={() => navigate('/alerts')} />
-                <StatCard label="Hotlist Login Alerts" value={((alertsOverview as any)?.hotlistAlerts ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" onClick={() => navigate('/alerts')} />
-                <StatCard label="Medical Alerts" value={((alertsOverview as any)?.medicalAlerts ?? 0).toString()} icon={<ShieldAlert className="text-rose-400" size={28}/>} borderColor="border-l-rose-500" onClick={() => navigate('/alerts')} />
-              </>
-            )}
-          </div>   
+        {/* ========== TOP STAT CARDS ========== */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {loading ? (
+            <div className="col-span-full text-center py-8">Loading...</div>
+          ) : (
+            <>
+              <StatCard label="Active Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Today's Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Hotlisted Persons" value={(hotlistOverview?.count ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Overtime Alerts" value={((alertsOverview as any)?.overtimeAlerts ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Hotlist Login Alerts" value={((alertsOverview as any)?.hotlistAlerts ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Medical Alerts" value={((alertsOverview as any)?.medicalAlerts ?? 0).toString()} icon={<ShieldAlert className="text-rose-400" size={28}/>} borderColor="border-l-rose-500" onClick={() => navigate('/alerts')} />
+            </>
+          )}
+        </div>   
 
-          {/* ========== MAIN GRID SECTION ========== */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* ========== MAIN GRID SECTION ========== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* LEFT: Tables & Graphs */}
+          <div className="lg:col-span-2 space-y-8">
             
-            {/* LEFT: Tables & Graphs */}
-            <div className="lg:col-span-2 space-y-8">
-              
-              {/* Alert Overview Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 flex justify-between items-center border-b border-slate-100">
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase">Alert Overview</h3>
-                        <p className="text-[12px] text-slate-400 font-medium">List of all hotlist workers that are working overtime or was admitted.</p>
-                    </div>
-                    <div className="flex gap-2">
+            {/* Alert Overview Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 border-b border-slate-100">
+                  <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase">Alert Overview</h3>
+                      <p className="text-[12px] text-slate-400 font-medium">List of all hotlist workers that are working overtime or was admitted.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                      {([
+                        { k: '3_HOURS', label: '3H' },
+                        { k: '6_HOURS', label: '6H' },
+                        { k: '12_HOURS', label: '12H' },
+                        { k: '24_HOURS', label: '24H' },
+                        { k: '7_DAYS', label: '7D' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.k}
+                          type="button"
+                          onClick={() => setTimeFilter({ key: opt.k as any })}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={exporting}
+                        onClick={() => handleExport('ALERTS_OVERVIEW', 'alerts-report')}
+                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                      >
+                        <Download size={16} /> Export
+                      </button>
+                      <div className="flex gap-2 ml-1">
                         <Calendar size={18} className="text-slate-400" />
                         <List size={18} className="text-slate-400" />
-                    </div>
-                </div>
-
-                {alertsError && (
-                  <div className="px-6 py-3 text-[12px] text-red-600 bg-red-50 border-b border-red-100">
-                    {alertsError}
+                      </div>
                   </div>
-                )}
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[11px]">
-                        <thead className="bg-slate-50 text-slate-400 uppercase font-bold border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-3">Alert ID</th>
-                                <th className="px-6 py-3">Type</th>
-                                <th className="px-6 py-3">Description</th>
-                                <th className="px-6 py-3">Created</th>
-                                <th className="px-6 py-3">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="font-semibold text-slate-600">
-                            {alertsLoading ? (
-                              <tr>
-                                <td className="px-6 py-10" colSpan={5}>
-                                  <div className="flex items-center justify-center">
-                                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : activeAlerts.length === 0 ? (
-                              <tr>
-                                <td className="px-6 py-6 text-slate-400" colSpan={5}>
-                                  No active alerts
-                                </td>
-                              </tr>
-                            ) : (
-                              activeAlerts.slice(0, 8).map((alert) => (
-                                <tr
-                                  key={alert.id ?? `${alert.alertType}-${alert.createdAt}`}
-                                  className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
-                                >
-                                  <td className="px-6 py-3">{alert.id ?? '-'}</td>
-                                  <td className="px-6 py-3">{alert.alertType}</td>
-                                  <td className="px-6 py-3 max-w-[360px] truncate" title={alert.alertMessage || ''}>
-                                    {alert.alertMessage || '-'}
-                                  </td>
-                                  <td className="px-6 py-3">
-                                    {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : '-'}
-                                  </td>
-                                  <td className="px-6 py-3">
-                                    <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded-sm bg-yellow-50 text-yellow-700">
-                                      ACTIVE
-                                    </span>
-                                  </td>
-                                </tr>
-                            )))}
-                        </tbody>
-                    </table>
-                </div>
               </div>
 
-              {/* Staff Efficiency Chart */}
-              <ChartContainer title="Staff Efficiency" subtitle="Checkups completed by medical staff.">
-                <ResponsiveContainer width="100%" height={250} minWidth={0}>
-                    <BarChart data={staffEfficiency}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} />
-                        <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                        <Bar dataKey="checkups_completed" name="Checkups" fill="#8884d8" barSize={30} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              {alertsError && (
+                <div className="px-6 py-3 text-[12px] text-red-600 bg-red-50 border-b border-red-100">
+                  {alertsError}
+                </div>
+              )}
 
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-50 text-slate-400 uppercase font-bold border-b border-slate-100">
+                          <tr>
+                              <th className="px-6 py-3">Alert ID</th>
+                              <th className="px-6 py-3">Type</th>
+                              <th className="px-6 py-3">Description</th>
+                              <th className="px-6 py-3">Created</th>
+                              <th className="px-6 py-3">Status</th>
+                          </tr>
+                      </thead>
+                      <tbody className="font-semibold text-slate-600">
+                          {alertsLoading ? (
+                            <tr>
+                              <td className="px-6 py-10" colSpan={5}>
+                                <div className="flex items-center justify-center">
+                                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                                </div>
+                              </td>
+                            </tr>
+                          ) : activeAlerts.length === 0 ? (
+                            <tr>
+                              <td className="px-6 py-6 text-slate-400" colSpan={5}>
+                                No active alerts
+                              </td>
+                            </tr>
+                          ) : (
+                            activeAlerts.slice(0, 8).map((alert) => (
+                              <tr
+                                key={alert.id ?? `${alert.alertType}-${alert.createdAt}`}
+                                className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
+                              >
+                                <td className="px-6 py-3">{alert.id ?? '-'}</td>
+                                <td className="px-6 py-3">{alert.alertType}</td>
+                                <td className="px-6 py-3 max-w-[360px] truncate" title={alert.alertMessage || ''}>
+                                  {alert.alertMessage || '-'}
+                                </td>
+                                <td className="px-6 py-3">
+                                  {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : '-'}
+                                </td>
+                                <td className="px-6 py-3">
+                                  <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded-sm bg-yellow-50 text-yellow-700">
+                                    ACTIVE
+                                  </span>
+                                </td>
+                              </tr>
+                          )))}
+                      </tbody>
+                  </table>
+              </div>
             </div>
 
-            {/* RIGHT: Hotlist Overview & Pie */}
-            <div className="space-y-8">
-                {/* Hotlist Overview List */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                    <div className="p-6 border-b border-slate-100">
-                        <h3 className="text-sm font-black text-slate-800 uppercase">Hotlist Overview</h3>
-                        <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
-                        <div className="flex gap-2 mt-4">
-                            <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
-                            <button className="text-[9px] font-bold bg-slate-100 px-2 py-1 rounded">View All</button>
-                        </div>
-                    </div>
-                    <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                        {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
-                          hotlistOverview.list.map((alert: any, i: number) => (
-                            <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                        <Users size={16} className="text-slate-400" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                            <span className="text-[9px] font-bold text-slate-400 italic">{alert.role}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => navigate('/workers')}
-                                    className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
-                                >
-                                    See workers
-                                </button>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-4 text-slate-400 text-[12px]">No hotlist alerts</div>
-                        )}
-                    </div>
+            {/* Staff Efficiency Chart */}
+            <ChartContainer
+              title={
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 w-full">
+                  <div>
+                    <div className="text-sm font-black text-slate-800 uppercase">Staff Efficiency</div>
+                    <div className="text-[12px] text-slate-400 font-medium">Checkups completed by medical staff.</div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {([
+                      { k: '3_HOURS', label: '3H' },
+                      { k: '6_HOURS', label: '6H' },
+                      { k: '12_HOURS', label: '12H' },
+                      { k: '24_HOURS', label: '24H' },
+                      { k: '7_DAYS', label: '7D' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.k}
+                        type="button"
+                        onClick={() => setTimeFilter({ key: opt.k as any })}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => handleExport('ANALYTICS_SUMMARY', 'staff-efficiency-report')}
+                      className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                    >
+                      <Download size={16} /> Export
+                    </button>
+                  </div>
                 </div>
+              }
+              subtitle={null}
+            >
+              <ResponsiveContainer width="100%" height={250} minWidth={0}>
+                  <BarChart data={staffEfficiency}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                      <Tooltip cursor={{fill: '#f8fafc'}} />
+                      <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase'}} />
+                      <Bar dataKey="checkups_completed" name="Checkups" fill="#8884d8" barSize={30} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
 
-                {/* Alert Breakdown Donut */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Alert Type Breakdown</h3>
-                    
-                    <div className="h-64 relative">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                            <PieChart>
-                                <Pie 
-                                    data={alertsBreakdownPie} 
-                                    innerRadius={60} 
-                                    outerRadius={80} 
-                                    paddingAngle={5} 
-                                    dataKey="value"
-                                >
-                                    {alertsBreakdownPie.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-3xl font-black text-slate-800">
-                              {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                        {alertsBreakdownPie.map((item, index) => (
-                            <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
-                                    <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
-                                </div>
-                                <span className="text-[12px] font-black text-slate-700">{item.value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
           </div>
+
+          {/* RIGHT: Hotlist Overview & Pie */}
+          <div className="space-y-8">
+              {/* Hotlist Overview List */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                  <div className="p-6 border-b border-slate-100">
+                      <h3 className="text-sm font-black text-slate-800 uppercase">Hotlist Overview</h3>
+                      <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
+                      <div className="flex gap-2 mt-4">
+                          <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
+                          <button className="text-[9px] font-bold bg-slate-100 px-2 py-1 rounded">View All</button>
+                      </div>
+                  </div>
+                  <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                      {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                        hotlistOverview.list.map((alert: any, i: number) => (
+                          <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition group">
+                              <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                                      <Users size={16} className="text-slate-400" />
+                                  </div>
+                                  <div>
+                                      <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>
+                                      <div className="flex items-center gap-1">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                          <span className="text-[9px] font-bold text-slate-400 italic">{alert.role}</span>
+                                      </div>
+                                  </div>
+                              </div>
+                              <button 
+                                  onClick={() => navigate('/workers')}
+                                  className="text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 transition"
+                              >
+                                  See workers
+                              </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 text-slate-400 text-[12px]">No hotlist alerts</div>
+                      )}
+                  </div>
+              </div>
+
+              {/* Alert Breakdown Donut */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Alert Type Breakdown</h3>
+                  
+                  <div className="h-64 relative">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                          <PieChart>
+                              <Pie 
+                                  data={alertsBreakdownPie} 
+                                  innerRadius={60} 
+                                  outerRadius={80} 
+                                  paddingAngle={5} 
+                                  dataKey="value"
+                              >
+                                  {alertsBreakdownPie.map((_, index) => (
+                                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                  ))}
+                              </Pie>
+                              <Tooltip />
+                          </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <span className="text-3xl font-black text-slate-800">
+                            {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
+                      </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                      {alertsBreakdownPie.map((item, index) => (
+                          <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
+                              <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                                  <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
+                              </div>
+                              <span className="text-[12px] font-black text-slate-700">{item.value}</span>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
@@ -401,11 +540,21 @@ const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
 const ChartContainer = ({ title, subtitle, children }: any) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-6">
-            <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase">{title}</h3>
-                <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
+            <div className="min-w-0 flex-1">
+                {typeof title === 'string' ? (
+                  <h3 className="text-sm font-black text-slate-800 uppercase">{title}</h3>
+                ) : (
+                  title
+                )}
+                {subtitle ? (
+                  typeof subtitle === 'string' ? (
+                    <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
+                  ) : (
+                    subtitle
+                  )
+                ) : null}
             </div>
-            <div className="flex gap-2 text-slate-400">
+            <div className="flex gap-2 text-slate-400 flex-shrink-0">
                 <Bell size={16} />
                 <Calendar size={16} />
             </div>

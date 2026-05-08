@@ -1,4 +1,4 @@
-  import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
   import { motion, AnimatePresence } from 'framer-motion';
   import {
     Filter, UserCheck, UserX, UserPlus, Users, Bell
@@ -14,11 +14,19 @@
   } from './api/analytics';
   import {
     getUnifiedDashboard,
+    getAttendanceTrends,
+    getTeamAttendanceTrends,
+    exportAnalyticsExcel,
+    makeDefaultDashboardTimeFilter,
+    makeExportFilename,
+    type DashboardTimeFilterState,
   } from './api/analytics';
   import { getAllPersons, type PersonResponse } from './api/person';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
+
+  const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
   const EngineerDashboard = () => {
     const navigate = useNavigate();
@@ -37,17 +45,33 @@
 
     const lastAlertIdRef = useRef<number | null>(null);
 
+    // NEW: time filter states
+    const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
+      try {
+        const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
+      } catch {
+        return makeDefaultDashboardTimeFilter();
+      }
+    });
+    const effectiveFilter: DashboardTimeFilterState = timeFilter;
+
+    const [exporting, setExporting] = useState(false);
+
+    useEffect(() => {
+      try {
+        sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
+      } catch {}
+    }, [timeFilter]);
+
     useEffect(() => {
       let cancelled = false;
       const fetchDashboardData = async (isBackground = false) => {
         try {
           if (!isBackground) setLoading(true);
 
-          const [
-            unified,
-            personsRes,
-          ] = await Promise.all([
-            getUnifiedDashboard(),
+          const [unified, personsRes] = await Promise.all([
+            getUnifiedDashboard(undefined, effectiveFilter.start, effectiveFilter.end),
             getAllPersons(),
           ]);
 
@@ -62,20 +86,19 @@
               graph: (unified.enhancedHotlistOverview.teamBreakdown || []).reduce((acc: any, cur: any) => {
                 acc[cur.name] = cur.value;
                 return acc;
-              }, {})
+              }, {}),
             });
           }
-          
+
           const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t) => ({
-              name: t.name,
-              present: t.present,
-              absent: t.absent,
-              leave: t.leave,
+            name: t.name,
+            present: t.present,
+            absent: t.absent,
+            leave: t.leave,
           }));
           setTeamAttendanceData(tdArray as any);
 
           setPersons(personsRes || []);
-
         } catch (err) {
           console.error('Error fetching dashboard data:', err);
         } finally {
@@ -89,7 +112,26 @@
         cancelled = true;
         clearInterval(interval);
       };
-    }, []);
+    }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+
+    useEffect(() => {
+      let cancelled = false;
+      const loadTrends = async () => {
+        try {
+          await Promise.all([
+            getAttendanceTrends(effectiveFilter),
+            getTeamAttendanceTrends(effectiveFilter),
+          ]);
+          if (cancelled) return;
+        } catch (e) {
+          console.error('Failed to load engineer trends', e);
+        }
+      };
+      loadTrends();
+      return () => {
+        cancelled = true;
+      };
+    }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
 
     useEffect(() => {
       let cancelled = false;
@@ -120,7 +162,8 @@
       const interval = setInterval(fetchAlerts, 15000);
 
       const connectWebSocket = () => {
-        ws = new WebSocket('ws://siteguardph.duckdns.org/ws/alerts');
+        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+        ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
           try {
@@ -157,6 +200,22 @@
       };
     }, []);
 
+    const handleExport = async (exportType: string, prefix: string) => {
+      try {
+        setExporting(true);
+        await exportAnalyticsExcel({
+          exportType,
+          filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
+          filename: makeExportFilename(prefix, effectiveFilter),
+        });
+      } catch (e) {
+        console.error(e);
+        alert(e instanceof Error ? e.message : 'Export failed');
+      } finally {
+        setExporting(false);
+      }
+    };
+
     const containerVars = {
       hidden: { opacity: 0 },
       show: { opacity: 1, transition: { staggerChildren: 0.1 } }
@@ -169,6 +228,8 @@
 
     return (
       <DashboardLayout>
+        {/* Dashboard-wide time filter removed; controls are now per section */}
+
         <motion.div className="p-8" variants={containerVars} initial="hidden" animate="show">
           {floatingAlert && (
             <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
@@ -272,7 +333,36 @@
 
               {/* CHARTS (UNCHANGED) */}
               <motion.div variants={itemVars} className="bg-white p-6 rounded-xl shadow-sm border">
-                <h3 className="text-sm font-black uppercase mb-6">Team Attendance Overview</h3>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                  <h3 className="text-sm font-black uppercase">Team Attendance Overview</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {([
+                      { k: '3_HOURS', label: '3H' },
+                      { k: '6_HOURS', label: '6H' },
+                      { k: '12_HOURS', label: '12H' },
+                      { k: '24_HOURS', label: '24H' },
+                      { k: '7_DAYS', label: '7D' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.k}
+                        type="button"
+                        onClick={() => setTimeFilter({ key: opt.k as any })}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report')}
+                      className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                    >
+                      Export
+                    </button>
+                  </div>
+                </div>
+
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={(teamAttendanceData || []).slice(0, 5).map((t, i) => ({
                     name: `Team ${i + 1}`,

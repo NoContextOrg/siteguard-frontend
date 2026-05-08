@@ -252,7 +252,8 @@ export default function WorkersPage() {
       setAssigningFingerprintId(workerId);
       setError(null);
       
-      const res = await authenticatedFetch(`http://siteguardph.duckdns.org/api/persons/${workerId}/biometric`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+      const res = await authenticatedFetch(`${apiUrl}/persons/${workerId}/biometric`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ biometricId: String(biometricLastId) }),

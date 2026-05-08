@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import WorkerProfileContent from './WorkerProfileContent';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons } from './api/person';
 import { authenticatedFetch } from './api/fetch';
 import { getUnifiedDashboard, type UnifiedAnalyticsResponse } from './api/analytics';
+import {
+  getWorkerAttendanceTrends,
+  exportWorkerExcel,
+  makeDefaultDashboardTimeFilter,
+  makeExportFilename,
+  type DashboardTimeFilterState,
+} from './api/analytics';
 
+
+const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
 const WorkerLandingPage: React.FC = () => {
   const auth = useAuth();
-  const location = useLocation();
-  const userEmail = auth.userEmail || '';
+
+  const personCode = auth.userEmail || '';
+
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'profile'>('dashboard');
   
   const [fallbackId, setFallbackId] = useState<number | null>(null);
   
   const workerId = auth.userId || fallbackId;
-  
-  const activeTab = location.pathname === '/worker_profile' ? 'profile' : 'dashboard';
   
   const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
@@ -25,8 +33,27 @@ const WorkerLandingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
+    try {
+      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
+    } catch {
+      return makeDefaultDashboardTimeFilter();
+    }
+  });
+  const [customStart, setCustomStart] = useState(timeFilter.start || '');
+  const [customEnd, setCustomEnd] = useState(timeFilter.end || '');
+
+  const effectiveFilter: DashboardTimeFilterState =
+    timeFilter.key === 'CUSTOM'
+      ? { key: 'CUSTOM', start: customStart || undefined, end: customEnd || undefined }
+      : timeFilter;
+
+  const [workerTrend, setWorkerTrend] = useState<any>(null);
+  const [exporting, setExporting] = useState(false);
+
   useEffect(() => {
-    if (!userEmail) return;
+    if (!personCode) return;
     
     const loadData = async () => {
       try {
@@ -39,7 +66,7 @@ const WorkerLandingPage: React.FC = () => {
         // Fallback: If not in auth context, fetch real person details using email
         if (!currentCode || !currentId) {
           const allPersons = await getAllPersons();
-          const personData = allPersons.find(p => p.email === userEmail);
+          const personData = allPersons.find(p => p.email === personCode);
           
           if (personData) {
             currentId = personData.id;
@@ -51,7 +78,7 @@ const WorkerLandingPage: React.FC = () => {
         }
         
         if (activeTab === 'dashboard' && currentCode) {
-          const apiUrl = 'http://localhost:8080/api';
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
           const [summaryRes, logsRes, unified] = await Promise.all([
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}/summary`),
             authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`),
@@ -73,109 +100,270 @@ const WorkerLandingPage: React.FC = () => {
     };
 
     void loadData();
-  }, [userEmail, activeTab, auth.personCode, auth.userId]);
+  }, [personCode, activeTab, auth.personCode, auth.userId]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
+    } catch {}
+  }, [timeFilter]);
+
+  useEffect(() => {
+    if (!personCode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const t = await getWorkerAttendanceTrends(personCode, effectiveFilter);
+        if (!cancelled) setWorkerTrend(t);
+      } catch (e) {
+        console.error('Failed to load worker trends', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [personCode, effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+
+  // Keep existing attendanceSummary/logs fetch, but reload on filter when possible
+  useEffect(() => {
+    if (!personCode) return;
+    setLoading(true);
+    setError(null);
+
+    const qs = new URLSearchParams();
+    if (effectiveFilter.key === 'CUSTOM') {
+      if (effectiveFilter.start) qs.set('from', effectiveFilter.start);
+      if (effectiveFilter.end) qs.set('to', effectiveFilter.end);
+    }
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+    Promise.all([
+      authenticatedFetch(`${apiUrl}/attendance/person/${personCode}/summary`).then(r => r.json()),
+      authenticatedFetch(`${apiUrl}/attendance/person/${personCode}${effectiveFilter.key === 'CUSTOM' ? '/range' : ''}${effectiveFilter.key === 'CUSTOM' ? suffix : ''}`).then(r => r.json()),
+    ])
+      .then(([summary, logs]) => {
+        setAttendanceSummary(summary);
+        setAttendanceLogs(Array.isArray(logs) ? logs : []);
+      })
+      .catch(() => setError('Failed to load dashboard data'))
+      .finally(() => setLoading(false));
+  }, [personCode, effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+
+  const handleWorkerExport = async () => {
+    if (!personCode) return;
+    try {
+      setExporting(true);
+      await exportWorkerExcel({
+        personCode,
+        filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
+        filename: makeExportFilename('worker-trends', effectiveFilter),
+      });
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <DashboardLayout title={activeTab === 'dashboard' ? 'Worker Dashboard' : 'My Profile'}>
-      <div className="p-8">
-        {activeTab === 'dashboard' && (
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-8">My Dashboard</h2>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+    <DashboardLayout title="Worker Dashboard">
+      <div className="flex min-h-screen">
+        {/* Sidebar with tabs and filter */}
+        <aside className="w-64 bg-white border-r border-slate-200 py-8 px-4 flex flex-col gap-2">
+          <button
+            className={`text-left px-4 py-3 rounded-lg font-bold text-base mb-2 ${activeTab === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-700'}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button
+            className={`text-left px-4 py-3 rounded-lg font-bold text-base ${activeTab === 'profile' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-700'}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
+          </button>
+
+          <div className="mt-6">
+            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Time Filter</div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { k: '3_HOURS', label: '3H' },
+                { k: '6_HOURS', label: '6H' },
+                { k: '12_HOURS', label: '12H' },
+                { k: '24_HOURS', label: '24H' },
+                { k: '7_DAYS', label: '7D' },
+                { k: 'CUSTOM', label: 'Custom' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.k}
+                  type="button"
+                  onClick={() => setTimeFilter({ key: opt.k as any, start: timeFilter.start, end: timeFilter.end })}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {timeFilter.key === 'CUSTOM' && (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[12px] font-bold"
+                />
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[12px] font-bold"
+                />
               </div>
-            ) : error ? (
-              <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
-            ) : (
-              <>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">Site Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Onsite Today</div>
-                    <div className="text-4xl font-black text-slate-800">{unifiedData?.dashboardOverview?.onsitePersonsToday ?? '—'}</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Site Attendance Rate</div>
-                    <div className="text-4xl font-black text-blue-600">{unifiedData?.overallAttendanceOverview?.attendanceRate?.toFixed(1) ?? '—'}%</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Active Alerts</div>
-                    <div className="text-4xl font-black text-red-500">{unifiedData?.alertsOverview?.totalActive ?? '—'}</div>
-                  </div>
-                </div>
+            )}
 
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Attendance</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Days Present</div>
-                    <div className="text-4xl font-black text-blue-600">{attendanceSummary?.totalDaysPresent ?? '—'}</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Overtime</div>
-                    <div className="text-4xl font-black text-green-600">{attendanceSummary?.totalOvertime ?? '—'}</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-                    <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Absences</div>
-                    <div className="text-4xl font-black text-red-500">{attendanceSummary?.absences ?? '—'}</div>
-                  </div>
-                </div>
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={handleWorkerExport}
+              className="mt-4 w-full bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[12px] disabled:opacity-60"
+            >
+              {exporting ? 'Exporting…' : 'Export My Report'}
+            </button>
+          </div>
+        </aside>
 
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <div className="text-sm font-black text-slate-800 uppercase tracking-widest">Recent Attendance Logs</div>
+        {/* Main Content */}
+        <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+          {activeTab === 'dashboard' && (
+            <div className="max-w-5xl mx-auto">
+              <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-8">My Dashboard</h2>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                </div>
+              ) : error ? (
+                <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">Site Overview</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Onsite Today</div>
+                      <div className="text-4xl font-black text-slate-800">{unifiedData?.dashboardOverview?.onsitePersonsToday ?? '—'}</div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Site Attendance Rate</div>
+                      <div className="text-4xl font-black text-blue-600">{unifiedData?.overallAttendanceOverview?.attendanceRate?.toFixed(1) ?? '—'}%</div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Active Alerts</div>
+                      <div className="text-4xl font-black text-red-500">{unifiedData?.alertsOverview?.totalActive ?? '—'}</div>
+                    </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
-                        <tr>
-                          <th className="px-6 py-4 border-r border-slate-100">Date</th>
-                          <th className="px-6 py-4 border-r border-slate-100">Type</th>
-                          <th className="px-6 py-4">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-bold text-slate-600">
-                        {attendanceLogs.slice(0, 10).map((log, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition">
-                            <td className="px-6 py-4">{log.date || log.timestamp?.split('T')[0]}</td>
-                            <td className="px-6 py-4">
-                              <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
-                                log.type?.toUpperCase() === 'LOGIN' ? 'text-green-600 bg-green-50' :
-                                log.type?.toUpperCase() === 'LOGOUT' ? 'text-red-600 bg-red-50' :
-                                log.type?.toUpperCase() === 'OVERTIME' ? 'text-orange-600 bg-orange-50' :
-                                'text-blue-600 bg-blue-50'
-                              }`}>
-                                {log.type?.toUpperCase() || 'UNKNOWN'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">{log.time || (log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '')}</td>
-                          </tr>
-                        ))}
-                        {attendanceLogs.length === 0 && (
+
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Attendance</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Days Present</div>
+                      <div className="text-4xl font-black text-blue-600">{attendanceSummary?.totalDaysPresent ?? '—'}</div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Overtime</div>
+                      <div className="text-4xl font-black text-green-600">{attendanceSummary?.totalOvertime ?? '—'}</div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+                      <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Absences</div>
+                      <div className="text-4xl font-black text-red-500">{attendanceSummary?.absences ?? '—'}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                      <div className="text-sm font-black text-slate-800 uppercase tracking-widest">Recent Attendance Logs</div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
                           <tr>
-                            <td colSpan={3} className="text-slate-400 py-8 text-center">No logs found.</td>
+                            <th className="px-6 py-4 border-r border-slate-100">Date</th>
+                            <th className="px-6 py-4 border-r border-slate-100">Type</th>
+                            <th className="px-6 py-4">Time</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-bold text-slate-600">
+                          {attendanceLogs.slice(0, 10).map((log, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 transition">
+                              <td className="px-6 py-4">{log.date || log.timestamp?.split('T')[0]}</td>
+                              <td className="px-6 py-4">
+                                <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${
+                                  log.type?.toUpperCase() === 'LOGIN' ? 'text-green-600 bg-green-50' :
+                                  log.type?.toUpperCase() === 'LOGOUT' ? 'text-red-600 bg-red-50' :
+                                  log.type?.toUpperCase() === 'OVERTIME' ? 'text-orange-600 bg-orange-50' :
+                                  'text-blue-600 bg-blue-50'
+                                }`}>
+                                  {log.type?.toUpperCase() || 'UNKNOWN'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">{log.time || (log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '')}</td>
+                            </tr>
+                          ))}
+                          {attendanceLogs.length === 0 && (
+                            <tr>
+                              <td colSpan={3} className="text-slate-400 py-8 text-center">No logs found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'profile' && (
-          <div className="max-w-5xl mx-auto">
-            {workerId ? (
-              <WorkerProfileContent workerId={workerId} />
-            ) : (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-              </div>
-            )}
-          </div>
-        )}
+                  {/* Worker Trends Section */}
+                  <div className="mt-8">
+                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Trends</h3>
+                    {loading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                      </div>
+                    ) : error ? (
+                      <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
+                    ) : (
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mb-4">Attendance Trends</div>
+                        {workerTrend?.length === 0 ? (
+                          <div className="text-slate-400 py-8 text-center">No trends data available.</div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-4">
+                            {workerTrend?.map((trend: any, idx: number) => (
+                              <div key={idx} className="p-4 bg-slate-50 rounded-lg shadow-inner">
+                                <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">{trend.label}</div>
+                                <div className="text-2xl font-black text-slate-800">{trend.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <div className="max-w-5xl mx-auto">
+              {workerId ? (
+                <WorkerProfileContent workerId={workerId} />
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                </div>
+              )}
+            </div>
+          )}
+        </main>
       </div>
     </DashboardLayout>
   );

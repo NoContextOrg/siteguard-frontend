@@ -4,8 +4,8 @@
  */
 import type { AlertDTO } from './alert';
 
-// Set to localhost for current testing requirements
-const WS_BASE_URL = 'ws://localhost:8080/ws/alerts';
+
+const WS_BASE_URL = 'ws://siteguardph.duckdns.org/ws/alerts';
 
 export interface WsConnectionParams {
   role: string;
