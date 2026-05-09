@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom';
 import {
   Users,
   X,
-  Download
+  Download,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import jsPDF from 'jspdf';
@@ -28,6 +30,7 @@ const AdminTeamDetail = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNewWorkerPassword, setShowNewWorkerPassword] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +42,18 @@ const AdminTeamDetail = () => {
         const membersRes = await getTeamMembers(numericTeamId);
         setMembers(membersRes);
         const attendanceRes = await getTeamAttendance();
-        setAttendance(Array.isArray(attendanceRes) ? attendanceRes : []);
+        if (attendanceRes && attendanceRes.teamDateCounts) {
+          const teamName = (teamRes as any)?.teamName || teamRes?.name;
+          const dateCounts = attendanceRes.teamDateCounts[teamName] || {};
+          const arr = Object.entries(dateCounts).map(([date, count]) => ({
+            name: date,
+            Workers: count,
+            Hotlist: 0
+          }));
+          setAttendance(arr);
+        } else {
+          setAttendance([]);
+        }
       } catch (e) {
         // handle error (optional)
       } finally {
@@ -287,7 +301,12 @@ const AdminTeamDetail = () => {
                 </div>
                 <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
                     <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password</label>
-                    <input type="password" required minLength={6} value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+                    <div className="relative">
+                      <input type={showNewWorkerPassword ? "text" : "password"} required minLength={6} value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm pr-10" />
+                      <button type="button" onClick={() => setShowNewWorkerPassword(!showNewWorkerPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600">
+                        {showNewWorkerPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4 disabled:opacity-50">
                   {isSubmitting ? 'Creating...' : 'Create Worker'}

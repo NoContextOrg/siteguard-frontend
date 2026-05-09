@@ -14,7 +14,7 @@ import PersonManagement from './components/PersonManagement';
 import TeamManagement from './components/TeamManagement';
 import AttendanceManagement from './components/AttendanceManagement';
 import AlertManagement from './components/AlertManagement';
-import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send } from 'lucide-react';
+import { ShieldCheck, Clock, FileBarChart, Fingerprint, Lock, Send, Eye, EyeOff } from 'lucide-react';
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -91,6 +91,7 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   if (!isOpen) return null;
 
@@ -152,14 +153,19 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onLoginSucce
             
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="••••••••" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">

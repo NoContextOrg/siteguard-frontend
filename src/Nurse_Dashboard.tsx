@@ -9,9 +9,6 @@ import type {
 } from './api/analytics';
 import { 
   getUnifiedDashboard,
-  getHotlistTrends,
-  getAlertTrends,
-  getStaffEfficiencyTrends,
   exportAnalyticsExcel,
   makeExportFilename,
   type DashboardTimeFilterState,
@@ -96,25 +93,6 @@ const NurseDashboard = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadTrends = async () => {
-      try {
-        await Promise.all([
-          getHotlistTrends({ key: '7_DAYS' }),
-          getAlertTrends(alertsFilter),
-          getStaffEfficiencyTrends(staffFilter),
-        ]);
-        if (cancelled) return;
-      } catch (e) {
-        console.error('Failed to load nurse trends', e);
-      }
-    };
-    loadTrends();
-    return () => {
-      cancelled = true;
-    };
-  }, [alertsFilter, staffFilter]);
 
   useEffect(() => {
     let cancelled = false;

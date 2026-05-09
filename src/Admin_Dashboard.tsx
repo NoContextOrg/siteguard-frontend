@@ -6,10 +6,6 @@ import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import {
   getUnifiedDashboard,
-  getAttendanceTrends,
-  getHotlistTrends,
-  getAlertTrends,
-  getTeamAttendanceTrends,
   exportAnalyticsExcel,
   makeExportFilename,
   type DashboardTimeFilterState,
@@ -101,26 +97,6 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadTrends = async () => {
-      try {
-        await Promise.all([
-          getAttendanceTrends(attendanceFilter),
-          getHotlistTrends({ key: '7_DAYS' }),
-          getAlertTrends(alertsFilter),
-          getTeamAttendanceTrends({ key: '7_DAYS' }),
-        ]);
-        if (cancelled) return;
-      } catch (e) {
-        console.error('Failed to load trends', e);
-      }
-    };
-    loadTrends();
-    return () => {
-      cancelled = true;
-    };
-  }, [attendanceFilter, alertsFilter]);
 
   useEffect(() => {
     let cancelled = false;

@@ -108,7 +108,7 @@ const EngineerTeam = () => {
       try {
         setLoading(true);
 
-        const [personsData, overtimeJson, unifiedData, alertsJson] = await Promise.all([
+        const [personsData, , unifiedData, alertsJson] = await Promise.all([
           getAllPersons(),
           getOvertimeOverview(),
           getUnifiedDashboard(),
@@ -116,7 +116,13 @@ const EngineerTeam = () => {
         ]);
 
         setPersons(personsData || []);
-        setOvertimeData(Array.isArray(overtimeJson) ? overtimeJson : (overtimeJson as any)?.data ?? []);
+        
+        const attArray = (unifiedData?.enhancedAttendanceOverview?.timeSeries || []).map((t: any) => ({
+          name: t.date,
+          Workers: t.count,
+          Hotlist: 0,
+        }));
+        setOvertimeData(attArray);
         setStats({
           ...unifiedData?.systemStats,
           hotlistCount: unifiedData?.enhancedHotlistOverview?.totalHotlisted || unifiedData?.dashboardOverview?.hotlistWorkers

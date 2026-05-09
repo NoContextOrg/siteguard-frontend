@@ -14,8 +14,6 @@ import { useState, useEffect, useRef } from 'react';
   } from './api/analytics';
   import {
     getUnifiedDashboard,
-    getAttendanceTrends,
-    getTeamAttendanceTrends,
     exportAnalyticsExcel,
     makeExportFilename,
     type DashboardTimeFilterState,
@@ -98,24 +96,6 @@ import { useState, useEffect, useRef } from 'react';
       };
     }, []);
 
-    useEffect(() => {
-      let cancelled = false;
-      const loadTrends = async () => {
-        try {
-          await Promise.all([
-            getAttendanceTrends({ key: '7_DAYS' }),
-            getTeamAttendanceTrends(teamAttendanceFilter),
-          ]);
-          if (cancelled) return;
-        } catch (e) {
-          console.error('Failed to load engineer trends', e);
-        }
-      };
-      loadTrends();
-      return () => {
-        cancelled = true;
-      };
-    }, [teamAttendanceFilter]);
 
     useEffect(() => {
       let cancelled = false;

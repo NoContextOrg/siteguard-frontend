@@ -334,13 +334,13 @@ const WorkerLandingPage: React.FC = () => {
                     ) : (
                       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mb-4">Attendance Trends</div>
-                        {workerTrend?.length === 0 ? (
+                        {!workerTrend?.timeline || workerTrend.timeline.length === 0 ? (
                           <div className="text-slate-400 py-8 text-center">No trends data available.</div>
                         ) : (
                           <div className="grid grid-cols-1 gap-4">
-                            {workerTrend?.map((trend: any, idx: number) => (
+                            {workerTrend.timeline.map((trend: any, idx: number) => (
                               <div key={idx} className="p-4 bg-slate-50 rounded-lg shadow-inner">
-                                <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">{trend.label}</div>
+                                <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">{trend.label || trend.date || trend.timestamp}</div>
                                 <div className="text-2xl font-black text-slate-800">{trend.value}</div>
                               </div>
                             ))}
