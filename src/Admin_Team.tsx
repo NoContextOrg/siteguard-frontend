@@ -9,7 +9,7 @@ import {
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
 import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
-import { createPersonUi, deletePersonById, updatePersonUi } from './api/person';
+import { createPersonUi, deletePersonById, updatePersonUi, uploadProfilePicture } from './api/person';
 import { authenticatedFetch } from './api/fetch';
 import { setPersonPassword } from './api/person';
 
@@ -27,12 +27,12 @@ const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose}></div>
-      <div className="relative bg-white w-full max-w-xl rounded-[30px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24} /></button>
+      <div className="relative bg-white w-full max-w-md rounded-[24px] shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-300">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+          <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">{title}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-full transition"><X size={20} /></button>
         </div>
-        <div className="p-8">{children}</div>
+        <div className="p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -156,6 +156,8 @@ const AdminTeam = () => {
   const [newAccountPhone, setNewAccountPhone] = useState('');
   const [newAccountDepartment, setNewAccountDepartment] = useState('');
   const [accountSubmitting, setAccountSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Add Account password state
   const [addAccountPassword, setAddAccountPassword] = useState('');
@@ -184,6 +186,22 @@ const AdminTeam = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl && selectedFile) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl, selectedFile]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
   const closeModal = () => {
     if (teamSubmitting || accountSubmitting) return;
     setModalType(null);
@@ -193,6 +211,8 @@ const AdminTeam = () => {
     setDeletingPerson(null);
     setTeamEditing(null);
     setTeamDeleting(null);
+    setSelectedFile(null);
+    setPreviewUrl(null);
   };
 
   const load = async () => {
@@ -326,6 +346,11 @@ const AdminTeam = () => {
       if (!formattedPhone.startsWith('9')) formattedPhone = '9' + formattedPhone.replace(/^\+?63/, '');
       formattedPhone = '+63' + formattedPhone;
 
+      let finalProfilePictureUrl = undefined;
+      if (selectedFile) {
+        finalProfilePictureUrl = await uploadProfilePicture(selectedFile);
+      }
+
       const payload = {
         name: newAccountName.trim(),
         email: newAccountEmail.trim(),
@@ -334,6 +359,7 @@ const AdminTeam = () => {
         department: newAccountDepartment.trim(),
         role: newAccountRole,
         password: addAccountPassword,
+        profilePictureUrl: finalProfilePictureUrl,
       };
 
       if (!payload.name || !payload.email) {
@@ -369,6 +395,8 @@ const AdminTeam = () => {
     setNewAccountEmail(anyP.email ?? '');
     setNewAccountPhone(anyP.phoneNumber ?? anyP.phone ?? '');
     setNewAccountDepartment(anyP.department ?? '');
+    setSelectedFile(null);
+    setPreviewUrl(anyP.profilePictureUrl ?? null);
     setModalType('account');
   };
 
@@ -380,6 +408,11 @@ const AdminTeam = () => {
       setError(null);
       setAccountSubmitting(true);
 
+      let finalProfilePictureUrl = editingPerson.profilePictureUrl;
+      if (selectedFile) {
+        finalProfilePictureUrl = await uploadProfilePicture(selectedFile);
+      }
+
       await updatePersonUi(editingPerson.id, {
         name: newAccountName.trim(),
         email: newAccountEmail.trim(),
@@ -387,6 +420,7 @@ const AdminTeam = () => {
         position: newAccountRole === 'WORKER' ? 'Worker' : newAccountRole === 'ENGINEER' ? 'Site Engineer' : newAccountRole === 'NURSE' ? 'Nurse' : 'Admin',
         department: newAccountDepartment.trim(),
         role: newAccountRole as any,
+        profilePictureUrl: finalProfilePictureUrl,
       });
 
       setEditingPerson(null);
@@ -915,8 +949,28 @@ const AdminTeam = () => {
             </div>
           </div>
         ) : (
-          <form className="space-y-4" onSubmit={editingPerson ? handleSavePersonEdit : handleCreateAccount}>
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <form className="space-y-3" onSubmit={editingPerson ? handleSavePersonEdit : handleCreateAccount}>
+            {/* Profile Picture Upload Section */}
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3 flex items-center gap-3">
+              <div className="h-14 w-14 shrink-0 rounded-full border-2 border-dashed border-blue-200 overflow-hidden flex items-center justify-center bg-white">
+                {previewUrl ? (
+                  <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">No<br/>Image</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-black text-blue-900 uppercase block mb-2">Profile Picture</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Account Type</label>
               <select
                 value={newAccountRole}
@@ -931,7 +985,7 @@ const AdminTeam = () => {
               </select>
             </div>
 
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Full Name</label>
               <input
                 type="text"
@@ -944,7 +998,7 @@ const AdminTeam = () => {
               />
             </div>
 
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Email</label>
               <input
                 type="email"
@@ -957,7 +1011,7 @@ const AdminTeam = () => {
               />
             </div>
 
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Phone</label>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 font-bold text-sm select-none">+63</span>
@@ -977,7 +1031,7 @@ const AdminTeam = () => {
               <div className="text-xs text-slate-400 mt-1">Enter 10 or 11 digits (exclude leading 0). Will be formatted as +63XXXXXXXXXX.</div>
             </div>
 
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Department</label>
               <select
                 value={newAccountDepartment}
@@ -993,7 +1047,7 @@ const AdminTeam = () => {
               </select>
             </div>
 
-            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+            <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
               <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password</label>
               <input
                 type="password"
@@ -1010,7 +1064,7 @@ const AdminTeam = () => {
             </div>
 
             {!editingPerson && (
-              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
                 <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Confirm Password</label>
                 <input
                   type="password"
@@ -1027,7 +1081,7 @@ const AdminTeam = () => {
             )}
 
             <button
-              className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+              className="w-full bg-[#1a2e5a] text-white py-3 mt-2 rounded-xl shadow-md font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
               type="submit"
               disabled={accountSubmitting}
             >
@@ -1040,7 +1094,7 @@ const AdminTeam = () => {
       {/* 2. Create Team Form */}
       <Modal isOpen={modalType === 'team'} onClose={closeModal} title="Register New Team">
         <form className="space-y-4" onSubmit={handleCreateTeam}>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Team Name</label>
             <input
               type="text"
@@ -1053,7 +1107,7 @@ const AdminTeam = () => {
             />
           </div>
 
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Site Engineer</label>
             <select
               required
@@ -1071,7 +1125,7 @@ const AdminTeam = () => {
             </select>
           </div>
 
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Description</label>
             <input
               type="text"
@@ -1082,7 +1136,7 @@ const AdminTeam = () => {
               disabled={teamSubmitting}
             />
           </div>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Project Area / Location</label>
             <input
               type="text"
@@ -1094,7 +1148,7 @@ const AdminTeam = () => {
             />
           </div>
           <button
-            className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+            className="w-full bg-[#1a2e5a] text-white py-3 mt-2 rounded-xl shadow-md font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
             type="submit"
             disabled={teamSubmitting}
           >
@@ -1106,7 +1160,7 @@ const AdminTeam = () => {
       {/* 3. Add Worker to Team Form */}
       <Modal isOpen={modalType === 'worker'} onClose={closeModal} title="Add Worker to Team">
         <form className="space-y-4" onSubmit={handleAddWorkerToTeam}>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Select Worker</label>
             <select
               required
@@ -1124,7 +1178,7 @@ const AdminTeam = () => {
           </div>
           <button
             type="submit"
-            className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4"
+            className="w-full bg-[#1e3a8a] text-white py-3 rounded-xl font-black shadow-md uppercase tracking-widest hover:bg-blue-900 transition mt-4"
           >
             Confirm Addition
           </button>
@@ -1286,7 +1340,7 @@ const AdminTeam = () => {
       {/* Edit Team Modal */}
       <Modal isOpen={modalType === 'teamEdit'} onClose={closeModal} title="Edit Team Details">
         <form className="space-y-4" onSubmit={handleSaveTeamEdit}>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Team Name</label>
             <input
               type="text"
@@ -1299,7 +1353,7 @@ const AdminTeam = () => {
             />
           </div>
 
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Site Engineer</label>
             <select
               required
@@ -1317,7 +1371,7 @@ const AdminTeam = () => {
             </select>
           </div>
 
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Description</label>
             <input
               type="text"
@@ -1328,7 +1382,7 @@ const AdminTeam = () => {
               disabled={teamSubmitting}
             />
           </div>
-          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+          <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3">
             <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Project Area / Location</label>
             <input
               type="text"
@@ -1340,7 +1394,7 @@ const AdminTeam = () => {
             />
           </div>
           <button
-            className="w-full bg-[#1a2e5a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
+            className="w-full bg-[#1a2e5a] text-white py-3 mt-2 rounded-xl shadow-md font-black uppercase tracking-widest hover:bg-[#132142] transition disabled:opacity-50"
             type="submit"
             disabled={teamSubmitting}
           >

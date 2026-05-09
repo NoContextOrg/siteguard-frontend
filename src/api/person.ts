@@ -5,7 +5,7 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface Person {
   id?: number;
@@ -18,6 +18,7 @@ export interface Person {
   fingerprint?: string;
   createdAt?: string;
   updatedAt?: string;
+  profilePictureUrl?: string;
 }
 
 export interface PersonResponse {
@@ -32,6 +33,7 @@ export interface PersonResponse {
   email?: string;
   phoneNumber?: string;
   teamId?: number | null;
+  profilePictureUrl?: string;
   
   // Worker-specific enrichment fields (from enriched PersonResponseDTO)
   teamName?: string;
@@ -77,6 +79,7 @@ const toPersonResponse = (dto: any): PersonResponse => {
     status: dto.status,
     email: dto.email,
     phoneNumber: dto.phoneNumber ?? dto.phone,
+    profilePictureUrl: dto.profilePictureUrl,
     teamId: dto.teamId ?? null,
     teamName: dto.teamName,
     healthProfileStatus: dto.healthProfileStatus,
@@ -305,6 +308,9 @@ export type CreatePersonUiPayload = {
   department?: string;
   role: 'WORKER' | 'ENGINEER' | 'NURSE' | 'ADMIN' | 'STAFF';
   fingerprint?: number | string;
+  password?: string;
+  profilePictureUrl?: string;
+  teamId?: number | null;
 };
 
 /**
@@ -397,4 +403,26 @@ export const setPersonPassword = async (id: number, newPassword: string): Promis
     if (response.status === 403) throw new Error('Forbidden (403). Requires admin role.');
     throw new Error(msg || `Failed to set/reset password (${response.status})`);
   }
+};
+
+/**
+ * Upload a profile picture
+ * POST /api/files/upload/profile-picture
+ */
+export const uploadProfilePicture = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await authenticatedFetch(`${API_BASE_URL}/files/upload/profile-picture`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to upload profile picture (${response.status})`);
+  }
+
+  const data = await response.json();
+  return data.fileUrl;
 };

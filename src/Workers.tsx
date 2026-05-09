@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Calendar, Filter, X, Save } from 'lucide-react';
+import { Search, X, Save } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
@@ -488,20 +488,6 @@ export default function WorkersPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
-            <div className="flex gap-3">
-              <button
-                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"
-                type="button"
-              >
-                <Calendar size={20} />
-              </button>
-              <button
-                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded transition"
-                type="button"
-              >
-                <Filter size={20} />
-              </button>
             </div>
           </div>
 

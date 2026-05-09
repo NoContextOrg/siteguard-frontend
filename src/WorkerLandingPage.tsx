@@ -157,6 +157,8 @@ const WorkerLandingPage: React.FC = () => {
       await exportWorkerExcel({
         personCode,
         filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
+        startDate: effectiveFilter.key === 'CUSTOM' ? effectiveFilter.start : undefined,
+        endDate: effectiveFilter.key === 'CUSTOM' ? effectiveFilter.end : undefined,
         filename: makeExportFilename('worker-trends', effectiveFilter),
       });
     } catch (e) {

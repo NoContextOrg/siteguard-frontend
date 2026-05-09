@@ -6,6 +6,7 @@ import {
   updatePerson, 
   deletePerson,
   registerFingerprint,
+  uploadProfilePicture,
   type Person,
   type PersonResponse
 } from '../api/person';
@@ -17,6 +18,7 @@ interface FormData {
   phone: string;
   position: string;
   department: string;
+  profilePictureUrl?: string;
 }
 
 const PersonManagement: React.FC = () => {
@@ -40,13 +42,24 @@ const PersonManagement: React.FC = () => {
     phone: '',
     position: '',
     department: '',
+    profilePictureUrl: '',
   });
   const [fingerprintData, setFingerprintData] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Load persons on component mount
   useEffect(() => {
     loadPersons();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl && selectedFile) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl, selectedFile]);
 
   const loadPersons = async () => {
     try {
@@ -68,7 +81,10 @@ const PersonManagement: React.FC = () => {
       phone: '',
       position: '',
       department: '',
+      profilePictureUrl: '',
     });
+    setSelectedFile(null);
+    setPreviewUrl(null);
     setShowCreateModal(true);
   };
 
@@ -80,7 +96,10 @@ const PersonManagement: React.FC = () => {
       phone: (person as any).phone ?? '',
       position: person.position ?? '',
       department: person.department ?? '',
+      profilePictureUrl: person.profilePictureUrl ?? '',
     });
+    setSelectedFile(null);
+    setPreviewUrl(person.profilePictureUrl ?? null);
     setShowEditModal(true);
   };
 
@@ -100,7 +119,13 @@ const PersonManagement: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError(null);
-      await createPerson(formData as Person);
+      
+      let finalProfilePictureUrl = formData.profilePictureUrl;
+      if (selectedFile) {
+        finalProfilePictureUrl = await uploadProfilePicture(selectedFile);
+      }
+
+      await createPerson({ ...formData, profilePictureUrl: finalProfilePictureUrl } as Person);
       setSuccess('Person created successfully!');
       setShowCreateModal(false);
       await loadPersons();
@@ -118,7 +143,13 @@ const PersonManagement: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError(null);
-      await updatePerson(selectedPerson.id, formData);
+
+      let finalProfilePictureUrl = formData.profilePictureUrl;
+      if (selectedFile) {
+        finalProfilePictureUrl = await uploadProfilePicture(selectedFile);
+      }
+
+      await updatePerson(selectedPerson.id, { ...formData, profilePictureUrl: finalProfilePictureUrl });
       setSuccess('Person updated successfully!');
       setShowEditModal(false);
       await loadPersons();
@@ -320,6 +351,9 @@ const PersonManagement: React.FC = () => {
             onSubmit={handleSubmitCreate}
             submitLabel="Create Person"
             isSubmitting={isSubmitting}
+            setSelectedFile={setSelectedFile}
+            previewUrl={previewUrl}
+            setPreviewUrl={setPreviewUrl}
           />
         </Modal>
       )}
@@ -337,6 +371,9 @@ const PersonManagement: React.FC = () => {
             onSubmit={handleSubmitEdit}
             submitLabel="Update Person"
             isSubmitting={isSubmitting}
+            setSelectedFile={setSelectedFile}
+            previewUrl={previewUrl}
+            setPreviewUrl={setPreviewUrl}
           />
         </Modal>
       )}
@@ -380,11 +417,51 @@ interface PersonFormProps {
   onSubmit: (e: React.FormEvent) => void;
   submitLabel: string;
   isSubmitting?: boolean;
+  setSelectedFile: (file: File | null) => void;
+  previewUrl: string | null;
+  setPreviewUrl: (url: string | null) => void;
 }
 
-const PersonForm: React.FC<PersonFormProps> = ({ formData, setFormData, onSubmit, submitLabel, isSubmitting }) => {
+const PersonForm: React.FC<PersonFormProps> = ({ 
+  formData, 
+  setFormData, 
+  onSubmit, 
+  submitLabel, 
+  isSubmitting,
+  setSelectedFile,
+  previewUrl,
+  setPreviewUrl
+}) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      {/* Profile Picture Upload Section */}
+      <div className="flex flex-col items-center space-y-2 mb-4">
+        <label className="block text-sm font-medium text-slate-700">Profile Picture</label>
+        
+        <div className="h-24 w-24 rounded-full border-2 border-dashed border-slate-300 overflow-hidden flex items-center justify-center bg-slate-50">
+          {previewUrl ? (
+            <img src={previewUrl} alt="Profile Preview" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-slate-400 text-xs">No Image</span>
+          )}
+        </div>
+
+        <input 
+          type="file" 
+          accept="image/*" 
+          onChange={handleFileChange} 
+          className="text-sm w-full max-w-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>

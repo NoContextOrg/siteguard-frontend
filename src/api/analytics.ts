@@ -5,7 +5,7 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 // ===== shared helpers (required by trends + exports) =====
 const buildQuery = (params: Record<string, string | number | boolean | undefined | null>) => {
@@ -59,49 +59,60 @@ const downloadBlob = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
-// ===== Excel export (global) =====
-export const exportAnalyticsExcel = async (opts: {
-  exportType: ExportType;
-  filter?: string;
-  teamId?: number;
-  role?: string;
-  personCode?: string;
-  alertType?: string;
-  startDate?: string;
-  endDate?: string;
-  sortField?: string;
-  sortDirection?: 'asc' | 'desc';
-  filename: string;
-}) => {
-  const qs = buildQuery({
-    exportType: opts.exportType,
-    filter: opts.filter,
-    teamId: opts.teamId,
-    role: opts.role,
-    personCode: opts.personCode,
-    alertType: opts.alertType,
-    startDate: opts.startDate,
-    endDate: opts.endDate,
-    sortField: opts.sortField,
-    sortDirection: opts.sortDirection,
-  });
+const jsonToCsv = (data: any[], metadata?: ExportMetadata): string => {
+  let columns: string[] = [];
+  let headers: string[] = [];
 
-  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/export${qs}`, {
-    headers: {
-      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    },
-  });
-
-  if (!response.ok) {
-    const msg = await safeReadErrorMessage(response);
-    throw new Error(msg || `Failed to export analytics: ${response.statusText}`);
+  if (metadata?.columns && metadata.columns.length > 0) {
+    columns = metadata.columns;
+    headers = columns.map(c => metadata.columnHeaders?.[c] || c);
+  } else if (data && data.length > 0) {
+    columns = Object.keys(data[0]);
+    headers = [...columns];
+  } else {
+    return '';
   }
 
-  const blob = await response.blob();
-  downloadBlob(blob, opts.filename);
+  const rows = (data || []).map(row => 
+    columns.map(col => {
+      const cell = row[col] === null || row[col] === undefined ? '' : String(row[col]);
+      return `"${cell.replace(/"/g, '""')}"`;
+    }).join(',')
+  );
+
+  return [headers.join(','), ...rows].join('\n');
 };
 
 // ========== INTERFACES ========== //
+
+export interface ExportMetadata {
+  exportType?: string;
+  format?: string;
+  appliedFilters?: Record<string, any>;
+  generatedAt?: string;
+  filename?: string;
+  executionTimeMs?: number;
+  columns?: string[];
+  columnHeaders?: Record<string, string>;
+}
+
+export interface FilterResponseDTO {
+  totalRecords: number;
+  data: any[];
+  page: number;
+  size: number;
+  [key: string]: any;
+}
+
+export interface ExportResponseDTO {
+  generatedAt?: string;
+  exportType?: string;
+  filters?: Record<string, any>;
+  totalRecords: number;
+  data: any[];
+  metadata?: ExportMetadata;
+  [key: string]: any;
+}
 
 export interface SystemStats {
   total_persons: number;
@@ -268,13 +279,13 @@ export interface DashboardTimeFilterState {
 }
 
 export type ExportType =
+  | 'ATTENDANCE'
   | 'ATTENDANCE_TRENDS'
-  | 'ALERTS_OVERVIEW'
-  | 'HOTLIST_REPORT'
-  | 'OVERTIME_REPORT'
-  | 'ANALYTICS_SUMMARY'
-  | 'WORKER_ATTENDANCE_LOGS'
-  | 'WORKER_TRENDS'
+  | 'ALERTS'
+  | 'WORKERS'
+  | 'HOTLIST'
+  | 'TEAMS'
+  | 'WORKER_ANALYTICS'
   | string;
 
 export interface TrendResponseDTO {
@@ -294,14 +305,9 @@ export interface TrendResponseDTO {
  */
 export const getSystemStats = async (): Promise<SystemStats> => {
   try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/stats`);
-
-    if (!response.ok) {
-      const msg = await safeReadErrorMessage(response);
-      throw new Error(msg || `Failed to fetch system stats: ${response.statusText}`);
-    }
-
-    return await response.json();
+    const data = await getUnifiedDashboard();
+    if (!data.systemStats) throw new Error('System stats not available');
+    return data.systemStats;
   } catch (error) {
     console.error('Error fetching system stats:', error);
     throw error;
@@ -345,19 +351,9 @@ export const getUnifiedDashboard = async (
  */
 export const getDashboardOverview = async (date?: string): Promise<DashboardOverview> => {
   try {
-    let url = `${API_BASE_URL}/analytics/overview`;
-    if (date) {
-      url += `?date=${encodeURIComponent(date)}`;
-    }
-
-    const response = await authenticatedFetch(url);
-
-    if (!response.ok) {
-      const msg = await safeReadErrorMessage(response);
-      throw new Error(msg || `Failed to fetch dashboard overview: ${response.statusText}`);
-    }
-
-    return await response.json();
+    const data = await getUnifiedDashboard(date);
+    if (!data.dashboardOverview) throw new Error('Dashboard overview not available');
+    return data.dashboardOverview;
   } catch (error) {
     console.error('Error fetching dashboard overview:', error);
     throw error;
@@ -369,14 +365,9 @@ export const getDashboardOverview = async (date?: string): Promise<DashboardOver
  */
 export const getHotlistOverview = async (): Promise<HotlistOverview> => {
   try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/hotlist`);
-
-    if (!response.ok) {
-      const msg = await safeReadErrorMessage(response);
-      throw new Error(msg || `Failed to fetch hotlist overview: ${response.statusText}`);
-    }
-
-    return await response.json();
+    const data = await getUnifiedDashboard();
+    if (!data.hotlistOverview) throw new Error('Hotlist overview not available');
+    return data.hotlistOverview as unknown as HotlistOverview;
   } catch (error) {
     console.error('Error fetching hotlist overview:', error);
     throw error;
@@ -530,14 +521,9 @@ export const downloadDailyReport = async (date?: string): Promise<void> => {
  */
 export const getAlertsOverview = async (): Promise<AlertsOverview> => {
   try {
-    const response = await authenticatedFetch(`${API_BASE_URL}/analytics/alerts`);
-
-    if (!response.ok) {
-      const msg = await safeReadErrorMessage(response);
-      throw new Error(msg || `Failed to fetch alerts overview: ${response.statusText}`);
-    }
-
-    return await response.json();
+    const data = await getUnifiedDashboard();
+    if (!data.alertsOverview) throw new Error('Alerts overview not available');
+    return data.alertsOverview;
   } catch (error) {
     console.error('Error fetching alerts overview:', error);
     throw error;
@@ -549,22 +535,9 @@ export const getAlertsOverview = async (): Promise<AlertsOverview> => {
  */
 export const getStaffEfficiency = async (startDate?: string, endDate?: string): Promise<StaffEfficiencyResponse> => {
   try {
-    let url = `${API_BASE_URL}/analytics/staff-efficiency`;
-    const params = new URLSearchParams();
-    if (startDate) params.append('start', startDate);
-    if (endDate) params.append('end', endDate);
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-
-    const response = await authenticatedFetch(url);
-
-    if (!response.ok) {
-      const msg = await safeReadErrorMessage(response);
-      throw new Error(msg || `Failed to fetch staff efficiency: ${response.statusText}`);
-    }
-
-    return await response.json();
+    const data = await getUnifiedDashboard(undefined, startDate, endDate);
+    if (!data.staffEfficiency) throw new Error('Staff efficiency not available');
+    return data.staffEfficiency as any;
   } catch (error) {
     console.error('Error fetching staff efficiency:', error);
     throw error;
@@ -652,17 +625,190 @@ export const makeExportFilename = (prefix: string, timeFilter: DashboardTimeFilt
   return `${prefix}-${suffix}.xlsx`;
 };
 
-// Remove invalid/duplicate exports added above (helpers are already exported where they are defined).
-// (no-op placeholders kept for clarity)
+// ==================== FILTER ENDPOINTS ====================
 
-// Ensure the following are exported (or declared) exactly once in this file:
-// - buildQuery
-// - toBackendFilterParam
-// - exportTimeFilterToFilename
-// - exportAnalyticsExcel
-// - exportWorkerExcel
+export const filterAttendance = async (opts: {
+  filter?: string;
+  role?: string;
+  teamId?: number;
+  attendanceStatus?: string;
+  overtimeOnly?: boolean;
+  hotlistOnly?: boolean;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<FilterResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/filter/attendance${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to filter attendance: ${response.statusText}`);
+  }
+  return response.json();
+};
 
-// Worker export helper (Excel)
+export const filterAlerts = async (opts: {
+  filter?: string;
+  alertType?: string;
+  activeOnly?: boolean;
+  acknowledged?: boolean;
+  personCode?: string;
+  teamId?: number;
+  role?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}): Promise<FilterResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/filter/alerts${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to filter alerts: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const filterWorkers = async (opts: {
+  filter?: string;
+  hotlistedOnly?: boolean;
+  activeOnly?: boolean;
+  role?: string;
+  teamId?: number;
+  overtimeOnly?: boolean;
+  admittedToday?: boolean;
+  attendanceRateThreshold?: number;
+  search?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}): Promise<FilterResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/filter/workers${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to filter workers: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const filterTeams = async (opts: {
+  filter?: string;
+  highOvertime?: boolean;
+  lowAttendance?: boolean;
+  hotlistCount?: number;
+  activeTeamsOnly?: boolean;
+  assignedEngineer?: number;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}): Promise<FilterResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/filter/teams${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to filter teams: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const filterWorkerAnalytics = async (personCode: string, opts: {
+  filter?: string;
+  attendanceType?: string;
+  overtimeOnly?: boolean;
+  alertOnly?: boolean;
+  startDate?: string;
+  endDate?: string;
+  exportMode?: boolean;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}): Promise<FilterResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/filter/worker/${encodeURIComponent(personCode)}${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to filter worker analytics: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+// ==================== EXPORT ENDPOINTS ====================
+
+export const exportData = async (opts: {
+  exportType: ExportType;
+  filter?: string;
+  teamId?: number;
+  role?: string;
+  personCode?: string;
+  alertType?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<ExportResponseDTO> => {
+  const qs = buildQuery(opts);
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/export${qs}`);
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to export data: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+export const exportWorkerData = async (opts: {
+  personCode: string;
+  filter?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<ExportResponseDTO> => {
+  const { personCode, ...rest } = opts;
+  const qs = buildQuery(rest);
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/analytics/export/worker/${encodeURIComponent(personCode)}${qs}`
+  );
+
+  if (!response.ok) {
+    const msg = await safeReadErrorMessage(response);
+    throw new Error(msg || `Failed to export worker data: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const exportAnalyticsExcel = async (opts: {
+  exportType: ExportType;
+  filter?: string;
+  teamId?: number;
+  role?: string;
+  personCode?: string;
+  alertType?: string;
+  startDate?: string;
+  endDate?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  filename: string;
+}) => {
+  const { filename, ...rest } = opts;
+  const data = await exportData(rest);
+  const csv = jsonToCsv(data.data || [], data.metadata);
+  // Prepend BOM (\uFEFF) for Excel UTF-8 compatibility
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const finalFilename = (data.metadata?.filename || filename).replace(/\.xlsx$/, '.csv');
+  downloadBlob(blob, finalFilename);
+};
+
 export const exportWorkerExcel = async (opts: {
   personCode: string;
   filter?: string;
@@ -672,30 +818,11 @@ export const exportWorkerExcel = async (opts: {
   sortDirection?: 'asc' | 'desc';
   filename: string;
 }) => {
-  const qs = buildQuery({
-    filter: opts.filter,
-    startDate: opts.startDate,
-    endDate: opts.endDate,
-    sortField: opts.sortField,
-    sortDirection: opts.sortDirection,
-  });
-
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/analytics/export/worker/${encodeURIComponent(opts.personCode)}${qs}`
-  );
-
-  if (!response.ok) {
-    const msg = await safeReadErrorMessage(response);
-    throw new Error(msg || `Failed to export worker data: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = opts.filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+  const { filename, ...rest } = opts;
+  const data = await exportWorkerData(rest);
+  const csv = jsonToCsv(data.data || [], data.metadata);
+  // Prepend BOM (\uFEFF) for Excel UTF-8 compatibility
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const finalFilename = (data.metadata?.filename || filename).replace(/\.xlsx$/, '.csv');
+  downloadBlob(blob, finalFilename);
 };

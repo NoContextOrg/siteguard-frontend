@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
   import { motion, AnimatePresence } from 'framer-motion';
   import {
-    Filter, UserCheck, UserX, UserPlus, Users, Bell
+    UserCheck, UserX, UserPlus, Users, Bell, Download
   } from 'lucide-react';
   import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+    BarChart, Bar, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer
   } from 'recharts';
   import type {
@@ -17,7 +17,6 @@ import { useState, useEffect, useRef } from 'react';
     getAttendanceTrends,
     getTeamAttendanceTrends,
     exportAnalyticsExcel,
-    makeDefaultDashboardTimeFilter,
     makeExportFilename,
     type DashboardTimeFilterState,
   } from './api/analytics';
@@ -25,8 +24,6 @@ import { useState, useEffect, useRef } from 'react';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
-
-  const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
   const EngineerDashboard = () => {
     const navigate = useNavigate();
@@ -45,33 +42,19 @@ import { useState, useEffect, useRef } from 'react';
 
     const lastAlertIdRef = useRef<number | null>(null);
 
-    // NEW: time filter states
-    const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
-      try {
-        const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
-      } catch {
-        return makeDefaultDashboardTimeFilter();
-      }
-    });
-    const effectiveFilter: DashboardTimeFilterState = timeFilter;
+    const [teamAttendanceFilter, setTeamAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
-      try {
-        sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
-      } catch {}
-    }, [timeFilter]);
-
-    useEffect(() => {
       let cancelled = false;
+
       const fetchDashboardData = async (isBackground = false) => {
         try {
           if (!isBackground) setLoading(true);
 
           const [unified, personsRes] = await Promise.all([
-            getUnifiedDashboard(undefined, effectiveFilter.start, effectiveFilter.end),
+            getUnifiedDashboard(),
             getAllPersons(),
           ]);
 
@@ -79,6 +62,7 @@ import { useState, useEffect, useRef } from 'react';
 
           setSystemStats(unified.systemStats || null);
           setDashboardOverview(unified.dashboardOverview || null);
+
           if (unified.enhancedHotlistOverview) {
             setHotlistOverview({
               count: unified.enhancedHotlistOverview.totalHotlisted,
@@ -112,15 +96,15 @@ import { useState, useEffect, useRef } from 'react';
         cancelled = true;
         clearInterval(interval);
       };
-    }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+    }, []);
 
     useEffect(() => {
       let cancelled = false;
       const loadTrends = async () => {
         try {
           await Promise.all([
-            getAttendanceTrends(effectiveFilter),
-            getTeamAttendanceTrends(effectiveFilter),
+            getAttendanceTrends({ key: '7_DAYS' }),
+            getTeamAttendanceTrends(teamAttendanceFilter),
           ]);
           if (cancelled) return;
         } catch (e) {
@@ -131,7 +115,7 @@ import { useState, useEffect, useRef } from 'react';
       return () => {
         cancelled = true;
       };
-    }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+    }, [teamAttendanceFilter]);
 
     useEffect(() => {
       let cancelled = false;
@@ -162,7 +146,7 @@ import { useState, useEffect, useRef } from 'react';
       const interval = setInterval(fetchAlerts, 15000);
 
       const connectWebSocket = () => {
-        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws/alerts';
         ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
@@ -200,13 +184,15 @@ import { useState, useEffect, useRef } from 'react';
       };
     }, []);
 
-    const handleExport = async (exportType: string, prefix: string) => {
+    const handleExport = async (exportType: string, prefix: string, filterState?: DashboardTimeFilterState) => {
       try {
         setExporting(true);
         await exportAnalyticsExcel({
           exportType,
-          filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
-          filename: makeExportFilename(prefix, effectiveFilter),
+          filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
+          startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
+          endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
+          filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
         });
       } catch (e) {
         console.error(e);
@@ -220,14 +206,13 @@ import { useState, useEffect, useRef } from 'react';
       hidden: { opacity: 0 },
       show: { opacity: 1, transition: { staggerChildren: 0.1 } }
     };
-
     const itemVars = {
       hidden: { y: 20, opacity: 0 },
       show: { y: 0, opacity: 1 }
     };
 
     return (
-      <DashboardLayout>
+      <DashboardLayout title="Engineer Dashboard">
         {/* Dashboard-wide time filter removed; controls are now per section */}
 
         <motion.div className="p-8" variants={containerVars} initial="hidden" animate="show">
@@ -270,7 +255,6 @@ import { useState, useEffect, useRef } from 'react';
               <motion.div variants={itemVars} className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <div className="p-5 flex justify-between items-center border-b bg-slate-50/50">
                   <h3 className="text-sm font-black uppercase">Recent Admitted Workers</h3>
-                  <Filter size={18} className="text-slate-400" />
                 </div>
 
                 <div className="overflow-x-auto">
@@ -346,8 +330,8 @@ import { useState, useEffect, useRef } from 'react';
                       <button
                         key={opt.k}
                         type="button"
-                        onClick={() => setTimeFilter({ key: opt.k as any })}
-                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                        onClick={() => setTeamAttendanceFilter({ key: opt.k as any })}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${teamAttendanceFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                       >
                         {opt.label}
                       </button>
@@ -355,7 +339,7 @@ import { useState, useEffect, useRef } from 'react';
                     <button
                       type="button"
                       disabled={exporting}
-                      onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report')}
+                      onClick={() => handleExport('TEAMS', 'team-attendance-report', teamAttendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
                       Export
@@ -368,11 +352,9 @@ import { useState, useEffect, useRef } from 'react';
                     name: `Team ${i + 1}`,
                     present: t.present,
                     absent: t.absent,
-                    leave: t.on_leave,
+                    leave: t.leave,
                   }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="present" stackId="a" fill="#818cf8" />
@@ -381,7 +363,6 @@ import { useState, useEffect, useRef } from 'react';
                   </BarChart>
                 </ResponsiveContainer>
               </motion.div>
-
             </div>
 
             <div className="space-y-8">
@@ -389,16 +370,26 @@ import { useState, useEffect, useRef } from 'react';
               {/* HOTLIST SIDEBAR */}
               {hotlistOverview && (
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                  <div className="p-5 border-b flex justify-between">
+                  <div className="p-5 border-b flex justify-between items-center">
                     <h3 className="text-sm font-black uppercase">Recent Hotlist Alerts</h3>
 
-                    {/* FIXED BUTTON */}
-                    <button
-                      onClick={() => setModalType('hotlist')}
-                      className="text-[10px] font-black text-blue-600 uppercase"
-                    >
-                      See All →
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={exporting}
+                        onClick={() => handleExport('HOTLIST', 'hotlist-report')}
+                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                      >
+                        <Download size={14} /> Export
+                      </button>
+                      {/* FIXED BUTTON */}
+                      <button
+                        onClick={() => setModalType('hotlist')}
+                        className="text-[10px] font-black text-blue-600 uppercase"
+                      >
+                        See All →
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-4 space-y-3">

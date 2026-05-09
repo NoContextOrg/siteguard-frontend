@@ -3,7 +3,7 @@
  * Handles all attendance-related API calls
  */
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface AttendanceLog {
   id?: number;

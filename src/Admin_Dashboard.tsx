@@ -1,8 +1,8 @@
 // Admin Dashboard Component
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCheck, UserX, HardHat, ArrowUpRight, Calendar, Filter, List, Bell, Users, Users2, Download } from 'lucide-react';
+import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import {
   getUnifiedDashboard,
@@ -11,15 +11,12 @@ import {
   getAlertTrends,
   getTeamAttendanceTrends,
   exportAnalyticsExcel,
-  makeDefaultDashboardTimeFilter,
   makeExportFilename,
   type DashboardTimeFilterState,
 } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
-
-const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -37,37 +34,10 @@ const AdminDashboard = () => {
   const [teamAttendanceData, setTeamAttendanceData] = useState<any[]>([]);
   const [teamAttendancePie, setTeamAttendancePie] = useState<any[]>([]);
 
-  const [timeFilter, setTimeFilter] = useState<DashboardTimeFilterState>(() => {
-    try {
-      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : makeDefaultDashboardTimeFilter();
-    } catch {
-      return makeDefaultDashboardTimeFilter();
-    }
-  });
-
-  // Custom range UI not shown in per-section filters yet
-  const [customStart] = useState(timeFilter.start || '');
-  const [customEnd] = useState(timeFilter.end || '');
-
-  // Remove unused trend states until charts are wired to them
-  // const [attendanceTrend, setAttendanceTrend] = useState<any>(null);
-  // const [hotlistTrend, setHotlistTrend] = useState<any>(null);
-  // const [alertsTrend, setAlertsTrend] = useState<any>(null);
-  // const [teamAttendanceTrend, setTeamAttendanceTrend] = useState<any>(null);
+  const [alertsFilter, setAlertsFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
+  const [attendanceFilter, setAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(timeFilter));
-    } catch {}
-  }, [timeFilter]);
-
-  const effectiveFilter: DashboardTimeFilterState =
-    timeFilter.key === 'CUSTOM'
-      ? { key: 'CUSTOM', start: customStart || undefined, end: customEnd || undefined }
-      : timeFilter;
 
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +46,8 @@ const AdminDashboard = () => {
       try {
         if (!isBackground) setLoading(true);
 
-        // Unified dashboard supports start/end (date range)
-        const unified = await getUnifiedDashboard(undefined, effectiveFilter.start, effectiveFilter.end);
+        // Global dashboard data
+        const unified = await getUnifiedDashboard();
         if (cancelled) return;
 
         setSystemStats(unified.systemStats || null);
@@ -129,20 +99,19 @@ const AdminDashboard = () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const loadTrends = async () => {
       try {
         await Promise.all([
-          getAttendanceTrends(effectiveFilter),
-          getHotlistTrends(effectiveFilter),
-          getAlertTrends(effectiveFilter),
-          getTeamAttendanceTrends(effectiveFilter),
+          getAttendanceTrends(attendanceFilter),
+          getHotlistTrends({ key: '7_DAYS' }),
+          getAlertTrends(alertsFilter),
+          getTeamAttendanceTrends({ key: '7_DAYS' }),
         ]);
         if (cancelled) return;
-        // Trend responses are fetched to validate endpoints and keep future wiring simple.
       } catch (e) {
         console.error('Failed to load trends', e);
       }
@@ -151,7 +120,7 @@ const AdminDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [effectiveFilter.start, effectiveFilter.end, effectiveFilter.key]);
+  }, [attendanceFilter, alertsFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,7 +164,7 @@ const AdminDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws/alerts';
       ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
@@ -233,13 +202,15 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  const handleExport = async (exportType: string, prefix: string) => {
+  const handleExport = async (exportType: string, prefix: string, filterState?: DashboardTimeFilterState) => {
     try {
       setExporting(true);
       await exportAnalyticsExcel({
         exportType,
-        filter: effectiveFilter.key === 'CUSTOM' ? undefined : (effectiveFilter.key === '7_DAYS' ? '1_WEEK' : effectiveFilter.key),
-        filename: makeExportFilename(prefix, effectiveFilter),
+        filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
+        startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
+        endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
+        filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
       });
     } catch (e) {
       console.error(e);
@@ -248,6 +219,27 @@ const AdminDashboard = () => {
       setExporting(false);
     }
   };
+
+  const filteredAlerts = useMemo(() => {
+    if (alertsFilter.key === '7_DAYS' || alertsFilter.key === 'CUSTOM') return activeAlerts;
+    const hours = alertsFilter.key === '3_HOURS' ? 3 : alertsFilter.key === '6_HOURS' ? 6 : alertsFilter.key === '12_HOURS' ? 12 : alertsFilter.key === '24_HOURS' ? 24 : 24 * 7;
+    const cutoff = new Date().getTime() - (hours * 3600 * 1000);
+    return activeAlerts.filter(a => {
+      if (!a.createdAt) return true;
+      return new Date(a.createdAt).getTime() >= cutoff;
+    });
+  }, [activeAlerts, alertsFilter.key]);
+
+  const filteredAttendanceData = useMemo(() => {
+    if (attendanceFilter.key === '7_DAYS' || attendanceFilter.key === 'CUSTOM') return attendanceData;
+    const hours = attendanceFilter.key === '3_HOURS' ? 3 : attendanceFilter.key === '6_HOURS' ? 6 : attendanceFilter.key === '12_HOURS' ? 12 : attendanceFilter.key === '24_HOURS' ? 24 : 24 * 7;
+    const cutoff = new Date().getTime() - (hours * 3600 * 1000);
+    return attendanceData.filter(d => {
+      if (!d.name) return true;
+      const t = new Date(d.name).getTime();
+      return isNaN(t) ? true : t >= cutoff;
+    });
+  }, [attendanceData, attendanceFilter.key]);
 
   return (
     <DashboardLayout title="Admin Dashboard">
@@ -380,8 +372,8 @@ const AdminDashboard = () => {
                     <button
                       key={opt.k}
                       type="button"
-                      onClick={() => setTimeFilter({ key: opt.k as any })}
-                      className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                      onClick={() => setAlertsFilter({ key: opt.k as any })}
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${alertsFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                     >
                       {opt.label}
                     </button>
@@ -389,15 +381,11 @@ const AdminDashboard = () => {
                   <button
                     type="button"
                     disabled={exporting}
-                    onClick={() => handleExport('ALERTS_OVERVIEW', 'alerts-report')}
+                    onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
                     <Download size={16} /> Export
                   </button>
-                  <div className="flex gap-2 ml-1">
-                    <Calendar size={18} className="text-slate-400" />
-                    <List size={18} className="text-slate-400" />
-                  </div>
                   <Link to="/alerts" className="text-[12px] font-bold text-slate-400 hover:text-blue-600">
                     View all
                   </Link>
@@ -430,14 +418,14 @@ const AdminDashboard = () => {
                           </div>
                         </td>
                       </tr>
-                    ) : activeAlerts.length === 0 ? (
+                    ) : filteredAlerts.length === 0 ? (
                       <tr>
                         <td className="px-6 py-6 text-slate-400" colSpan={5}>
                           No active alerts
                         </td>
                       </tr>
                     ) : (
-                      activeAlerts.slice(0, 8).map((alert) => (
+                      filteredAlerts.slice(0, 8).map((alert) => (
                         <tr
                           key={alert.id ?? `${alert.alertType}-${alert.createdAt}`}
                           className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
@@ -482,8 +470,8 @@ const AdminDashboard = () => {
                       <button
                         key={opt.k}
                         type="button"
-                        onClick={() => setTimeFilter({ key: opt.k as any })}
-                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                        onClick={() => setAttendanceFilter({ key: opt.k as any })}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${attendanceFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                       >
                         {opt.label}
                       </button>
@@ -491,7 +479,7 @@ const AdminDashboard = () => {
                     <button
                       type="button"
                       disabled={exporting}
-                      onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report')}
+                      onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report', attendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
                       <Download size={16} /> Export
@@ -502,7 +490,7 @@ const AdminDashboard = () => {
               subtitle={null}
             >
               <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={attendanceData}>
+                  <BarChart data={filteredAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                       <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
@@ -539,7 +527,7 @@ const AdminDashboard = () => {
             {/* Attendance Trend (Line Chart) */}
             <ChartContainer title="Attendance Overview" subtitle="This bar graph shows how many hotlist per team is present.">
               <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={attendanceData}>
+                  <LineChart data={filteredAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                       <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
@@ -563,26 +551,10 @@ const AdminDashboard = () => {
                   <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {([
-                    { k: '3_HOURS', label: '3H' },
-                    { k: '6_HOURS', label: '6H' },
-                    { k: '12_HOURS', label: '12H' },
-                    { k: '24_HOURS', label: '24H' },
-                    { k: '7_DAYS', label: '7D' },
-                  ] as const).map((opt) => (
-                    <button
-                      key={opt.k}
-                      type="button"
-                      onClick={() => setTimeFilter({ key: opt.k as any })}
-                      className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition ${timeFilter.key === opt.k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
                   <button
                     type="button"
                     disabled={exporting}
-                    onClick={() => handleExport('HOTLIST_REPORT', 'hotlist-report')}
+                    onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
                     <Download size={16} /> Export
@@ -619,11 +591,6 @@ const AdminDashboard = () => {
             {/* Team Attendance Donut */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Team Attendance</h3>
-                  <div className="flex gap-2 mb-6">
-                      <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
-                      <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <HardHat size={10}/> Line & Grade Team</button>
-                      <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Calendar size={10}/> Jan 20, 2026</button>
-                  </div>
                   
                   <div className="h-64 relative">
                       <ResponsiveContainer width="100%" height="100%">
@@ -705,10 +672,6 @@ const ChartContainer = ({ title, subtitle, children }: any) => (
                     subtitle
                   )
                 ) : null}
-            </div>
-            <div className="flex gap-2 text-slate-400 flex-shrink-0">
-                <Bell size={16} />
-                <Calendar size={16} />
             </div>
         </div>
         {children}

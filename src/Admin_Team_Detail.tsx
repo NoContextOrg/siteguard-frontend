@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable';
 import DashboardLayout from './components/DashboardLayout';
 import { getTeamById, getTeamMembers } from './api/team';
 import { getTeamAttendance } from './api/analytics';
+import { createPersonUi, uploadProfilePicture } from './api/person';
 
 const AdminTeamDetail = () => {
   const { teamId } = useParams();
@@ -19,6 +20,14 @@ const AdminTeamDetail = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [newWorkerName, setNewWorkerName] = useState('');
+  const [newWorkerEmail, setNewWorkerEmail] = useState('');
+  const [newWorkerPhone, setNewWorkerPhone] = useState('');
+  const [newWorkerPassword, setNewWorkerPassword] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,6 +48,65 @@ const AdminTeamDetail = () => {
     };
     fetchData();
   }, [teamId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl && selectedFile) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl, selectedFile]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleAddWorker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      let finalProfilePictureUrl = undefined;
+      if (selectedFile) {
+        finalProfilePictureUrl = await uploadProfilePicture(selectedFile);
+      }
+      
+      let formattedPhone = newWorkerPhone.trim();
+      if (formattedPhone.startsWith('0')) formattedPhone = formattedPhone.slice(1);
+      if (!formattedPhone.startsWith('9')) formattedPhone = '9' + formattedPhone.replace(/^\+?63/, '');
+      formattedPhone = '+63' + formattedPhone;
+
+      await createPersonUi({
+        name: newWorkerName,
+        email: newWorkerEmail,
+        phone: formattedPhone,
+        role: 'WORKER',
+        password: newWorkerPassword,
+        profilePictureUrl: finalProfilePictureUrl,
+        teamId: Number(teamId)
+      } as any);
+      
+      alert('Worker added to team successfully!');
+      setActiveModal(null);
+      setNewWorkerName('');
+      setNewWorkerEmail('');
+      setNewWorkerPhone('');
+      setNewWorkerPassword('');
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      
+      const numericTeamId = Number(teamId);
+      const membersRes = await getTeamMembers(numericTeamId);
+      setMembers(membersRes);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add worker');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // ========== PDF GENERATION LOGIC ========== //
   const downloadAttendancePDF = () => {
@@ -190,16 +258,40 @@ const AdminTeamDetail = () => {
               <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">Add Worker to {team?.teamName || ''}</h2>
               <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24}/></button>
             </div>
-            <form className="p-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
-                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Search Worker Name</label>
-                    <input type="text" placeholder="Start typing name..." className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+            <form className="p-8 space-y-4" onSubmit={handleAddWorker}>
+                {/* Profile Picture Upload Section */}
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="h-16 w-16 shrink-0 rounded-full border-2 border-dashed border-blue-200 overflow-hidden flex items-center justify-center bg-white">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">No<br/>Image</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-2">Profile Picture</label>
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition cursor-pointer" />
+                  </div>
                 </div>
                 <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
-                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Assign Date</label>
-                    <input type="date" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Full Name</label>
+                    <input type="text" required value={newWorkerName} onChange={e => setNewWorkerName(e.target.value)} placeholder="e.g. Juan Dela Cruz" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
                 </div>
-                <button onClick={() => setActiveModal(null)} className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4">Confirm Addition</button>
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Email</label>
+                    <input type="email" required value={newWorkerEmail} onChange={e => setNewWorkerEmail(e.target.value)} placeholder="e.g. juan@example.com" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+                </div>
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Phone</label>
+                    <input type="text" required value={newWorkerPhone} onChange={e => setNewWorkerPhone(e.target.value.replace(/[^\d]/g, ''))} placeholder="e.g. 9123456789" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+                </div>
+                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4">
+                    <label className="text-[10px] font-black text-blue-900 uppercase block mb-1">Set Password</label>
+                    <input type="password" required minLength={6} value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" />
+                </div>
+                <button type="submit" disabled={isSubmitting} className="w-full bg-[#1e3a8a] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-900 transition mt-4 disabled:opacity-50">
+                  {isSubmitting ? 'Creating...' : 'Create Worker'}
+                </button>
             </form>
           </div>
         </div>
