@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, X, Users } from 'lucide-react';
+s
+import { Plus, Edit2, Trash2, Search, X, Users, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from './DashboardLayout';
 import {
   getAllTeams,
@@ -56,6 +57,10 @@ const TeamManagement: React.FC = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
+  const [showAddMemberPassword, setShowAddMemberPassword] = useState(false);
+  const [showAddMemberConfirmPassword, setShowAddMemberConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Load teams and persons on component mount
   useEffect(() => {
@@ -552,27 +557,37 @@ const TeamManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Set Password (optional)</label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  value={addMemberPassword}
-                  minLength={6}
-                  onChange={e => setAddMemberPassword(e.target.value)}
-                  placeholder="Set password for this member"
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <input
+                    type={showAddMemberPassword ? "text" : "password"}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    value={addMemberPassword}
+                    minLength={6}
+                    onChange={e => setAddMemberPassword(e.target.value)}
+                    placeholder="Set password for this member"
+                    autoComplete="new-password"
+                  />
+                  <button type="button" onClick={() => setShowAddMemberPassword(!showAddMemberPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showAddMemberPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Confirm Password</label>
-                <input
-                  type="password"
-                  value={addMemberConfirmPassword}
-                  minLength={6}
-                  onChange={(e) => setAddMemberConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  autoComplete="new-password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
+                <div className="relative">
+                  <input
+                    type={showAddMemberConfirmPassword ? "text" : "password"}
+                    value={addMemberConfirmPassword}
+                    minLength={6}
+                    onChange={(e) => setAddMemberConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
+                    autoComplete="new-password"
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={() => setShowAddMemberConfirmPassword(!showAddMemberConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showAddMemberConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-slate-200">
                 <button
@@ -606,33 +621,43 @@ const TeamManagement: React.FC = () => {
             <form onSubmit={e => { e.preventDefault(); handleSetPassword(); }} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  value={passwordValue}
-                  required
-                  minLength={6}
-                  onChange={e => setPasswordValue(e.target.value)}
-                  placeholder="Enter new password"
-                  autoComplete="off"
-                  disabled={passwordLoading}
-                  onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    value={passwordValue}
+                    required
+                    minLength={6}
+                    onChange={e => setPasswordValue(e.target.value)}
+                    placeholder="Enter new password"
+                    autoComplete="off"
+                    disabled={passwordLoading}
+                    onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 <div className="text-xs text-slate-400 mt-1">Minimum 6 characters</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Confirm New Password</label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mt-2"
-                  value={confirmPasswordValue}
-                  required
-                  minLength={6}
-                  onChange={(e) => setConfirmPasswordValue(e.target.value)}
-                  placeholder="Confirm new password"
-                  disabled={passwordLoading}
-                  onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
-                />
+                <div className="relative mt-2">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    value={confirmPasswordValue}
+                    required
+                    minLength={6}
+                    onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                    placeholder="Confirm new password"
+                    disabled={passwordLoading}
+                    onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
+                  />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               {passwordError && <div className="text-xs text-red-600 mt-1">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mt-1">{passwordSuccess}</div>}

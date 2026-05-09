@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, Save } from 'lucide-react';
+import { Search, X, Save, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
@@ -80,6 +80,8 @@ export default function WorkersPage() {
   const [editPasswordLoading, setEditPasswordLoading] = useState(false);
   const [editPasswordError, setEditPasswordError] = useState<string | null>(null);
   const [editPasswordSuccess, setEditPasswordSuccess] = useState<string | null>(null);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
 
   // In-app guide state
   const [guideOpen, setGuideOpen] = useState(true);
@@ -91,6 +93,8 @@ export default function WorkersPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
@@ -731,28 +735,38 @@ export default function WorkersPage() {
             <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
               <div className="font-black text-lg mb-2">Set/Reset Password</div>
               <div className="text-xs text-slate-500 mb-4">Set a new password for this worker. Minimum 6 characters.</div>
-              <input
-                type="password"
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                value={passwordValue}
-                required
-                minLength={6}
-                onChange={e => setPasswordValue(e.target.value)}
-                placeholder="New password"
-                disabled={passwordLoading}
-                onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
-              />
-              <input
-                type="password"
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                value={confirmPasswordValue}
-                required
-                minLength={6}
-                onChange={(e) => setConfirmPasswordValue(e.target.value)}
-                placeholder="Confirm new password"
-                disabled={passwordLoading}
-                onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
-              />
+              <div className="relative mb-2">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  value={passwordValue}
+                  required
+                  minLength={6}
+                  onChange={e => setPasswordValue(e.target.value)}
+                  placeholder="New password"
+                  disabled={passwordLoading}
+                  onBlur={() => { if (passwordValue.length < 6) setPasswordError('Password must be at least 6 characters.'); else setPasswordError(null); }}
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className="relative mb-2">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  value={confirmPasswordValue}
+                  required
+                  minLength={6}
+                  onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                  placeholder="Confirm new password"
+                  disabled={passwordLoading}
+                  onBlur={() => { if (passwordValue !== confirmPasswordValue) setPasswordError('Passwords do not match.'); else setPasswordError(null); }}
+                />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               {passwordError && <div className="text-xs text-red-600 mb-2">{passwordError}</div>}
               {passwordSuccess && <div className="text-xs text-green-600 mb-2">{passwordSuccess}</div>}
               <div className="flex gap-2 mt-2">
@@ -781,28 +795,38 @@ export default function WorkersPage() {
             <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
               <div className="font-black text-lg mb-2">Change Password</div>
               <div className="text-xs text-slate-500 mb-4">Set a new password for this worker. Minimum 6 characters.</div>
-              <input
-                type="password"
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                value={editPasswordValue}
-                required
-                minLength={6}
-                onChange={e => setEditPasswordValue(e.target.value)}
-                placeholder="New password"
-                disabled={editPasswordLoading}
-                onBlur={() => { if (editPasswordValue.length < 6) setEditPasswordError('Password must be at least 6 characters.'); else setEditPasswordError(null); }}
-              />
-              <input
-                type="password"
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                value={editConfirmPasswordValue}
-                required
-                minLength={6}
-                onChange={(e) => setEditConfirmPasswordValue(e.target.value)}
-                placeholder="Confirm new password"
-                disabled={editPasswordLoading}
-                onBlur={() => { if (editPasswordValue !== editConfirmPasswordValue) setEditPasswordError('Passwords do not match.'); else setEditPasswordError(null); }}
-              />
+              <div className="relative mb-2">
+                <input
+                  type={showEditPassword ? "text" : "password"}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  value={editPasswordValue}
+                  required
+                  minLength={6}
+                  onChange={e => setEditPasswordValue(e.target.value)}
+                  placeholder="New password"
+                  disabled={editPasswordLoading}
+                  onBlur={() => { if (editPasswordValue.length < 6) setEditPasswordError('Password must be at least 6 characters.'); else setEditPasswordError(null); }}
+                />
+                <button type="button" onClick={() => setShowEditPassword(!showEditPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className="relative mb-2">
+                <input
+                  type={showEditConfirmPassword ? "text" : "password"}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  value={editConfirmPasswordValue}
+                  required
+                  minLength={6}
+                  onChange={(e) => setEditConfirmPasswordValue(e.target.value)}
+                  placeholder="Confirm new password"
+                  disabled={editPasswordLoading}
+                  onBlur={() => { if (editPasswordValue !== editConfirmPasswordValue) setEditPasswordError('Passwords do not match.'); else setEditPasswordError(null); }}
+                />
+                <button type="button" onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showEditConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               {editPasswordError && <div className="text-xs text-red-600 mb-2">{editPasswordError}</div>}
               {editPasswordSuccess && <div className="text-xs text-green-600 mb-2">{editPasswordSuccess}</div>}
               <div className="flex gap-2 mt-2">

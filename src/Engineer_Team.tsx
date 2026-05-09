@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   X,
-  Search
+  Search,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -41,6 +43,7 @@ const EngineerTeam = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNewWorkerPassword, setShowNewWorkerPassword] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -359,7 +362,12 @@ const EngineerTeam = () => {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase">Set Password</label>
-                  <input type="password" required minLength={6} value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} className="w-full border border-slate-200 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <div className="relative mt-1">
+                    <input type={showNewWorkerPassword ? "text" : "password"} required minLength={6} value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} className="w-full border border-slate-200 rounded p-2 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    <button type="button" onClick={() => setShowNewWorkerPassword(!showNewWorkerPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      {showNewWorkerPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white rounded-lg py-3 mt-2 font-bold uppercase text-xs hover:bg-blue-700 disabled:opacity-50 shadow-md transition">
                   {isSubmitting ? 'Saving...' : 'Create Worker'}

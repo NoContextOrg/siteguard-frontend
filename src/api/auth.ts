@@ -42,9 +42,15 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
     console.log('📡 Login response status:', response.status);
 
     if (!response.ok) {
-      const errorData: AuthError = await response.json();
-      console.error('❌ Login failed:', errorData);
-      throw new Error(errorData.error || 'Login failed');
+      let errorMessage = 'Login failed';
+      try {
+        const errorData: AuthError = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = `Server error: ${response.status} ${response.statusText}`;
+      }
+      console.error('❌ Login failed:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     const data: AuthResponse = await response.json();
