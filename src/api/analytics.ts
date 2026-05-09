@@ -5,7 +5,7 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
 
 // ===== shared helpers (required by trends + exports) =====
 const buildQuery = (params: Record<string, string | number | boolean | undefined | null>) => {

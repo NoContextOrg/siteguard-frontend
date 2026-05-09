@@ -158,7 +158,7 @@ const NurseDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws/alerts';
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
       ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
