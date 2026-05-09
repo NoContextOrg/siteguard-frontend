@@ -13,6 +13,9 @@ import {
 import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
+import { getAvatarUrl, getFallbackAvatar } from './api/person';
+
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -140,8 +143,7 @@ const AdminDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(WS_BASE_URL);
 
       ws.onmessage = (event) => {
         try {
@@ -544,7 +546,7 @@ const AdminDashboard = () => {
                     <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden">
-                          <img src={alert.photoUrl} alt={alert.personName} className="w-full h-full object-cover" />
+                          <img src={getAvatarUrl(alert.personName || alert.name, alert.profilePictureUrl || alert.photoUrl)} alt={alert.personName || alert.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(alert.personName || alert.name); }} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-800 truncate">{alert.personName}</p>

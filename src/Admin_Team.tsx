@@ -9,11 +9,13 @@ import {
   EyeOff
 } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
-import { getAllPersons, getPersonsByTeam, type PersonResponse } from './api/person';
+import { getAllPersons, getPersonsByTeam, getFallbackAvatar, type PersonResponse } from './api/person';
 import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
 import { createPersonUi, deletePersonById, updatePersonUi, uploadProfilePicture } from './api/person';
 import { authenticatedFetch } from './api/fetch';
 import { setPersonPassword } from './api/person';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
 // ========== Types & Sub-Components ========== //
 
@@ -669,8 +671,7 @@ const AdminTeam = () => {
     if (!memberToRemove) return;
     try {
       setError(null);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
-      await authenticatedFetch(`${apiUrl}/teams/${memberToRemove.teamId}/members/${memberToRemove.personId}`, { method: 'DELETE' });
+      await authenticatedFetch(`${API_BASE_URL}/teams/${memberToRemove.teamId}/members/${memberToRemove.personId}`, { method: 'DELETE' });
       await loadTeamMembers(memberToRemove.teamId);
       setSuccess('Member removed from team successfully!');
       setTimeout(() => setSuccess(null), 3000);
@@ -959,11 +960,7 @@ const AdminTeam = () => {
             {/* Profile Picture Upload Section */}
             <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-xl p-3 flex items-center gap-3">
               <div className="h-14 w-14 shrink-0 rounded-full border-2 border-dashed border-blue-200 overflow-hidden flex items-center justify-center bg-white">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">No<br/>Image</span>
-                )}
+                <img src={previewUrl || getFallbackAvatar(newAccountName)} alt="Preview" className={`h-full w-full object-cover ${!previewUrl && 'opacity-60'}`} onError={(e) => { e.currentTarget.src = getFallbackAvatar(newAccountName); }} />
               </div>
               <div className="flex-1 min-w-0">
                 <label className="text-[10px] font-black text-blue-900 uppercase block mb-2">Profile Picture</label>

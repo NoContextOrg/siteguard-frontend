@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import WorkerProfileContent from './WorkerProfileContent';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
-import { getAllPersons } from './api/person';
+import { getAllPersons, getAvatarUrl, getFallbackAvatar } from './api/person';
 import { authenticatedFetch } from './api/fetch';
 import { getUnifiedDashboard, type UnifiedAnalyticsResponse } from './api/analytics';
 import {
@@ -13,6 +13,8 @@ import {
   type DashboardTimeFilterState,
 } from './api/analytics';
 
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
 const FILTER_STORAGE_KEY = 'siteguard.dashboard.timeFilter';
 
@@ -29,6 +31,7 @@ const WorkerLandingPage: React.FC = () => {
   
   const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [workerDetails, setWorkerDetails] = useState<any>(null);
   const [unifiedData, setUnifiedData] = useState<UnifiedAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +65,7 @@ const WorkerLandingPage: React.FC = () => {
         
         let currentCode = auth.personCode;
         let currentId = auth.userId;
+        let pData = null;
         
         // Fallback: If not in auth context, fetch real person details using email
         if (!currentCode || !currentId) {
@@ -72,16 +76,25 @@ const WorkerLandingPage: React.FC = () => {
             currentId = personData.id;
             currentCode = (personData as any).personCode;
             setFallbackId(currentId);
+            pData = personData;
           } else {
             throw new Error('Worker profile not found.');
           }
+        } else {
+          try {
+            const res = await authenticatedFetch(`${API_BASE_URL}/persons/${currentId}`);
+            if (res.ok) {
+              const json = await res.json();
+              pData = json.data || json;
+            }
+          } catch (e) {}
         }
+        setWorkerDetails(pData);
         
         if (activeTab === 'dashboard' && currentCode) {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
           const [summaryRes, logsRes, unified] = await Promise.all([
-            authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}/summary`),
-            authenticatedFetch(`${apiUrl}/attendance/person/${currentCode}`),
+            authenticatedFetch(`${API_BASE_URL}/attendance/person/${currentCode}/summary`),
+            authenticatedFetch(`${API_BASE_URL}/attendance/person/${currentCode}`),
             getUnifiedDashboard()
           ]);
           
@@ -137,10 +150,9 @@ const WorkerLandingPage: React.FC = () => {
     }
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
     Promise.all([
-      authenticatedFetch(`${apiUrl}/attendance/person/${personCode}/summary`).then(r => r.json()),
-      authenticatedFetch(`${apiUrl}/attendance/person/${personCode}${effectiveFilter.key === 'CUSTOM' ? '/range' : ''}${effectiveFilter.key === 'CUSTOM' ? suffix : ''}`).then(r => r.json()),
+      authenticatedFetch(`${API_BASE_URL}/attendance/person/${personCode}/summary`).then(r => r.json()),
+      authenticatedFetch(`${API_BASE_URL}/attendance/person/${personCode}${effectiveFilter.key === 'CUSTOM' ? '/range' : ''}${effectiveFilter.key === 'CUSTOM' ? suffix : ''}`).then(r => r.json()),
     ])
       .then(([summary, logs]) => {
         setAttendanceSummary(summary);
@@ -174,6 +186,14 @@ const WorkerLandingPage: React.FC = () => {
       <div className="flex min-h-screen">
         {/* Sidebar with tabs and filter */}
         <aside className="w-64 bg-white border-r border-slate-200 py-8 px-4 flex flex-col gap-2">
+          <div className="flex flex-col items-center mb-8 px-2">
+            <div className="w-24 h-24 rounded-full border-4 border-slate-100 overflow-hidden mb-3 bg-slate-50 flex items-center justify-center">
+              <img src={getAvatarUrl(workerDetails?.name || auth.userEmail, workerDetails?.profilePictureUrl)} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(workerDetails?.name || auth.userEmail); }} />
+            </div>
+            <div className="text-sm font-black text-slate-800 text-center break-words">{workerDetails?.name || auth.userEmail}</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{workerDetails?.role || 'WORKER'}</div>
+          </div>
+
           <button
             className={`text-left px-4 py-3 rounded-lg font-bold text-base mb-2 ${activeTab === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-700'}`}
             onClick={() => setActiveTab('dashboard')}

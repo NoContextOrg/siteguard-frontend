@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, X, Save, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
-import { getAllPersons, updatePersonUi, setPersonPassword, type PersonResponse } from './api/person';
+import { getAllPersons, updatePersonUi, setPersonPassword, getAvatarUrl, getFallbackAvatar, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 import { authenticatedFetch } from './api/fetch';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
 // ========== Types ==========
 type WorkerStatus = 'NORMAL' | 'HOTLIST' | 'NO_FINGERPRINT';
@@ -21,6 +23,7 @@ interface WorkerRow {
   status: WorkerStatus;
 
   fingerprint?: number | null;
+  profilePictureUrl?: string;
 }
 
 
@@ -50,6 +53,7 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
     lastAdmitted: lastAdmittedFormatted,
     status,
     fingerprint,
+    profilePictureUrl: p.profilePictureUrl,
   };
 };
 
@@ -256,8 +260,7 @@ export default function WorkersPage() {
       setAssigningFingerprintId(workerId);
       setError(null);
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
-      const res = await authenticatedFetch(`${apiUrl}/persons/${workerId}/biometric`, {
+      const res = await authenticatedFetch(`${API_BASE_URL}/persons/${workerId}/biometric`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ biometricId: String(biometricLastId) }),
@@ -500,6 +503,7 @@ export default function WorkersPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-white text-slate-400 text-[11px] font-black uppercase tracking-widest border-b">
+                  <th className="px-6 py-4 border-r border-slate-100 w-16 text-center">Pic</th>
                   <th className="px-6 py-4 border-r border-slate-100">Name</th>
                   <th className="px-6 py-4 border-r border-slate-100">Assigned Team</th>
                   <th className="px-6 py-4 border-r border-slate-100">Attendance</th>
@@ -512,13 +516,13 @@ export default function WorkersPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
                       Loading workers…
                     </td>
                   </tr>
                 ) : filteredWorkers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
                       No workers found.
                     </td>
                   </tr>
@@ -528,6 +532,11 @@ export default function WorkersPage() {
 
                     return (
                       <tr key={worker.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 mx-auto flex items-center justify-center">
+                            <img src={getAvatarUrl(worker.name, worker.profilePictureUrl)} alt={worker.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(worker.name); }} />
+                          </div>
+                        </td>
                         <td className="px-6 py-4 font-bold text-slate-700 text-sm">
                           {isEditing ? (
                             <input

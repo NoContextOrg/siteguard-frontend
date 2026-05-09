@@ -5,7 +5,7 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
-const API_BASE_URL = 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
 export interface Person {
   id?: number;
@@ -60,6 +60,23 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+/**
+ * Get the fallback initials avatar.
+ */
+export const getFallbackAvatar = (name?: string): string => {
+  const fallbackName = encodeURIComponent((name || 'U').trim());
+  return `https://ui-avatars.com/api/?name=${fallbackName}&background=random`;
+};
+
+/**
+ * Get the display URL for a person's avatar.
+ * Falls back to a generated initials placeholder if no profile picture exists.
+ */
+export const getAvatarUrl = (name?: string, profilePictureUrl?: string | null): string => {
+  if (profilePictureUrl && profilePictureUrl.trim() !== '') return profilePictureUrl;
+  return getFallbackAvatar(name);
+};
 
 /**
  * Convert backend PersonResponseDTO to UI-friendly PersonResponse

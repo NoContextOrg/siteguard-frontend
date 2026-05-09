@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SquarePen, X, Trash2 } from 'lucide-react';
+import { SquarePen, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import dayjs, { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
-import { getPersonById } from './api/person';
+import { getPersonById, getAvatarUrl, getFallbackAvatar } from './api/person';
 import { getAttendanceCalendar } from './api/attendance';
 import {
   updateFullWorkerProfile,
@@ -94,6 +94,11 @@ const WorkerProfile = () => {
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
   const [isSubmittingLog, setIsSubmittingLog] = useState(false);
   const [logToDelete, setLogToDelete] = useState<number | null>(null);
+
+  const [calendarDate, setCalendarDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   // Auto-calculate BMI when height/weight changes
   useEffect(() => {
@@ -345,35 +350,37 @@ const WorkerProfile = () => {
 
     if (!logs || logs.length === 0) return 'EMPTY';
 
+    if (logs.includes('ABSENT')) return 'ABSENT';
     if (logs.includes('LEAVE')) return 'LEAVE';
     if (logs.includes('OVERTIME')) return 'OVERTIME';
-    if (logs.includes('LOGIN')) return 'PRESENT';
+    if (logs.includes('LATE')) return 'LATE';
+    if (logs.includes('LOGIN') || logs.includes('PRESENT')) return 'PRESENT';
 
     return 'EMPTY';
   };
 
-  const statusColor: Record<string, string> = {
-    PRESENT: 'bg-blue-400',
-    OVERTIME: 'bg-green-400',
-    LEAVE: 'bg-red-500',
-  };
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
 
-  const generateYearDates = (year: number) => {
-    const dates: string[] = [];
-    // Use UTC to avoid timezone issues with date iteration
-    const start = new Date(`${year}-01-01T00:00:00Z`);
-    const end = new Date(`${year}-12-31T00:00:00Z`);
+  const gridCells: (number | null)[] = [];
+  for (let i = 0; i < firstDayOfMonth; i++) gridCells.push(null);
+  for (let i = 1; i <= daysInMonth; i++) gridCells.push(i);
 
-    for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
-      const iso = d.toISOString().split('T')[0];
-      dates.push(iso);
+  const weeks: (number | null)[][] = [];
+  let currentWeek: (number | null)[] = [];
+  gridCells.forEach((day, index) => {
+    currentWeek.push(day);
+    if (currentWeek.length === 7 || index === gridCells.length - 1) {
+      while (currentWeek.length < 7) currentWeek.push(null);
+      weeks.push(currentWeek);
+      currentWeek = [];
     }
+  });
 
-    return dates;
-  };
-
-  // As per instructions, using a fixed year for now.
-  const yearDates = generateYearDates(2026);
+  const handlePrevMonth = () => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handleNextMonth = () => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
 
   return (
     <DashboardLayout title="Worker Profile">
@@ -407,8 +414,8 @@ const WorkerProfile = () => {
                 )}
               </div>
               <div className="flex flex-col items-center mb-6">
-                <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6">
-              <img src={`https://i.pravatar.cc/150?u=${workerProfile.person.id}`} alt="Worker" className="w-full h-full object-cover" />
+                <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6 bg-slate-50 flex items-center justify-center">
+                  <img src={getAvatarUrl(fullName, workerProfile?.person?.profilePictureUrl)} alt={fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(fullName); }} />
                 </div>
               </div>
 
@@ -473,46 +480,84 @@ const WorkerProfile = () => {
 
               {/* ========== Attendance Grid ========== */}
               <div className="mt-12 bg-[#1e293b] p-8 rounded-xl text-white shadow-2xl">
-              <h3 className="text-lg font-bold uppercase mb-6 tracking-widest text-blue-100">Attendance Overview</h3>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                <h3 className="text-lg font-bold uppercase tracking-widest text-blue-100">Attendance Overview</h3>
+                <div className="flex items-center gap-4">
+                  <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition"><ChevronLeft size={20}/></button>
+                  <span className="font-bold uppercase tracking-widest text-sm text-center min-w-[120px]">
+                    {calendarDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button onClick={handleNextMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition"><ChevronRight size={20}/></button>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-7 gap-2">
-                {yearDates.map(date => {
-                  const status = getStatus(date);
-                  type StatusKey = keyof typeof statusColor;
+              <div className="grid grid-cols-7 gap-2 mb-3">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-2">
+                    {day}
+                  </div>
+                ))}
+              </div>
 
-                  if (status === 'EMPTY') {
-                    return (
-                      <div
-                        key={date}
-                        className="w-3 h-3 rounded-full border border-slate-500 bg-transparent"
-                        title={`${date} - No record`}
-                      />
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={date}
-                      className={`w-3 h-3 rounded-full ${statusColor[status as StatusKey]}`}
-                      title={`${date} - ${status}`}
-                    />
-                  );
-                })}
+              <div className="flex flex-col gap-2">
+                {weeks.map((week, wIdx) => (
+                  <div key={wIdx} className="grid grid-cols-7 gap-2">
+                    {week.map((day, dIdx) => {
+                      if (day === null) {
+                        return <div key={`empty-${wIdx}-${dIdx}`} className="h-14 bg-transparent" />;
+                      }
+                      const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const status = getStatus(dStr);
+                      return (
+                        <div
+                          key={day}
+                          className={`h-14 flex flex-col items-center justify-center rounded-lg border transition-colors ${
+                            status === 'PRESENT'
+                              ? 'bg-blue-500/20 border-blue-400/50 text-blue-100'
+                              : status === 'OVERTIME'
+                              ? 'bg-green-500/20 border-green-400/50 text-green-100'
+                              : status === 'LATE'
+                              ? 'bg-orange-500/20 border-orange-400/50 text-orange-100'
+                              : status === 'ABSENT'
+                              ? 'bg-red-500/20 border-red-400/50 text-red-100'
+                              : status === 'LEAVE'
+                              ? 'bg-purple-500/20 border-purple-400/50 text-purple-100'
+                              : 'bg-transparent border-slate-700 text-slate-500'
+                          }`}
+                          title={`${dStr} - ${status}`}
+                        >
+                          <span className="text-sm font-bold">{day}</span>
+                          {status !== 'EMPTY' && (
+                            <span className="text-[8px] font-black uppercase tracking-widest mt-1 opacity-80 truncate w-full text-center px-1">
+                              {status}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* ========== Legend Section ========== */}
-              <div className="flex justify-center gap-8 mt-10 text-[10px] font-black border-t border-slate-700/50 pt-6 tracking-widest">
+              <div className="flex flex-wrap justify-center gap-6 mt-10 text-[10px] font-black border-t border-slate-700/50 pt-6 tracking-widest">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-3 h-3 rounded-full border border-slate-500 bg-transparent" /> ABSENT
+                    <div className="w-3 h-3 rounded-full border border-slate-500 bg-transparent" /> NO DATA
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-3 h-3 rounded-full ${statusColor.PRESENT}`} /> PRESENT
+                    <div className="w-3 h-3 rounded-full bg-blue-400" /> PRESENT
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-3 h-3 rounded-full ${statusColor.OVERTIME}`} /> OVERTIME
+                    <div className="w-3 h-3 rounded-full bg-green-400" /> OVERTIME
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-3 h-3 rounded-full ${statusColor.LEAVE}`} /> ON LEAVE
+                    <div className="w-3 h-3 rounded-full bg-orange-400" /> LATE
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500" /> ABSENT
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full bg-purple-500" /> ON LEAVE
                   </div>
               </div>
               </div>

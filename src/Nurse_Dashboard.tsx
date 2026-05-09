@@ -15,6 +15,9 @@ import {
 } from './api/analytics';
 import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
+import { getAvatarUrl, getFallbackAvatar } from './api/person';
+
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
 
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -136,8 +139,7 @@ const NurseDashboard = () => {
     const interval = setInterval(() => fetchAlerts(true), 15000);
 
     const connectWebSocket = () => {
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(WS_BASE_URL);
 
       ws.onmessage = (event) => {
         try {
@@ -416,8 +418,8 @@ const NurseDashboard = () => {
                         hotlistOverview.list.map((alert: any, i: number) => (
                           <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition group">
                               <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                      <Users size={16} className="text-slate-400" />
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
+                                      <img src={getAvatarUrl(alert.name, alert.profilePictureUrl || alert.photoUrl)} alt={alert.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(alert.name); }} />
                                   </div>
                                   <div>
                                       <p className="text-[11px] font-bold text-slate-700">{alert.name}</p>

@@ -23,6 +23,8 @@ import { useState, useEffect, useRef } from 'react';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
 
+  const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+
   const EngineerDashboard = () => {
     const navigate = useNavigate();
     const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
@@ -126,8 +128,7 @@ import { useState, useEffect, useRef } from 'react';
       const interval = setInterval(fetchAlerts, 15000);
 
       const connectWebSocket = () => {
-        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(WS_BASE_URL);
 
         ws.onmessage = (event) => {
           try {

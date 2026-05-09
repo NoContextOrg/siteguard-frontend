@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
-import { getAllPersons, createPersonUi, uploadProfilePicture } from './api/person';
+import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
 import type { PersonResponse } from './api/person';
 import { getOvertimeOverview, getUnifiedDashboard } from './api/analytics';
 import { getActiveAlertCount } from './api/alert';
@@ -343,11 +343,7 @@ const EngineerTeam = () => {
                 {/* Profile Picture Upload Section */}
                 <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
                   <div className="h-14 w-14 shrink-0 rounded-full border-2 border-dashed border-slate-300 overflow-hidden flex items-center justify-center bg-white">
-                    {previewUrl ? (
-                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">No<br/>Image</span>
-                    )}
+                    <img src={previewUrl || getFallbackAvatar(newWorkerName)} alt="Preview" className={`h-full w-full object-cover ${!previewUrl && 'opacity-60'}`} onError={(e) => { e.currentTarget.src = getFallbackAvatar(newWorkerName); }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Profile Picture</label>

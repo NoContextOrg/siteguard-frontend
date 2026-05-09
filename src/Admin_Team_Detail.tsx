@@ -13,7 +13,7 @@ import autoTable from 'jspdf-autotable';
 import DashboardLayout from './components/DashboardLayout';
 import { getTeamById, getTeamMembers } from './api/team';
 import { getTeamAttendance } from './api/analytics';
-import { createPersonUi, uploadProfilePicture } from './api/person';
+import { createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
 
 const AdminTeamDetail = () => {
   const { teamId } = useParams();
@@ -276,11 +276,7 @@ const AdminTeamDetail = () => {
                 {/* Profile Picture Upload Section */}
                 <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center gap-4">
                   <div className="h-16 w-16 shrink-0 rounded-full border-2 border-dashed border-blue-200 overflow-hidden flex items-center justify-center bg-white">
-                    {previewUrl ? (
-                      <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-slate-400 text-[8px] font-bold uppercase text-center leading-tight">No<br/>Image</span>
-                    )}
+                    <img src={previewUrl || getFallbackAvatar(newWorkerName)} alt="Preview" className={`h-full w-full object-cover ${!previewUrl && 'opacity-60'}`} onError={(e) => { e.currentTarget.src = getFallbackAvatar(newWorkerName); }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="text-[10px] font-black text-blue-900 uppercase block mb-2">Profile Picture</label>
