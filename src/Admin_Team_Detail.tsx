@@ -152,9 +152,9 @@ const AdminTeamDetail = () => {
     const summaryTitleY = dividerY + 10;
     doc.setFontSize(12);
     doc.setTextColor(40);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(`Summary Overview`, 14, summaryTitleY);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     
     const summaryDataY = summaryTitleY + 8;
     doc.setFontSize(10);

@@ -17,7 +17,7 @@ import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar 
 import type { PersonResponse } from './api/person';
 import { getOvertimeOverview, getUnifiedDashboard, downloadDailyAttendancePdf } from './api/analytics';
 import { getActiveAlertCount } from './api/alert';
-import dayjs, { type Dayjs } from 'dayjs';
+import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -291,7 +291,7 @@ const EngineerTeam = () => {
                       value={exportDate}
                       onChange={(newValue) => setExportDate(newValue)}
                       sx={{ width: '100%' }}
-                      slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select a date' } }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
                   </LocalizationProvider>
                   <button

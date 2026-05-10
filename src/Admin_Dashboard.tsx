@@ -15,7 +15,7 @@ import type { SystemStats, DashboardOverview, HotlistOverview } from './api/anal
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
 
-import dayjs, { type Dayjs } from 'dayjs';
+import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -235,9 +235,9 @@ const AdminDashboard = () => {
       // Summary section
       doc.setFontSize(12);
       doc.setTextColor(40);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(`Summary Overview`, 14, 48);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       
       doc.setFontSize(10);
       doc.setTextColor(80);
@@ -630,7 +630,7 @@ const AdminDashboard = () => {
                       value={exportDate}
                       onChange={(newValue) => setExportDate(newValue)}
                       sx={{ width: '100%' }}
-                      slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select a date' } }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
                   </LocalizationProvider>
                   <button
