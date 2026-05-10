@@ -4,7 +4,8 @@ import {
   X,
   Search,
   Eye,
-  EyeOff
+  EyeOff,
+  Download
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,8 +15,12 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
 import type { PersonResponse } from './api/person';
-import { getOvertimeOverview, getUnifiedDashboard } from './api/analytics';
+import { getOvertimeOverview, getUnifiedDashboard, downloadDailyAttendancePdf } from './api/analytics';
 import { getActiveAlertCount } from './api/alert';
+import dayjs, { type Dayjs } from 'dayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 // ================= TYPES ================= //
 type OvertimePoint = {
@@ -35,6 +40,8 @@ const EngineerTeam = () => {
   const [stats, setStats] = useState<any>(null);
   const [activeAlerts, setActiveAlerts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [exportingReport, setExportingReport] = useState(false);
+  const [exportDate, setExportDate] = useState<Dayjs | null>(null);
 
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
@@ -222,27 +229,94 @@ const EngineerTeam = () => {
           </div>
 
           {/* ========== CHART ========== */}
-          <div className="border-2 border-slate-100 rounded-2xl p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase">
-                  Overtime Overview
-                </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 border-2 border-slate-100 rounded-2xl p-8">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase">
+                    Overtime Overview
+                  </h3>
+                </div>
+              </div>
+
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={overtimeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area dataKey="Hotlist" stroke="#818cf8" fill="#818cf8" />
+                    <Area dataKey="Workers" stroke="#f87171" fill="#f87171" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={overtimeData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area dataKey="Hotlist" stroke="#818cf8" fill="#818cf8" />
-                  <Area dataKey="Workers" stroke="#f87171" fill="#f87171" />
-                </AreaChart>
-              </ResponsiveContainer>
+            {/* Daily Attendance Report Exporter */}
+            <div className="border-2 border-slate-100 rounded-2xl p-8 flex flex-col">
+              <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Daily Attendance Report</h3>
+              <p className="text-[12px] text-slate-400 font-medium mb-6">
+                Export a structured PDF report of team attendance for a specific day.
+              </p>
+              
+              <div className="space-y-4 mt-auto">
+                <button
+                  onClick={async () => {
+                    try {
+                      setExportingReport(true);
+                      await downloadDailyAttendancePdf();
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Export failed');
+                    } finally {
+                      setExportingReport(false);
+                    }
+                  }}
+                  disabled={exportingReport}
+                  className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
+                >
+                  <Download size={16} /> Export Today's Attendance
+                </button>
+
+                <div className="relative flex items-center py-2">
+                  <div className="flex-grow border-t border-slate-100"></div>
+                  <span className="flex-shrink-0 mx-4 text-slate-300 text-[10px] font-black uppercase tracking-widest">OR</span>
+                  <div className="flex-grow border-t border-slate-100"></div>
+                </div>
+
+                <div className="space-y-2">
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      value={exportDate}
+                      onChange={(newValue) => setExportDate(newValue)}
+                      sx={{ width: '100%' }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true, placeholder: 'Select a date' } }}
+                    />
+                  </LocalizationProvider>
+                  <button
+                    onClick={async () => {
+                      const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
+                      if (!dateVal) {
+                        alert('Please select a date');
+                        return;
+                      }
+                      try {
+                        setExportingReport(true);
+                        await downloadDailyAttendancePdf(dateVal);
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : 'Export failed');
+                      } finally {
+                        setExportingReport(false);
+                      }
+                    }}
+                    disabled={exportingReport}
+                    className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
+                  >
+                    <Download size={16} /> Export Selected Day
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

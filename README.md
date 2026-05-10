@@ -278,7 +278,7 @@ import { authenticatedFetch } from './api/fetch';
 async function fetchWorkers() {
   try {
     const response = await authenticatedFetch(
-      'http://siteguardph.duckdns.org/api/workers',
+      `${import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api'}/workers`,
       { method: 'GET' }
     );
     const data = await response.json();

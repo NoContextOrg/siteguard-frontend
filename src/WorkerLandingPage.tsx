@@ -12,6 +12,10 @@ import {
   makeExportFilename,
   type DashboardTimeFilterState,
 } from './api/analytics';
+import dayjs from 'dayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
@@ -231,18 +235,20 @@ const WorkerLandingPage: React.FC = () => {
 
             {timeFilter.key === 'CUSTOM' && (
               <div className="mt-2 space-y-2">
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[12px] font-bold"
-                />
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[12px] font-bold"
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Start Date"
+                    value={customStart ? dayjs(customStart) : null}
+                    onChange={(newValue) => setCustomStart(newValue ? newValue.format('YYYY-MM-DD') : '')}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                  <DatePicker
+                    label="End Date"
+                    value={customEnd ? dayjs(customEnd) : null}
+                    onChange={(newValue) => setCustomEnd(newValue ? newValue.format('YYYY-MM-DD') : '')}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                </LocalizationProvider>
               </div>
             )}
 

@@ -22,6 +22,13 @@ import { useState, useEffect, useRef } from 'react';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
+  import jsPDF from 'jspdf';
+  import autoTable from 'jspdf-autotable';
+  import { authenticatedFetch } from './api/fetch';
+  import dayjs, { type Dayjs } from 'dayjs';
+  import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+  import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+  import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
   const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
 
@@ -45,6 +52,7 @@ import { useState, useEffect, useRef } from 'react';
     const [teamAttendanceFilter, setTeamAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
     const [exporting, setExporting] = useState(false);
+    const [exportDate, setExportDate] = useState<Dayjs | null>(null);
 
     useEffect(() => {
       let cancelled = false;
@@ -175,6 +183,96 @@ import { useState, useEffect, useRef } from 'react';
           endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
           filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
         });
+      } catch (e) {
+        console.error(e);
+        alert(e instanceof Error ? e.message : 'Export failed');
+      } finally {
+        setExporting(false);
+      }
+    };
+
+    const handleDownloadDailyPdf = async (dateVal?: string | null) => {
+      try {
+        setExporting(true);
+        const teamId = persons.find((p: any) => p.teamId)?.teamId;
+        
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+        let url = `${API_BASE_URL}/export/attendance/team`;
+        const params = new URLSearchParams();
+        if (dateVal) params.append('date', dateVal);
+        if (teamId) params.append('teamId', teamId.toString());
+        
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+
+        const res = await authenticatedFetch(url);
+        if (!res.ok) throw new Error('Failed to fetch export data');
+        const data = await res.json();
+        
+        const doc = new jsPDF();
+        const reportDate = data.date || dateVal || new Date().toLocaleDateString();
+        const teamName = data.teamName && data.teamName !== 'All Teams' ? data.teamName : 'Your Team';
+        
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(30, 58, 138);
+        doc.text(`Team Attendance Report`, 14, 22);
+        
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        doc.text(`Team: ${teamName}`, 14, 32);
+        doc.text(`Date: ${reportDate}`, 14, 38);
+        let headerY = 38;
+        if (data.siteEngineerName) {
+          headerY = 44;
+          doc.text(`Engineer: ${data.siteEngineerName}`, 14, headerY);
+        }
+        
+        // Divider
+        const dividerY = headerY + 6;
+        doc.setDrawColor(220, 220, 220);
+        doc.line(14, dividerY, 196, dividerY);
+        
+        // Summary section
+        const summaryTitleY = dividerY + 10;
+        doc.setFontSize(12);
+        doc.setTextColor(40);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Summary Overview`, 14, summaryTitleY);
+        doc.setFont(undefined, 'normal');
+        
+        const summaryDataY = summaryTitleY + 8;
+        doc.setFontSize(10);
+        doc.setTextColor(80);
+        const summary = data.summary || {};
+        doc.text(`Total Workers: ${summary.totalWorkers || 0}`, 14, summaryDataY);
+        doc.text(`Present: ${summary.present || 0}`, 60, summaryDataY);
+        doc.text(`Absent: ${summary.absent || 0}`, 100, summaryDataY);
+        doc.text(`Overtime: ${summary.overtime || 0}`, 140, summaryDataY);
+        doc.text(`Hotlisted: ${summary.hotlisted || 0}`, 180, summaryDataY);
+        
+        const tableData = (data.workers || []).map((w: any) => [
+          w.workerName || '-',
+          w.employeeId || '-',
+          w.status || '-',
+          w.loginTime || '-',
+          w.logoutTime || '-',
+          w.totalHours?.toFixed(2) || '-',
+          w.overtime ? 'Yes' : 'No',
+          w.hotlisted ? 'Yes' : 'No'
+        ]);
+
+        autoTable(doc, {
+          startY: summaryDataY + 8,
+          head: [['Name', 'ID', 'Status', 'Time In', 'Time Out', 'Hours', 'OT', 'Hotlist']],
+          body: tableData,
+          headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          styles: { fontSize: 9, cellPadding: 4 },
+          margin: { left: 14, right: 14 },
+        });
+        doc.save(`Team_Attendance_Report_${teamName.replace(/\s+/g, '_')}_${reportDate}.pdf`);
       } catch (e) {
         console.error(e);
         alert(e instanceof Error ? e.message : 'Export failed');
@@ -347,6 +445,56 @@ import { useState, useEffect, useRef } from 'react';
             </div>
 
             <div className="space-y-8">
+
+              {/* Daily Attendance Report Exporter */}
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden p-6">
+                <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Daily Attendance Report</h3>
+                <p className="text-[12px] text-slate-400 font-medium mb-6">
+                  Export a structured PDF report of your team's attendance for a specific day.
+                </p>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={() => handleDownloadDailyPdf()}
+                    disabled={exporting}
+                    className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
+                  >
+                    <Download size={16} /> Export Today's Attendance
+                  </button>
+
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-slate-100"></div>
+                    <span className="flex-shrink-0 mx-4 text-slate-300 text-[10px] font-black uppercase tracking-widest">OR</span>
+                    <div className="flex-grow border-t border-slate-100"></div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        label="Select a date"
+                        value={exportDate}
+                        onChange={(newValue) => setExportDate(newValue)}
+                        sx={{ width: '100%' }}
+                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                      />
+                    </LocalizationProvider>
+                    <button
+                      onClick={() => {
+                        const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
+                        if (!dateVal) {
+                          alert('Please select a date');
+                          return;
+                        }
+                        handleDownloadDailyPdf(dateVal);
+                      }}
+                      disabled={exporting}
+                      className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
+                    >
+                      <Download size={16} /> Export Selected Day
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* HOTLIST SIDEBAR */}
               {hotlistOverview && (

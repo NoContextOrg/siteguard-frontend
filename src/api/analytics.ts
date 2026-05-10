@@ -5,6 +5,9 @@
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
 // ===== shared helpers (required by trends + exports) =====
@@ -512,6 +515,108 @@ export const downloadDailyReport = async (date?: string): Promise<void> => {
     window.URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error downloading daily report:', error);
+    throw error;
+  }
+};
+
+/**
+ * Download daily attendance report (PDF)
+ */
+export const downloadDailyAttendancePdf = async (date?: string): Promise<void> => {
+  try {
+    let url = `${API_BASE_URL}/export/attendance`;
+    if (date) {
+      url += `?date=${encodeURIComponent(date)}`;
+    }
+
+    const response = await authenticatedFetch(url);
+
+    if (!response.ok) {
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch daily attendance data: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    const doc = new jsPDF();
+    const reportDate = data.date || date || new Date().toISOString().split('T')[0];
+    
+    doc.setFontSize(18);
+    doc.text('Daily Attendance Report', 14, 20);
+    
+    doc.setFontSize(11);
+    doc.text(`Report Date: ${reportDate}`, 14, 30);
+    if (data.generatedAt) {
+      doc.text(`Generated At: ${new Date(data.generatedAt).toLocaleString()}`, 14, 36);
+    }
+
+    let startY = 45;
+
+    if (data.summary) {
+      doc.setFontSize(14);
+      doc.text('Summary', 14, startY);
+      startY += 8;
+      
+      autoTable(doc, {
+        startY,
+        head: [['Total Workers', 'Present', 'Absent', 'Overtime', 'Hotlisted']],
+        body: [[
+          data.summary.totalWorkers || 0,
+          data.summary.present || 0,
+          data.summary.absent || 0,
+          data.summary.overtime || 0,
+          data.summary.hotlisted || 0
+        ]],
+        headStyles: { fillColor: [30, 58, 138] },
+        margin: { bottom: 10 }
+      });
+      
+      startY = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    if (data.teams && data.teams.length > 0) {
+      data.teams.forEach((team: any) => {
+        if (startY > 250) {
+          doc.addPage();
+          startY = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.text(`Team: ${team.teamName || 'Unassigned'}`, 14, startY);
+        startY += 8;
+
+        const workers = team.workers || [];
+        if (workers.length > 0) {
+          autoTable(doc, {
+            startY,
+            head: [['Name', 'ID', 'Login', 'Logout', 'Hours', 'Status', 'Overtime']],
+            body: workers.map((w: any) => [
+              w.workerName || '-',
+              w.employeeId || '-',
+              w.loginTime || '-',
+              w.logoutTime || '-',
+              w.totalHours ? w.totalHours.toFixed(2) : '-',
+              w.status || '-',
+              w.overtime ? 'Yes' : 'No'
+            ]),
+            headStyles: { fillColor: [71, 85, 105] },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 15;
+        } else {
+          doc.setFontSize(10);
+          doc.text('No workers found for this team.', 14, startY);
+          startY += 10;
+        }
+      });
+    } else {
+      doc.setFontSize(12);
+      doc.text('No attendance records found for this date.', 14, startY);
+    }
+
+    doc.save(`attendance-report-${reportDate}.pdf`);
+  } catch (error) {
+    console.error('Error downloading daily attendance PDF:', error);
     throw error;
   }
 };

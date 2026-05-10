@@ -126,18 +126,53 @@ const AdminTeamDetail = () => {
   const downloadAttendancePDF = () => {
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString();
-    doc.setFontSize(18);
-    doc.text(`Daily Attendance Report - ${team?.teamName || ''} TEAM`, 14, 20);
+    const teamName = team?.teamName || 'TEAM';
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(30, 58, 138);
+    doc.text(`Team Attendance Report`, 14, 22);
+    
     doc.setFontSize(11);
-    doc.text(`Engineer: ${team?.siteEngineerName || ''}`, 14, 30);
-    doc.text(`Date: ${date}`, 14, 35);
+    doc.setTextColor(100);
+    doc.text(`Team: ${teamName}`, 14, 32);
+    doc.text(`Date: ${date}`, 14, 38);
+    let headerY = 38;
+    if (team?.siteEngineerName) {
+      headerY = 44;
+      doc.text(`Engineer: ${team.siteEngineerName}`, 14, headerY);
+    }
+    
+    // Divider
+    const dividerY = headerY + 6;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(14, dividerY, 196, dividerY);
+    
+    // Summary section
+    const summaryTitleY = dividerY + 10;
+    doc.setFontSize(12);
+    doc.setTextColor(40);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Summary Overview`, 14, summaryTitleY);
+    doc.setFont(undefined, 'normal');
+    
+    const summaryDataY = summaryTitleY + 8;
+    doc.setFontSize(10);
+    doc.setTextColor(80);
+    doc.text(`Total Workers: ${members.length}`, 14, summaryDataY);
+    doc.text(`Hotlisted: ${hotlistMembers.length}`, 60, summaryDataY);
+    doc.text(`Normal: ${normalMembers.length}`, 100, summaryDataY);
+
     autoTable(doc, {
-      startY: 45,
+      startY: summaryDataY + 8,
       head: [['Worker Name', 'Status', 'Role', 'Time In']],
-      body: members.map(m => [m.firstName + ' ' + m.lastName, m.status, m.role, m.timeIn || '-']),
-      headStyles: { fillColor: [30, 58, 138] }
+      body: members.map(m => [m.firstName + ' ' + m.lastName, m.status || '-', m.role || '-', m.timeIn || '-']),
+      headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { fontSize: 9, cellPadding: 4 },
+      margin: { left: 14, right: 14 },
     });
-    doc.save(`Attendance_${team?.teamName || 'Team'}_${date}.pdf`);
+    doc.save(`Attendance_${teamName.replace(/\s+/g, '_')}_${date.replace(/\//g, '-')}.pdf`);
   };
 
   if (loading) return <DashboardLayout title="Team"><div className="p-8">Loading…</div></DashboardLayout>;
