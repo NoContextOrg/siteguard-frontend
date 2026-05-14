@@ -13,6 +13,9 @@ export interface AttendanceLog {
   personName?: string;
   eventType: string;
   eventTimestamp: string;
+  matchScore?: number;
+  confidence?: number;
+  totalResponseTimeMs?: number;
   rawPayload?: string;
 }
 

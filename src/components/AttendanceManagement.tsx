@@ -208,6 +208,7 @@ const AttendanceManagement = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Person Code</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Event Type</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Timestamp</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Response Time</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Details</th>
                 </tr>
               </thead>
@@ -223,6 +224,9 @@ const AttendanceManagement = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {new Date(log.eventTimestamp).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {log.totalResponseTimeMs != null ? `${log.totalResponseTimeMs} ms` : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {log.rawPayload ? (
