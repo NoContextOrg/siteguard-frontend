@@ -47,6 +47,7 @@ export interface PersonResponse {
   createdAt?: string;
   updatedAt?: string;
   biometricId?: number | null;
+  totalResponseTimeMs?: number | null;
 
   // fingerprint indicators (backend may not expose these directly; kept for UI compatibility)
   fingerprint?: boolean | string;
@@ -105,6 +106,7 @@ const toPersonResponse = (dto: any): PersonResponse => {
     position: dto.position,
     department: dto.department,
     biometricId: dto.biometricId,
+    totalResponseTimeMs: dto.totalResponseTimeMs,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     fingerprint: dto.fingerprint,

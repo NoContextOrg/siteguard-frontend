@@ -34,6 +34,12 @@ export interface AttendanceStats {
   totalLogs: number;
 }
 
+export interface AvailableBiometric {
+  biometricId: number;
+  enrolledAt?: string;
+  totalResponseTimeMs?: number;
+}
+
 const buildQuery = (params: Record<string, string | undefined>) => {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
@@ -114,7 +120,28 @@ export const getBiometricLastId = async (): Promise<number | null> => {
     if (typeof data === 'number') return data;
     if (typeof data?.lastId === 'number') return data.lastId;
     if (typeof data?.id === 'number') return data.id;
+    if (typeof data?.biometricId === 'number') return data.biometricId;
     return null;
+  } catch {
+    return null;
+  }
+};
+
+/** GET /api/biometric/last-id returning the full AvailableBiometric object */
+export const getAvailableBiometric = async (): Promise<AvailableBiometric | null> => {
+  try {
+    const res = await authenticatedFetch(`${API_BASE_URL}/biometric/last-id`);
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    
+    // Handle legacy endpoints that might just return the raw ID as a number
+    if (typeof data === 'number') {
+      return { biometricId: data };
+    }
+    
+    // Return the full JSON mapped to the AvailableBiometric interface
+    return data as AvailableBiometric;
   } catch {
     return null;
   }
