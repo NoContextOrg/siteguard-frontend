@@ -3,9 +3,7 @@
  * Aligns with backend com.nocontext.siteguard.service.AlertWebSocketHandler
  */
 import type { AlertDTO } from './alert';
-
-
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+import { WS_ENDPOINTS } from './config';
 
 export interface WsConnectionParams {
   role: string;
@@ -29,7 +27,7 @@ export const connectAlertWebSocket = (
   if (params.personCode) query.append('personCode', params.personCode);
   if (params.teamId) query.append('teamId', String(params.teamId));
 
-  const url = `${WS_BASE_URL}?${query.toString()}`;
+  const url = `${WS_ENDPOINTS.alerts}?${query.toString()}`;
   socket = new WebSocket(url);
 
   socket.onopen = () => {
@@ -56,3 +54,6 @@ export const disconnectAlertWebSocket = (): void => {
   if (socket) socket.close();
   socket = null;
 };
+
+// ===== Exported WebSocket URLs for Dashboard Usage =====
+export const getWebSocketUrls = () => WS_ENDPOINTS;
