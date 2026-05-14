@@ -9,7 +9,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import { authenticatedFetch } from './api/fetch';
-import { updateHotlistStatus, dispatchAlert } from './api/alert';
+import { updateHotlistStatus } from './api/alert';
 
 /* ---------------- TYPES ---------------- */
 
@@ -98,6 +98,8 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const [formData, setFormData] = useState<HealthLogDTO>({});
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
+  const [isHotlisted, setIsHotlisted] = useState(false);
+  const [overtimeInfo, setOvertimeInfo] = useState({ isOvertime: false, consecutiveDays: 0 });
 
   const [calendarDate, setCalendarDate] = useState(() => {
     const now = new Date();
@@ -123,6 +125,24 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         }
         setHealthLogs(await getHealthLogsForPerson(personCode));
         setCalendar(await getAttendanceCalendar(personCode));
+      }
+
+      // Fetch dedicated endpoints for hotlist and overtime
+      try {
+        const [hotlistRes, overtimeRes] = await Promise.all([
+          authenticatedFetch(`${API_BASE_URL}/attendance/person-id/${Number(workerId)}/is-hotlisted`),
+          authenticatedFetch(`${API_BASE_URL}/attendance/person-id/${Number(workerId)}/is-overtime`)
+        ]);
+        if (hotlistRes.ok) {
+          const hlData = await hotlistRes.json();
+          setIsHotlisted(hlData.isHotlisted);
+        }
+        if (overtimeRes.ok) {
+          const otData = await overtimeRes.json();
+          setOvertimeInfo({ isOvertime: otData.isOvertime, consecutiveDays: otData.consecutiveDays });
+        }
+      } catch(e) {
+        console.warn('Could not load hotlist/overtime status', e);
       }
     } catch (e) {
       setError('Failed to load worker data.');
@@ -192,20 +212,17 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
       }
 
       // Sync hotlist status with the backend based on classification
-      if (formData.classification) {
-        const isHotlisted = formData.classification === 'HOTLIST';
-        await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
-        
-        if (isHotlisted) {
-          await dispatchAlert({ alertType: 'HOTLIST_ALERT', personCode });
-        }
-      }
+      const classification = formData.classification || 'NORMAL';
+      const isHotlisted = classification === 'HOTLIST';
+      await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
 
       setSuccess(editingLogId ? 'Medical log updated successfully!' : 'Medical log added successfully!');
       setTimeout(() => setSuccess(null), 3000);
-      setFormData({});
+      setFormData({ classification: 'NORMAL' });
       setIsModalOpen(false);
       setEditingLogId(null);
+      
+      await loadData();
     } catch (err) {
       setError('Failed to submit health log');
     } finally {
@@ -273,7 +290,14 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
   const getStatus = (date: string) => {
     const logs = calendar[date];
 
-    if (!logs || logs.length === 0) {
+    // Check if there are any health logs for this date indicating hotlist
+    const dateLogs = healthLogs.filter(hl => {
+      const hlDate = hl.date ? hl.date.split('T')[0] : hl.timestamp ? hl.timestamp.split('T')[0] : '';
+      return hlDate === date;
+    });
+    const hasHotlistLog = dateLogs.some(hl => hl.classification === 'HOTLIST');
+
+    if ((!logs || logs.length === 0) && !hasHotlistLog) {
       const today = new Date();
       const y = today.getFullYear();
       const m = String(today.getMonth() + 1).padStart(2, '0');
@@ -284,9 +308,10 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
       return 'EMPTY';
     }
     
-    const isHotlist = logs.includes('HOTLIST') || workerProfile?.person?.healthProfileStatus === 'HOTLIST';
-    const isOvertime = logs.includes('OVERTIME');
-    const isPresent = logs.includes('LOGIN') || logs.includes('PRESENT');
+    const isHotlist = hasHotlistLog || (logs && logs.some(l => l.toUpperCase() === 'HOTLIST'));
+    // Backend emits "LOGOUT", "LOGOUT_OVERTIME", etc. — any logout = overtime
+    const isOvertime = logs && logs.some(l => l.toUpperCase().includes('LOGOUT') || l.toUpperCase() === 'OVERTIME');
+    const isPresent = logs && logs.some(l => l.toUpperCase() === 'LOGIN' || l.toUpperCase() === 'PRESENT');
     
     if (isHotlist && isOvertime) return 'HOTLIST_OT';
     if (isHotlist) return 'HOTLIST';
@@ -356,9 +381,14 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
             </div>
             
             <div className="flex flex-col items-center mb-6">
-              <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6 bg-slate-50 flex items-center justify-center">
+              <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-2 bg-slate-50 flex items-center justify-center">
                 <img src={getAvatarUrl(fullName, workerProfile?.person?.profilePictureUrl)} alt={fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(fullName); }} />
               </div>
+              {isHotlisted && (
+                <span className="px-3 py-1 bg-red-100 text-red-700 font-black text-[10px] rounded-full uppercase tracking-widest mb-4">
+                  HOTLISTED
+                </span>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -386,13 +416,13 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                 <EditableField
                   label="Overtime Count"
                   name="overtimeCount"
-                  value={workerProfile?.person?.overtimeCount ?? '0'}
+                  value={String(overtimeInfo.consecutiveDays ?? 0)}
                   isEditing={false}
                 />
                 <EditableField
                   label="Overtime Status"
                   name="overtimeStatus"
-                  value={workerProfile?.person?.overtimeStatus ?? 'N/A'}
+                  value={overtimeInfo.isOvertime ? 'OVERTIME' : 'NORMAL'}
                   isEditing={false}
                 />
               </div>
@@ -494,7 +524,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
             <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Medical Form</h2>
             {canAddMedicalLog && (
               <button 
-                onClick={() => { setEditingLogId(null); setFormData({}); setIsModalOpen(true); }}
+                onClick={() => { setEditingLogId(null); setFormData({ classification: 'NORMAL' }); setIsModalOpen(true); }}
                 className="flex items-center justify-center gap-2 text-blue-900 font-bold mt-2 mx-auto hover:text-blue-600 transition"
               >
                 <SquarePen size={18} /> ADD CHECKUP LOG
@@ -536,7 +566,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
           >
             <div className="p-6 flex justify-between items-center border-b border-slate-100">
               <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Add Medical Log'}</h2>
-              <button type="button" onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({}); }} className="p-2 hover:bg-slate-100 rounded-full transition">
+              <button type="button" onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({ classification: 'NORMAL' }); }} className="p-2 hover:bg-slate-100 rounded-full transition">
                 <X size={24} className="text-slate-800" />
               </button>
             </div>
@@ -615,7 +645,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                     <input
                       type="radio"
                       value="NORMAL"
-                      checked={formData.classification === 'NORMAL'}
+                      checked={formData.classification === 'NORMAL' || !formData.classification}
                       onChange={handleRadioChange}
                       className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />

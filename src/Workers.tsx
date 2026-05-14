@@ -5,6 +5,7 @@ import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, getAvatarUrl, getFallbackAvatar, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
 import { authenticatedFetch } from './api/fetch';
+import { getUnifiedDashboard } from './api/analytics';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
@@ -15,6 +16,7 @@ type WorkerAttendance = 'PRESENT' | 'ABSENT' | 'OVERTIME' | 'UNKNOWN';
 
 interface WorkerRow {
   id: number;
+  personCode: string;
   name: string;
   team: string;
   attendance: WorkerAttendance;
@@ -48,6 +50,7 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
 
   return {
     id: p.id,
+    personCode: (p as any).personCode || '',
     name: (p.name || '').toUpperCase(),
     team: p.teamName || (p.teamId ? `TEAM-${p.teamId}` : 'UNASSIGNED'),
     attendance: 'UNKNOWN',
@@ -133,6 +136,8 @@ export default function WorkersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [hotlistCodes, setHotlistCodes] = useState<Set<string>>(new Set());
+
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
       if (!opts?.silent) {
@@ -179,6 +184,13 @@ export default function WorkersPage() {
       await loadPersons();
       if (!cancelled) {
         void loadAttendance({ silent: false });
+
+        getUnifiedDashboard().then(res => {
+          if (!cancelled && res.enhancedHotlistOverview?.list) {
+            const codes = new Set(res.enhancedHotlistOverview.list.map((l: any) => l.personCode));
+            setHotlistCodes(codes);
+          }
+        }).catch(e => console.warn('Failed to load hotlist overview', e));
       }
     };
 
@@ -230,18 +242,48 @@ export default function WorkersPage() {
     [persons]
   );
 
+  // ========== Compute enriched workers with actual attendance ==========
+  const enrichedWorkers = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    return workers.map(w => {
+      const todayLogs = attendanceLogs.filter(log => {
+        const anyLog = log as any;
+        const logDate = anyLog.date || (anyLog.timestamp || anyLog.eventTimestamp || '').split('T')[0];
+        return (anyLog.personCode === w.personCode || anyLog.personCode === w.name || anyLog.personId === w.id) && logDate === todayStr;
+      });
+
+      let attendance: WorkerAttendance = 'ABSENT';
+      if (todayLogs.length > 0) {
+        const isPresent = todayLogs.some((l: any) => String(l.type || l.eventType || '').toUpperCase() === 'LOGIN');
+        const isOvertime = todayLogs.some((l: any) => String(l.type || l.eventType || '').toUpperCase().includes('LOGOUT') || String(l.type || l.eventType || '').toUpperCase() === 'OVERTIME');
+
+        if (isOvertime) attendance = 'OVERTIME';
+        else if (isPresent) attendance = 'PRESENT';
+      }
+
+      let status = w.status;
+      if (hotlistCodes.has(w.personCode)) {
+        status = 'HOTLIST';
+      }
+
+      return { ...w, attendance, status };
+    });
+  }, [workers, attendanceLogs, hotlistCodes]);
+
   // ========== Filter workers based on search ==========
   const filteredWorkers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return workers;
+    if (!q) return enrichedWorkers;
 
-    return workers.filter(
+    return enrichedWorkers.filter(
       (w) =>
         w.name.toLowerCase().includes(q) ||
         w.team.toLowerCase().includes(q) ||
         w.engineer.toLowerCase().includes(q)
     );
-  }, [workers, searchQuery]);
+  }, [enrichedWorkers, searchQuery]);
 
   const startEdit = (worker: WorkerRow) => {
     setEditingId(worker.id);

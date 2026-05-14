@@ -14,7 +14,7 @@ import {
   type WorkerFullUpdateDTO,
 } from './api/workerProfile';
 import { authenticatedFetch } from './api/fetch';
-import { updateHotlistStatus, dispatchAlert } from './api/alert';
+import { updateHotlistStatus } from './api/alert';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
@@ -26,7 +26,6 @@ interface HealthLogDTO {
   respiratoryRate?: string;
   findings?: string;
   classification?: 'HOTLIST' | 'NORMAL';
-  overtime?: boolean;
   height?: string;
   weight?: string;
   bmi?: string;
@@ -82,6 +81,7 @@ const WorkerProfile = () => {
   const workerId = searchParams.get('id');
 
   const [workerProfile, setWorkerProfile] = useState<any>(null);
+  const [personData, setPersonData] = useState<any>(null);
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
   const [calendar, setCalendar] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
@@ -95,6 +95,8 @@ const WorkerProfile = () => {
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
   const [isSubmittingLog, setIsSubmittingLog] = useState(false);
   const [logToDelete, setLogToDelete] = useState<number | null>(null);
+  const [isHotlisted, setIsHotlisted] = useState(false);
+  const [overtimeInfo, setOvertimeInfo] = useState({ isOvertime: false, consecutiveDays: 0 });
 
   const [calendarDate, setCalendarDate] = useState(() => {
     const now = new Date();
@@ -135,6 +137,7 @@ const WorkerProfile = () => {
       // NOTE: getPersonById is assumed to exist in `api/person.ts`
       // and that PersonResponse contains a `personCode`.
       const workerData = await getPersonById(numericWorkerId);
+      setPersonData(workerData);
 
       const personCode = (workerData as any)?.personCode;
       if (personCode) {
@@ -268,18 +271,15 @@ const WorkerProfile = () => {
       }
 
       // Sync hotlist status with the backend based on classification
-      if (formData.classification) {
-        const isHotlisted = formData.classification === 'HOTLIST';
-        await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
-        
-        if (isHotlisted) {
-          await dispatchAlert({ alertType: 'HOTLIST_ALERT', personCode });
-        }
-      }
+      const classification = formData.classification || 'NORMAL';
+      const isHotlisted = classification === 'HOTLIST';
+      await updateHotlistStatus(personCode, isHotlisted, formData.findings || 'Medical log update');
 
       setIsModalOpen(false);
-      setFormData({});
+      setFormData({ classification: 'NORMAL' });
       setEditingLogId(null);
+
+      await loadData();
     } catch (err) {
       alert(`Failed to submit health log: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -346,24 +346,28 @@ const WorkerProfile = () => {
     return <DashboardLayout title="Worker Profile"><div className="p-8">Worker not found.</div></DashboardLayout>;
   }
 
+
   const getStatus = (date: string) => {
     const logs = calendar[date];
 
-    if (!logs || logs.length === 0) {
+    // Check if there are any health logs for this date indicating hotlist
+    const dateLogs = healthLogs.filter(hl => {
+      const hlDate = hl.date ? hl.date.split('T')[0] : hl.timestamp ? hl.timestamp.split('T')[0] : '';
+      return hlDate === date;
+    });
+    const hasHotlistLog = dateLogs.some(hl => hl.classification === 'HOTLIST');
+
+    if ((!logs || logs.length === 0) && !hasHotlistLog) {
       const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      const d = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${y}-${m}-${d}`;
-      
-      if (date <= todayStr) return 'ABSENT';
-      return 'EMPTY';
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      return date <= todayStr ? 'ABSENT' : 'EMPTY';
     }
-    
-    const isHotlist = logs.includes('HOTLIST') || workerProfile?.person?.healthProfileStatus === 'HOTLIST';
-    const isOvertime = logs.includes('OVERTIME');
-    const isPresent = logs.includes('LOGIN') || logs.includes('PRESENT');
-    
+
+    const isHotlist = hasHotlistLog || (logs && logs.some(l => l.toUpperCase() === 'HOTLIST'));
+    const isPresent = logs && logs.some(l => l.toUpperCase() === 'LOGIN');
+    // Backend emits "LOGOUT", "LOGOUT_OVERTIME", etc. — any logout = overtime
+    const isOvertime = logs && logs.some(l => l.toUpperCase().includes('LOGOUT'));
+
     if (isHotlist && isOvertime) return 'HOTLIST_OT';
     if (isHotlist) return 'HOTLIST';
     if (isOvertime) return 'OVERTIME';
@@ -427,9 +431,14 @@ const WorkerProfile = () => {
                 )}
               </div>
               <div className="flex flex-col items-center mb-6">
-                <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-6 bg-slate-50 flex items-center justify-center">
+                <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-2 bg-slate-50 flex items-center justify-center">
                   <img src={getAvatarUrl(fullName, workerProfile?.person?.profilePictureUrl)} alt={fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(fullName); }} />
                 </div>
+                {isHotlisted && (
+                  <span className="px-3 py-1 bg-red-100 text-red-700 font-black text-[10px] rounded-full uppercase tracking-widest mb-4">
+                    HOTLISTED
+                  </span>
+                )}
               </div>
 
               {/* ========== Form Fields ========== */}
@@ -494,13 +503,13 @@ const WorkerProfile = () => {
                   <EditableProfileField
                     label="Overtime Count"
                     name="overtimeCount"
-                    value={workerProfile?.person?.overtimeCount ?? '0'}
+                    value={String(overtimeInfo.consecutiveDays ?? 0)}
                     isEditing={false}
                   />
                   <EditableProfileField
                     label="Overtime Status"
                     name="overtimeStatus"
-                    value={workerProfile?.person?.overtimeStatus ?? 'N/A'}
+                    value={overtimeInfo.isOvertime ? 'OVERTIME' : 'NORMAL'}
                     isEditing={false}
                   />
                 </div>
@@ -603,7 +612,7 @@ const WorkerProfile = () => {
               <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Medical Form</h2>
               {canAddMedicalLog && (
                 <button 
-                  onClick={() => { setEditingLogId(null); setFormData({}); setIsModalOpen(true); }}
+                  onClick={() => { setEditingLogId(null); setFormData({ classification: 'NORMAL' }); setIsModalOpen(true); }}
                   className="flex items-center justify-center gap-2 text-blue-900 font-bold mt-2 mx-auto hover:text-blue-600 transition"
                 >
                   <SquarePen size={18} /> ADD CHECKUP LOG
@@ -651,14 +660,14 @@ const WorkerProfile = () => {
           {/* Blurred Backdrop */}
           <div 
           className="absolute inset-0 bg-black/40 backdrop-blur-md"
-          onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({}); }}
+          onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({ classification: 'NORMAL' }); }}
           ></div>
 
           <div className="relative bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-200">
           <div className="relative p-6 flex justify-center items-center border-b border-slate-100">
               <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Medical Form'}</h2>
               <button 
-              onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({}); }}
+              onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({ classification: 'NORMAL' }); }}
               className="absolute right-8 top-6 p-2 hover:bg-slate-100 rounded-full transition"
               >
               <X size={28} className="text-slate-800" />
