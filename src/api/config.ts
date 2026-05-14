@@ -5,10 +5,10 @@
  */
 
 // ===== API Base URLs =====
-export const API_BASE_URL = 'https://siteguardph.duckdns.org/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://siteguardph.duckdns.org/api';
 
 // ===== WebSocket Base URLs =====
-export const WS_BASE_URL = 'wss://siteguardph.duckdns.org/ws';
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws';
 
 // ===== Derived API Endpoints =====
 export const API_ENDPOINTS = {

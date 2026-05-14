@@ -160,13 +160,10 @@ const EngineerTeam = () => {
       alert('No data to export');
       return;
     }
-    const headers = ['Name', 'Role', 'Status', 'Phone', 'Email'];
+    const headers = ['Name', 'Role'];
     const csvRows = filteredWorkers.map(p => [
       `"${(p.name || '').replace(/"/g, '""')}"`,
-      `"${(p.role || 'WORKER').replace(/"/g, '""')}"`,
-      `"${(p.status || 'Active').replace(/"/g, '""')}"`,
-      `"${(p.phoneNumber || '').replace(/"/g, '""')}"`,
-      `"${(p.email || '').replace(/"/g, '""')}"`
+      `"${(p.role || 'WORKER').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');

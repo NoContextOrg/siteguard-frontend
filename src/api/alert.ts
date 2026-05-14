@@ -4,7 +4,7 @@
 
 import { getAuthHeader, getAuthToken } from './auth';
 
-const API_BASE_URL = 'https://siteguardph.duckdns.org/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://siteguardph.duckdns.org/api';
 
 /**
  * Backend-aligned AlertDTO

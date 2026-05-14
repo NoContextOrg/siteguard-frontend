@@ -20,7 +20,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
-const WS_BASE_URL = 'wss://siteguardph.duckdns.org/ws/alerts';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws/alerts';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
