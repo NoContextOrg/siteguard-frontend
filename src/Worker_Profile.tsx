@@ -631,9 +631,6 @@ const WorkerProfile = () => {
                     {log.date ? new Date(log.date).toLocaleDateString() : log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'No date'}
                   </p>
                   <div className="flex justify-center gap-2 mt-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-widest ${log.overtime ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}>
-                      OVERTIME: {log.overtime ? 'YES' : 'NO'}
-                    </span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-widest ${log.classification === 'HOTLIST' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                       {log.classification || 'NORMAL'}
                     </span>
@@ -855,34 +852,18 @@ const WorkerProfile = () => {
               />
               </div>
 
-              {/* Row 6: Classification & Overtime */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center justify-between transition-focus focus-within:border-blue-400">
-                  <span className="text-xs font-black text-blue-900 uppercase">Classification:</span>
-                  <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="classification" value="HOTLIST" checked={formData.classification === 'HOTLIST'} onChange={handleRadioChange} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                      <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Hotlist</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="classification" value="NORMAL" checked={formData.classification === 'NORMAL' || !formData.classification} onChange={handleRadioChange} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                      <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Normal</span>
-                      </label>
-                  </div>
-                </div>
-                
-                <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center justify-between transition-focus focus-within:border-blue-400">
-                  <span className="text-xs font-black text-blue-900 uppercase">Overtime:</span>
-                  <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="overtime" value="true" checked={formData.overtime === true} onChange={() => setFormData(prev => ({...prev, overtime: true}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                      <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Yes</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="overtime" value="false" checked={formData.overtime === false || formData.overtime === undefined} onChange={() => setFormData(prev => ({...prev, overtime: false}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                      <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">No</span>
-                      </label>
-                  </div>
+              {/* Row 6: Classification */}
+              <div className="bg-[#f0f7ff] border-2 border-blue-100 rounded-2xl p-4 flex items-center justify-between transition-focus focus-within:border-blue-400">
+                <span className="text-xs font-black text-blue-900 uppercase">Classification:</span>
+                <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                    <input type="radio" name="classification" value="HOTLIST" checked={formData.classification === 'HOTLIST'} onChange={handleRadioChange} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                    <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Hotlist</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                    <input type="radio" name="classification" value="NORMAL" checked={formData.classification === 'NORMAL' || !formData.classification} onChange={handleRadioChange} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                    <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Normal</span>
+                    </label>
                 </div>
               </div>
 
