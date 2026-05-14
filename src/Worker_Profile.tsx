@@ -8,7 +8,6 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import { getPersonById, getAvatarUrl, getFallbackAvatar } from './api/person';
-import { getAttendanceCalendar } from './api/attendance';
 import {
   updateFullWorkerProfile,
   type WorkerFullUpdateDTO,
@@ -83,7 +82,7 @@ const WorkerProfile = () => {
   const [workerProfile, setWorkerProfile] = useState<any>(null);
   const [personData, setPersonData] = useState<any>(null);
   const [healthLogs, setHealthLogs] = useState<HealthLogDTO[]>([]);
-  const [calendar, setCalendar] = useState<Record<string, string[]>>({});
+  const [calendar, setCalendar] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,8 +94,6 @@ const WorkerProfile = () => {
   const [logDateTime, setLogDateTime] = useState<Dayjs | null>(null);
   const [isSubmittingLog, setIsSubmittingLog] = useState(false);
   const [logToDelete, setLogToDelete] = useState<number | null>(null);
-  const [isHotlisted, setIsHotlisted] = useState(false);
-  const [overtimeInfo, setOvertimeInfo] = useState({ isOvertime: false, consecutiveDays: 0 });
 
   const [calendarDate, setCalendarDate] = useState(() => {
     const now = new Date();
@@ -154,8 +151,8 @@ const WorkerProfile = () => {
 
         const logs = await getHealthLogsForPerson(personCode);
         setHealthLogs(logs);
-        const calendarData = await getAttendanceCalendar(personCode);
-        setCalendar(calendarData);
+        const calendarRes = await authenticatedFetch(`${API_BASE_URL}/attendance/person/${personCode}/status-calendar?year=${calendarDate.getFullYear()}&month=${calendarDate.getMonth() + 1}`);
+        setCalendar(calendarRes.ok ? await calendarRes.json() : {});
       } else {
         console.warn('Worker data does not contain a personCode.');
       }
@@ -169,6 +166,15 @@ const WorkerProfile = () => {
   useEffect(() => {
     void loadData();
   }, [workerId]);
+
+  useEffect(() => {
+    const personCode = personData?.personCode;
+    if (!personCode) return;
+    authenticatedFetch(`${API_BASE_URL}/attendance/person/${personCode}/status-calendar?year=${calendarDate.getFullYear()}&month=${calendarDate.getMonth() + 1}`)
+      .then(r => r.ok ? r.json() : {})
+      .then(setCalendar)
+      .catch(() => {});
+  }, [calendarDate, personData?.personCode]);
 
   const handleLogout = () => {
     logout();
@@ -254,7 +260,7 @@ const WorkerProfile = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const personCode = workerProfile?.person?.personCode;
+    const personCode = workerProfile?.person?.personCode ?? personData?.personCode;
     if (!personCode) {
       alert('Cannot submit log: worker personCode is missing.');
       return;
@@ -347,34 +353,7 @@ const WorkerProfile = () => {
   }
 
 
-  const getStatus = (date: string) => {
-    const logs = calendar[date];
-
-    // Check if there are any health logs for this date indicating hotlist
-    const dateLogs = healthLogs.filter(hl => {
-      const hlDate = hl.date ? hl.date.split('T')[0] : hl.timestamp ? hl.timestamp.split('T')[0] : '';
-      return hlDate === date;
-    });
-    const hasHotlistLog = dateLogs.some(hl => hl.classification === 'HOTLIST');
-
-    if ((!logs || logs.length === 0) && !hasHotlistLog) {
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      return date <= todayStr ? 'ABSENT' : 'EMPTY';
-    }
-
-    const isHotlist = hasHotlistLog || (logs && logs.some(l => l.toUpperCase() === 'HOTLIST'));
-    const isPresent = logs && logs.some(l => l.toUpperCase() === 'LOGIN');
-    // Backend emits "LOGOUT", "LOGOUT_OVERTIME", etc. — any logout = overtime
-    const isOvertime = logs && logs.some(l => l.toUpperCase().includes('LOGOUT'));
-
-    if (isHotlist && isOvertime) return 'HOTLIST_OT';
-    if (isHotlist) return 'HOTLIST';
-    if (isOvertime) return 'OVERTIME';
-    if (isPresent) return 'PRESENT';
-
-    return 'ABSENT';
-  };
+  const getStatus = (date: string) => calendar[date] ?? 'EMPTY';
 
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
@@ -434,11 +413,11 @@ const WorkerProfile = () => {
                 <div className="w-40 h-40 rounded-full border-4 border-slate-100 overflow-hidden mb-2 bg-slate-50 flex items-center justify-center">
                   <img src={getAvatarUrl(fullName, workerProfile?.person?.profilePictureUrl)} alt={fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(fullName); }} />
                 </div>
-                {isHotlisted && (
+                {personData?.healthProfileStatus === 'HOTLIST' || personData?.healthProfileStatus === 'HOTLISTED' ? (
                   <span className="px-3 py-1 bg-red-100 text-red-700 font-black text-[10px] rounded-full uppercase tracking-widest mb-4">
                     HOTLISTED
                   </span>
-                )}
+                ) : null}
               </div>
 
               {/* ========== Form Fields ========== */}
@@ -503,13 +482,13 @@ const WorkerProfile = () => {
                   <EditableProfileField
                     label="Overtime Count"
                     name="overtimeCount"
-                    value={String(overtimeInfo.consecutiveDays ?? 0)}
+                    value={String(workerProfile?.person?.overtimeCount ?? '0')}
                     isEditing={false}
                   />
                   <EditableProfileField
                     label="Overtime Status"
                     name="overtimeStatus"
-                    value={overtimeInfo.isOvertime ? 'OVERTIME' : 'NORMAL'}
+                    value={workerProfile?.person?.overtimeStatus ?? 'N/A'}
                     isEditing={false}
                   />
                 </div>
