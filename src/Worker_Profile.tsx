@@ -531,10 +531,14 @@ const WorkerProfile = () => {
                       if (status === 'HOTLIST_OT') {
                         bgClass = 'bg-[linear-gradient(135deg,rgba(239,68,68,0.3)_50%,rgba(34,197,94,0.3)_50%)] border-red-400/50 text-white';
                         displayStatus = 'HOTLIST+OT';
-                      } else if (status === 'HOTLIST') {
+                      } else if (status === 'HOTLIST' || status === 'HOTLISTED') {
                         bgClass = 'bg-red-500/30 border-red-400/50 text-red-100';
+                        displayStatus = 'HOTLIST';
                       } else if (status === 'OVERTIME') {
                         bgClass = 'bg-green-500/20 border-green-400/50 text-green-100';
+                      } else if (status === 'SUCCEEDING_OVERTIME_WARNING') {
+                        bgClass = 'bg-yellow-500/20 border-yellow-400/50 text-yellow-100';
+                        displayStatus = 'OT WARNING';
                       } else if (status === 'ABSENT') {
                         bgClass = 'bg-slate-500/40 border-slate-400/50 text-slate-100';
                       } else if (status === 'PRESENT') {
@@ -570,6 +574,9 @@ const WorkerProfile = () => {
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-sm bg-slate-500" /> ABSENT
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-sm bg-yellow-400" /> OT WARNING
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-sm bg-green-400" /> OVERTIME

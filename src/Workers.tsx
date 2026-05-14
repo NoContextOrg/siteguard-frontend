@@ -4,8 +4,8 @@ import { Search, X, Save, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, getAvatarUrl, getFallbackAvatar, type PersonResponse } from './api/person';
 import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
+import { getAllTeams } from './api/team';
 import { authenticatedFetch } from './api/fetch';
-import { getUnifiedDashboard } from './api/analytics';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
 
@@ -65,29 +65,27 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
 };
 
 // Unified reusable status square to prevent dual badge rendering
-const UnifiedStatusSquare = ({ hotlist, overtime, present }: { hotlist: boolean, overtime: boolean, present: boolean }) => {
+const UnifiedStatusSquare = ({ status }: { status: string }) => {
+  const s = status?.toUpperCase() ?? 'ABSENT';
   let bgClass = 'bg-slate-200 text-slate-600 border border-slate-300';
-  let label = 'ABSENT';
+  let label = s;
 
-  if (hotlist && overtime) {
-    bgClass = 'bg-[linear-gradient(135deg,#fee2e2_50%,#dcfce7_50%)] text-slate-800 border border-slate-200 shadow-sm';
-    label = 'HOTLIST+OT';
-  } else if (hotlist) {
+  if (s === 'HOTLIST' || s === 'HOTLISTED') {
     bgClass = 'bg-red-100 text-red-700 border border-red-200';
     label = 'HOTLIST';
-  } else if (overtime) {
+  } else if (s === 'OVERTIME') {
     bgClass = 'bg-green-100 text-green-700 border border-green-200';
-    label = 'OVERTIME';
-  } else if (present) {
+  } else if (s === 'SUCCEEDING_OVERTIME_WARNING') {
+    bgClass = 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+    label = 'OT WARNING';
+  } else if (s === 'PRESENT') {
     bgClass = 'bg-blue-100 text-blue-700 border border-blue-200';
-    label = 'PRESENT';
+  } else if (s === 'ABSENT') {
+    bgClass = 'bg-slate-200 text-slate-600 border border-slate-300';
   }
 
   return (
-    <div 
-      className={`flex items-center justify-center mx-auto px-2 min-w-[84px] h-8 rounded-md ${bgClass}`}
-      title={hotlist && overtime ? 'Hotlist + Overtime' : label}
-    >
+    <div className={`flex items-center justify-center mx-auto px-2 min-w-[84px] h-8 rounded-md ${bgClass}`}>
       <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
     </div>
   );
@@ -136,7 +134,7 @@ export default function WorkersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [hotlistCodes, setHotlistCodes] = useState<Set<string>>(new Set());
+  const [workerStatuses, setWorkerStatuses] = useState<Record<number, string>>({});
 
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
@@ -148,7 +146,49 @@ export default function WorkersPage() {
       const loaded = await getAllPersons();
       const onlyWorkers = loaded.filter((p) => String((p as any).role ?? '').toUpperCase() === 'WORKER');
       setPersons(onlyWorkers);
-      setWorkers(onlyWorkers.map(toWorkerRow));
+
+      // Fetch teams for engineer names
+      const teams = await getAllTeams().catch(() => []);
+      const teamEngineerMap = new Map<number, string>(teams.map(t => [t.id, t.siteEngineerName ?? 'N/A'] as [number, string]));
+
+      // Build rows with enriched engineer + lastAdmitted
+      const rows = await Promise.all(onlyWorkers.map(async (p) => {
+        const row = toWorkerRow(p);
+
+        // Engineer from team
+        if (p.teamId) row.engineer = teamEngineerMap.get(p.teamId) ?? row.engineer;
+
+        // Last admitted from top attendance log
+        if (p.personCode) {
+          try {
+            const res = await authenticatedFetch(`${API_BASE_URL}/attendance/person/${encodeURIComponent(p.personCode)}`);
+            if (res.ok) {
+              const logs: any[] = await res.json();
+              const ts = logs[0]?.eventTimestamp ?? logs[0]?.timestamp;
+              if (ts) row.lastAdmitted = new Date(ts).toLocaleDateString();
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        return row;
+      }));
+
+      setWorkers(rows);
+
+      // Fetch current status for each worker
+      const statuses: Record<number, string> = {};
+      await Promise.allSettled(
+        onlyWorkers.map(async (p) => {
+          try {
+            const res = await authenticatedFetch(`${API_BASE_URL}/attendance/person-id/${p.id}/current-status`);
+            if (res.ok) {
+              const data = await res.json();
+              statuses[p.id] = data.status ?? 'ABSENT';
+            }
+          } catch { /* non-fatal */ }
+        })
+      );
+      setWorkerStatuses(statuses);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load workers');
     } finally {
@@ -184,13 +224,6 @@ export default function WorkersPage() {
       await loadPersons();
       if (!cancelled) {
         void loadAttendance({ silent: false });
-
-        getUnifiedDashboard().then(res => {
-          if (!cancelled && res.enhancedHotlistOverview?.list) {
-            const codes = new Set(res.enhancedHotlistOverview.list.map((l: any) => l.personCode));
-            setHotlistCodes(codes);
-          }
-        }).catch(e => console.warn('Failed to load hotlist overview', e));
       }
     };
 
@@ -244,33 +277,11 @@ export default function WorkersPage() {
 
   // ========== Compute enriched workers with actual attendance ==========
   const enrichedWorkers = useMemo(() => {
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    return workers.map(w => {
-      const todayLogs = attendanceLogs.filter(log => {
-        const anyLog = log as any;
-        const logDate = anyLog.date || (anyLog.timestamp || anyLog.eventTimestamp || '').split('T')[0];
-        return (anyLog.personCode === w.personCode || anyLog.personCode === w.name || anyLog.personId === w.id) && logDate === todayStr;
-      });
-
-      let attendance: WorkerAttendance = 'ABSENT';
-      if (todayLogs.length > 0) {
-        const isPresent = todayLogs.some((l: any) => String(l.type || l.eventType || '').toUpperCase() === 'LOGIN');
-        const isOvertime = todayLogs.some((l: any) => String(l.type || l.eventType || '').toUpperCase().includes('LOGOUT') || String(l.type || l.eventType || '').toUpperCase() === 'OVERTIME');
-
-        if (isOvertime) attendance = 'OVERTIME';
-        else if (isPresent) attendance = 'PRESENT';
-      }
-
-      let status = w.status;
-      if (hotlistCodes.has(w.personCode)) {
-        status = 'HOTLIST';
-      }
-
-      return { ...w, attendance, status };
-    });
-  }, [workers, attendanceLogs, hotlistCodes]);
+    return workers.map(w => ({
+      ...w,
+      currentStatus: workerStatuses[w.id] ?? 'ABSENT',
+    }));
+  }, [workers, workerStatuses]);
 
   // ========== Filter workers based on search ==========
   const filteredWorkers = useMemo(() => {
@@ -628,11 +639,7 @@ export default function WorkersPage() {
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold">{worker.engineer}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
                         <td className="px-6 py-4 text-center">
-                          <UnifiedStatusSquare 
-                            hotlist={worker.status === 'HOTLIST'} 
-                            overtime={worker.attendance === 'OVERTIME'} 
-                            present={worker.attendance === 'PRESENT'}
-                          />
+                          <UnifiedStatusSquare status={worker.currentStatus ?? 'ABSENT'} />
 
                           {worker.fingerprint ? (
                             <span className="block text-green-600 text-[9px] mt-1 font-bold uppercase">
