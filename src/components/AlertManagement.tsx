@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from './DashboardLayout';
 import { Search, X } from 'lucide-react';
 import {
   getActiveAlerts,
   acknowledgeAlert,
   deleteAlert,
-  getActiveAlertCount,
   getAllHotlistedPersons,
   updateHotlistStatus,
   type AlertDTO,
@@ -20,8 +19,9 @@ interface FormData {
 
 const AlertManagement: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
-  const [activeAlertCount, setActiveAlertCount] = useState(0);
   const [hotlistedPersons, setHotlistedPersons] = useState<HealthProfile[]>([]);
+
+  const lastAlertIdRef = useRef<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +48,16 @@ const AlertManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [alertsResult, hotlistResult, countResult] = await Promise.all([
+      const [alertsResult, hotlistResult] = await Promise.all([
         getActiveAlerts().catch(() => []),
         getAllHotlistedPersons().catch(() => []),
-        getActiveAlertCount().catch(() => 0),
       ]);
 
       setAlerts(alertsResult || []);
       setHotlistedPersons(hotlistResult || []);
-      setActiveAlertCount(typeof countResult === 'number' ? countResult : 0);
+      if (alertsResult && alertsResult.length > 0) {
+        lastAlertIdRef.current = alertsResult[0].id ?? null;
+      }
     } catch {
       setError('Failed to load alert data');
     } finally {
@@ -66,6 +67,40 @@ const AlertManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // ================= LIVE WEBSOCKET UPDATES =================
+  useEffect(() => {
+    let ws: WebSocket;
+    let reconnectTimeout: number;
+    const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(WS_BASE_URL);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const latest = data.alert || data;
+          
+          if (latest && latest.id && lastAlertIdRef.current !== latest.id) {
+            setAlerts(prev => {
+              if (prev.some(a => a.id === latest.id)) return prev;
+              return [latest, ...prev];
+            });
+            lastAlertIdRef.current = latest.id ?? null;
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message', e);
+        }
+      };
+      ws.onclose = () => { reconnectTimeout = window.setTimeout(connectWebSocket, 5000); };
+    };
+    connectWebSocket();
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   // ================= ACTIONS =================
@@ -205,7 +240,7 @@ const canManageHotlist = useMemo(() => {
 
         {/* STATS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <Stat label="Active Alerts" value={activeAlertCount} color="text-red-600" />
+          <Stat label="Active Alerts" value={alerts.filter(a => !a.isAcknowledged).length} color="text-red-600" />
           <Stat label="Total Alerts" value={alerts.length} />
           <Stat label="Hotlisted Persons" value={hotlistedPersons.length} color="text-orange-500" />
         </div>
@@ -222,7 +257,7 @@ const canManageHotlist = useMemo(() => {
         <div className="flex border-b mb-4">
           <Tab
             active={activeTab === 'alerts'}
-            label={`Alerts (${activeAlertCount})`}
+            label={`Alerts (${alerts.length})`}
             onClick={() => setActiveTab('alerts')}
           />
           <Tab
