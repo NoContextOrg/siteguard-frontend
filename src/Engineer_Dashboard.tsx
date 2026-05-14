@@ -22,9 +22,6 @@ import { useState, useEffect, useRef } from 'react';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
-  import jsPDF from 'jspdf';
-  import autoTable from 'jspdf-autotable';
-  import { authenticatedFetch } from './api/fetch';
   import { type Dayjs } from 'dayjs';
   import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
   import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -193,85 +190,8 @@ import { useState, useEffect, useRef } from 'react';
     const handleDownloadDailyPdf = async (dateVal?: string | null) => {
       try {
         setExporting(true);
-        const teamId = persons.find((p: any) => p.teamId)?.teamId;
-        
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
-        let url = `${API_BASE_URL}/export/attendance/team`;
-        const params = new URLSearchParams();
-        if (dateVal) params.append('date', dateVal);
-        if (teamId) params.append('teamId', teamId.toString());
-        
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        const res = await authenticatedFetch(url);
-        if (!res.ok) throw new Error('Failed to fetch export data');
-        const data = await res.json();
-        
-        const doc = new jsPDF();
-        const reportDate = data.date || dateVal || new Date().toLocaleDateString();
-        const teamName = data.teamName && data.teamName !== 'All Teams' ? data.teamName : 'Your Team';
-        
-        // Header
-        doc.setFontSize(22);
-        doc.setTextColor(30, 58, 138);
-        doc.text(`Team Attendance Report`, 14, 22);
-        
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Team: ${teamName}`, 14, 32);
-        doc.text(`Date: ${reportDate}`, 14, 38);
-        let headerY = 38;
-        if (data.siteEngineerName) {
-          headerY = 44;
-          doc.text(`Engineer: ${data.siteEngineerName}`, 14, headerY);
-        }
-        
-        // Divider
-        const dividerY = headerY + 6;
-        doc.setDrawColor(220, 220, 220);
-        doc.line(14, dividerY, 196, dividerY);
-        
-        // Summary section
-        const summaryTitleY = dividerY + 10;
-        doc.setFontSize(12);
-        doc.setTextColor(40);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Summary Overview`, 14, summaryTitleY);
-        doc.setFont('helvetica', 'normal');
-        
-        const summaryDataY = summaryTitleY + 8;
-        doc.setFontSize(10);
-        doc.setTextColor(80);
-        const summary = data.summary || {};
-        doc.text(`Total Workers: ${summary.totalWorkers || 0}`, 14, summaryDataY);
-        doc.text(`Present: ${summary.present || 0}`, 60, summaryDataY);
-        doc.text(`Absent: ${summary.absent || 0}`, 100, summaryDataY);
-        doc.text(`Overtime: ${summary.overtime || 0}`, 140, summaryDataY);
-        doc.text(`Hotlisted: ${summary.hotlisted || 0}`, 180, summaryDataY);
-        
-        const tableData = (data.workers || []).map((w: any) => [
-          w.workerName || '-',
-          w.employeeId || '-',
-          w.status || '-',
-          w.loginTime || '-',
-          w.logoutTime || '-',
-          w.totalHours?.toFixed(2) || '-',
-          w.overtime ? 'Yes' : 'No',
-          w.hotlisted ? 'Yes' : 'No'
-        ]);
-
-        autoTable(doc, {
-          startY: summaryDataY + 8,
-          head: [['Name', 'ID', 'Status', 'Time In', 'Time Out', 'Hours', 'OT', 'Hotlist']],
-          body: tableData,
-          headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [245, 247, 250] },
-          styles: { fontSize: 9, cellPadding: 4 },
-          margin: { left: 14, right: 14 },
-        });
-        doc.save(`Team_Attendance_Report_${teamName.replace(/\s+/g, '_')}_${reportDate}.pdf`);
+        const { downloadDailyAttendancePdf } = await import('./api/analytics');
+        await downloadDailyAttendancePdf(dateVal || undefined);
       } catch (e) {
         console.error(e);
         alert(e instanceof Error ? e.message : 'Export failed');

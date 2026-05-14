@@ -62,6 +62,27 @@ const downloadBlob = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+// ===== Timing Metrics Formatting =====
+/** Format milliseconds to human-readable string */
+export const formatMs = (ms: number | null | undefined): string => {
+  if (ms === null || ms === undefined) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+};
+
+/** Calculate average timing metric from array of workers */
+export const getAverageTimingMetric = (
+  workers: BiometricTimingMetrics[],
+  metricKey: keyof BiometricTimingMetrics
+): number | null => {
+  const values = workers
+    .map((w) => w[metricKey])
+    .filter((v): v is number => v !== null && v !== undefined);
+  
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+};
+
 const jsonToCsv = (data: any[], metadata?: ExportMetadata): string => {
   let columns: string[] = [];
   let headers: string[] = [];
@@ -279,6 +300,89 @@ export interface DashboardTimeFilterState {
   key: TimeFilterKey;
   start?: string; // YYYY-MM-DD
   end?: string;   // YYYY-MM-DD
+}
+
+// ===== Biometric Response Time Metrics =====
+export interface BiometricTimingMetrics {
+  // Login timing (milliseconds)
+  loginScanTimeMs?: number | null;
+  loginVerificationTimeMs?: number | null;
+  loginProcessingTimeMs?: number | null;
+  loginNotificationTimeMs?: number | null;
+  loginTotalResponseTimeMs?: number | null;
+  // Logout timing (milliseconds)
+  logoutScanTimeMs?: number | null;
+  logoutVerificationTimeMs?: number | null;
+  logoutProcessingTimeMs?: number | null;
+  logoutNotificationTimeMs?: number | null;
+  logoutTotalResponseTimeMs?: number | null;
+}
+
+// ===== ComprehensiveAttendanceExportDTO =====
+export interface ComprehensiveAttendanceExportWorkerDTO extends BiometricTimingMetrics {
+  workerName: string;
+  employeeId: string;
+  teamId: number;
+  teamName: string;
+  loginTime?: string | null;
+  logoutTime?: string | null;
+  totalHours?: number;
+  status: string; // PRESENT, ABSENT, ACTIVE, NO_LOGOUT, etc.
+  overtime?: boolean;
+  hotlisted?: boolean;
+  isActive?: boolean;
+}
+
+export interface ComprehensiveAttendanceExportSummaryDTO {
+  totalWorkers: number;
+  present: number;
+  absent: number;
+  overtime: number;
+  hotlisted: number;
+}
+
+export interface ComprehensiveAttendanceExportDTO {
+  date: string;
+  generatedAt: string; // ISO date-time
+  summary: ComprehensiveAttendanceExportSummaryDTO;
+  workers: ComprehensiveAttendanceExportWorkerDTO[];
+}
+
+// ===== TeamAttendanceResponseDTO =====
+export interface TeamAttendanceResponseWorkerDTO extends BiometricTimingMetrics {
+  workerName: string;
+  employeeId: string;
+  loginTime?: string | null;
+  logoutTime?: string | null;
+  totalHours?: number;
+  status: string;
+  overtime?: boolean;
+  hotlisted?: boolean;
+  isActive?: boolean;
+}
+
+export interface TeamAttendanceSummaryDTO {
+  totalWorkers: number;
+  present: number;
+  absent: number;
+  overtime: number;
+  hotlisted: number;
+}
+
+export interface TeamAttendanceResponseDTO {
+  date: string;
+  generatedAt: string; // ISO date-time
+  id: number; // teamId
+  teamName: string;
+  projectArea?: string;
+  classification?: string;
+  siteEngineerId?: number;
+  siteEngineerName?: string;
+  workerCount: number;
+  overtimeThresholdHours?: number;
+  createdAt?: string; // ISO date-time
+  workers: TeamAttendanceResponseWorkerDTO[];
+  summary: TeamAttendanceSummaryDTO;
 }
 
 export type ExportType =
@@ -520,7 +624,7 @@ export const downloadDailyReport = async (date?: string): Promise<void> => {
 };
 
 /**
- * Download daily attendance report (PDF)
+ * Download daily attendance report (PDF) - Overall Attendance Overview format
  */
 export const downloadDailyAttendancePdf = async (date?: string): Promise<void> => {
   try {
@@ -536,26 +640,31 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
       throw new Error(msg || `Failed to fetch daily attendance data: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     
     const doc = new jsPDF();
     const reportDate = data.date || date || new Date().toISOString().split('T')[0];
     
+    // ===== Header =====
     doc.setFontSize(18);
-    doc.text('Daily Attendance Report', 14, 20);
+    doc.setFont(undefined, 'bold');
+    doc.text('Overall Attendance Overview', 14, 20);
     
-    doc.setFontSize(11);
-    doc.text(`Report Date: ${reportDate}`, 14, 30);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Report Date: ${reportDate}`, 14, 28);
     if (data.generatedAt) {
-      doc.text(`Generated At: ${new Date(data.generatedAt).toLocaleString()}`, 14, 36);
+      doc.text(`Generated At: ${new Date(data.generatedAt).toLocaleString()}`, 14, 33);
     }
 
-    let startY = 45;
+    let startY = 42;
 
+    // ===== Summary Statistics =====
     if (data.summary) {
-      doc.setFontSize(14);
-      doc.text('Summary', 14, startY);
-      startY += 8;
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Summary Statistics', 14, startY);
+      startY += 7;
       
       autoTable(doc, {
         startY,
@@ -567,54 +676,118 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
           data.summary.overtime || 0,
           data.summary.hotlisted || 0
         ]],
-        headStyles: { fillColor: [30, 58, 138] },
-        margin: { bottom: 10 }
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+        bodyStyles: { fontStyle: 'normal', textColor: 0 },
+        alternateRowStyles: { fillColor: [242, 242, 242] },
+        margin: { bottom: 12 }
       });
       
-      startY = (doc as any).lastAutoTable.finalY + 15;
+      startY = (doc as any).lastAutoTable.finalY + 10;
     }
 
+    // ===== Attendance by Team and Worker Details =====
     if (data.teams && data.teams.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Attendance by Team', 14, startY);
+      startY += 7;
+
+      // Team summary table
+      const teamSummaryBody = data.teams.map((team: any) => {
+        const workers = team.workers || [];
+        const presentCount = workers.filter((w: any) => w.status === 'PRESENT' || w.isActive).length;
+        const absentCount = workers.filter((w: any) => w.status === 'ABSENT').length;
+        const overtimeCount = workers.filter((w: any) => w.overtime).length;
+        
+        return [
+          team.teamName || 'Unassigned',
+          workers.length,
+          presentCount,
+          absentCount,
+          overtimeCount
+        ];
+      });
+
+      autoTable(doc, {
+        startY,
+        head: [['Team', 'Total', 'Present', 'Absent', 'Overtime']],
+        body: teamSummaryBody,
+        headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        margin: { bottom: 12 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // ===== Detailed Workers per Team =====
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Worker Details by Team', 14, startY);
+      startY += 7;
+
+      let isFirstTeam = true;
       data.teams.forEach((team: any) => {
-        if (startY > 250) {
+        const workers = team.workers || [];
+        
+        // Add new page if needed
+        if (startY > 240) {
           doc.addPage();
           startY = 20;
         }
 
-        doc.setFontSize(14);
-        doc.text(`Team: ${team.teamName || 'Unassigned'}`, 14, startY);
-        startY += 8;
+        if (!isFirstTeam) startY += 3;
+        isFirstTeam = false;
 
-        const workers = team.workers || [];
+        // Team header
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(71, 85, 105);
+        doc.text(`${team.teamName || 'Unassigned'} (${workers.length} workers)`, 14, startY);
+        doc.setTextColor(0, 0, 0);
+        startY += 6;
+
         if (workers.length > 0) {
+          // Workers table for this team
+          const workerTableBody = workers.map((w: any) => [
+            w.workerName || '-',
+            w.employeeId || '-',
+            w.loginTime ? w.loginTime.slice(0, 5) : '-',
+            w.logoutTime ? w.logoutTime.slice(0, 5) : '-',
+            w.totalHours ? w.totalHours.toFixed(1) : '-',
+            w.status || '-',
+            w.overtime ? 'Yes' : 'No',
+            w.hotlisted ? 'Yes' : 'No'
+          ]);
+
           autoTable(doc, {
             startY,
-            head: [['Name', 'ID', 'Login', 'Logout', 'Hours', 'Status', 'Overtime']],
-            body: workers.map((w: any) => [
-              w.workerName || '-',
-              w.employeeId || '-',
-              w.loginTime || '-',
-              w.logoutTime || '-',
-              w.totalHours ? w.totalHours.toFixed(2) : '-',
-              w.status || '-',
-              w.overtime ? 'Yes' : 'No'
-            ]),
-            headStyles: { fillColor: [71, 85, 105] },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
+            head: [['Name', 'ID', 'Login', 'Logout', 'Hours', 'Status', 'OT', 'Hotlist']],
+            body: workerTableBody,
+            headStyles: { fillColor: [120, 130, 140], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+            bodyStyles: { fontSize: 8 },
+            alternateRowStyles: { fillColor: [250, 250, 250] },
+            columnStyles: {
+              4: { halign: 'right' },
+              6: { halign: 'center' },
+              7: { halign: 'center' }
+            },
+            margin: { bottom: 3 }
           });
-          startY = (doc as any).lastAutoTable.finalY + 15;
+
+          startY = (doc as any).lastAutoTable.finalY + 3;
         } else {
-          doc.setFontSize(10);
-          doc.text('No workers found for this team.', 14, startY);
-          startY += 10;
+          doc.setFontSize(9);
+          doc.text('No workers in this team', 14, startY);
+          startY += 5;
         }
       });
+
     } else {
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.text('No attendance records found for this date.', 14, startY);
     }
 
-    doc.save(`attendance-report-${reportDate}.pdf`);
+    doc.save(`attendance-overview-${reportDate}.pdf`);
   } catch (error) {
     console.error('Error downloading daily attendance PDF:', error);
     throw error;

@@ -19,9 +19,6 @@ import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { authenticatedFetch } from './api/fetch';
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
 
@@ -209,66 +206,9 @@ const AdminDashboard = () => {
   const handleDownloadDailyPdf = async (dateVal?: string | null) => {
     try {
       setExporting(true);
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
-      const url = dateVal ? `${API_BASE_URL}/export/attendance/all?date=${dateVal}` : `${API_BASE_URL}/export/attendance/all`;
-      const res = await authenticatedFetch(url);
-      if (!res.ok) throw new Error('Failed to fetch export data');
-      const data = await res.json();
-      
-      const doc = new jsPDF();
-      const reportDate = data.date || dateVal || new Date().toLocaleDateString();
-      
-      // Header
-      doc.setFontSize(22);
-      doc.setTextColor(30, 58, 138);
-      doc.text(`SiteGuard Attendance Report`, 14, 22);
-      
-      doc.setFontSize(11);
-      doc.setTextColor(100);
-      doc.text(`Date: ${reportDate}`, 14, 32);
-      
-      // Divider
-      doc.setDrawColor(220, 220, 220);
-      doc.line(14, 38, 196, 38);
-      
-      // Summary section
-      doc.setFontSize(12);
-      doc.setTextColor(40);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Summary Overview`, 14, 48);
-      doc.setFont('helvetica', 'normal');
-      
-      doc.setFontSize(10);
-      doc.setTextColor(80);
-      const summary = data.summary || {};
-      doc.text(`Total Workers: ${summary.totalWorkers || 0}`, 14, 56);
-      doc.text(`Present: ${summary.present || 0}`, 60, 56);
-      doc.text(`Absent: ${summary.absent || 0}`, 100, 56);
-      doc.text(`Overtime: ${summary.overtime || 0}`, 140, 56);
-      doc.text(`Hotlisted: ${summary.hotlisted || 0}`, 180, 56);
-      
-      const tableData = (data.workers || []).map((w: any) => [
-        w.workerName || '-',
-        w.employeeId || '-',
-        w.teamName || 'Unassigned',
-        w.status || '-',
-        w.loginTime || '-',
-        w.logoutTime || '-',
-        w.totalHours?.toFixed(2) || '-',
-        w.overtime ? 'Yes' : 'No',
-        w.hotlisted ? 'Yes' : 'No'
-      ]);
-
-      autoTable(doc, {
-        startY: 64,
-        head: [['Name', 'ID', 'Team', 'Status', 'Time In', 'Time Out', 'Hours', 'OT', 'Hotlist']],
-        body: tableData,
-        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        styles: { fontSize: 9, cellPadding: 4 },
-        margin: { left: 14, right: 14 },
-      });
-      doc.save(`Comprehensive_Attendance_Report_${reportDate}.pdf`);
+      // Import the proper function from analytics API
+      const { downloadDailyAttendancePdf } = await import('./api/analytics');
+      await downloadDailyAttendancePdf(dateVal || undefined);
     } catch (e) {
       console.error(e);
       alert(e instanceof Error ? e.message : 'Export failed');
