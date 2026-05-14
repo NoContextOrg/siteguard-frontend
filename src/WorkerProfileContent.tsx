@@ -272,13 +272,28 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
 
   const getStatus = (date: string) => {
     const logs = calendar[date];
-    if (!logs || logs.length === 0) return 'EMPTY';
-    if (logs.includes('ABSENT')) return 'ABSENT';
-    if (logs.includes('LEAVE')) return 'LEAVE';
-    if (logs.includes('OVERTIME')) return 'OVERTIME';
-    if (logs.includes('LATE')) return 'LATE';
-    if (logs.includes('LOGIN') || logs.includes('PRESENT')) return 'PRESENT';
-    return 'EMPTY';
+
+    if (!logs || logs.length === 0) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${y}-${m}-${d}`;
+      
+      if (date <= todayStr) return 'ABSENT';
+      return 'EMPTY';
+    }
+    
+    const isHotlist = logs.includes('HOTLIST') || workerProfile?.person?.healthProfileStatus === 'HOTLIST';
+    const isOvertime = logs.includes('OVERTIME');
+    const isPresent = logs.includes('LOGIN') || logs.includes('PRESENT');
+    
+    if (isHotlist && isOvertime) return 'HOTLIST_OT';
+    if (isHotlist) return 'HOTLIST';
+    if (isOvertime) return 'OVERTIME';
+    if (isPresent) return 'PRESENT';
+    
+    return 'ABSENT';
   };
 
   const year = calendarDate.getFullYear();
@@ -398,28 +413,33 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                       }
                       const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                       const status = getStatus(dStr);
+                      
+                      let bgClass = 'bg-transparent border-slate-700 text-slate-500';
+                      let displayStatus = status;
+                      
+                      if (status === 'HOTLIST_OT') {
+                        bgClass = 'bg-[linear-gradient(135deg,rgba(239,68,68,0.3)_50%,rgba(34,197,94,0.3)_50%)] border-red-400/50 text-white';
+                        displayStatus = 'HOTLIST+OT';
+                      } else if (status === 'HOTLIST') {
+                        bgClass = 'bg-red-500/30 border-red-400/50 text-red-100';
+                      } else if (status === 'OVERTIME') {
+                        bgClass = 'bg-green-500/20 border-green-400/50 text-green-100';
+                      } else if (status === 'ABSENT') {
+                        bgClass = 'bg-slate-500/40 border-slate-400/50 text-slate-100';
+                      } else if (status === 'PRESENT') {
+                        bgClass = 'bg-blue-500/20 border-blue-400/50 text-blue-100';
+                      }
+
                       return (
                         <div
                           key={day}
-                          className={`h-14 flex flex-col items-center justify-center rounded-lg border transition-colors ${
-                            status === 'PRESENT'
-                              ? 'bg-blue-500/20 border-blue-400/50 text-blue-100'
-                              : status === 'OVERTIME'
-                              ? 'bg-green-500/20 border-green-400/50 text-green-100'
-                              : status === 'LATE'
-                              ? 'bg-orange-500/20 border-orange-400/50 text-orange-100'
-                              : status === 'ABSENT'
-                              ? 'bg-red-500/20 border-red-400/50 text-red-100'
-                              : status === 'LEAVE'
-                              ? 'bg-purple-500/20 border-purple-400/50 text-purple-100'
-                              : 'bg-transparent border-slate-700 text-slate-500'
-                          }`}
-                          title={`${dStr} - ${status}`}
+                          className={`h-14 flex flex-col items-center justify-center rounded-lg border transition-colors ${bgClass}`}
+                          title={`${dStr} - ${displayStatus}`}
                         >
                           <span className="text-sm font-bold">{day}</span>
                           {status !== 'EMPTY' && (
-                            <span className="text-[8px] font-black uppercase tracking-widest mt-1 opacity-80 truncate w-full text-center px-1">
-                              {status}
+                            <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest mt-1 opacity-80 truncate w-full text-center px-1">
+                              {displayStatus}
                             </span>
                           )}
                         </div>
@@ -431,22 +451,22 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
 
               <div className="flex flex-wrap justify-center gap-6 mt-10 text-[10px] font-black border-t border-slate-700/50 pt-6 tracking-widest">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full border border-slate-500 bg-transparent" /> NO DATA
+                  <div className="w-3 h-3 rounded-sm border border-slate-500 bg-transparent" /> NO DATA
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full bg-blue-400" /> PRESENT
+                  <div className="w-3 h-3 rounded-sm bg-blue-400" /> PRESENT
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full bg-green-400" /> OVERTIME
+                  <div className="w-3 h-3 rounded-sm bg-slate-500" /> ABSENT
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full bg-orange-400" /> LATE
+                  <div className="w-3 h-3 rounded-sm bg-green-400" /> OVERTIME
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500" /> ABSENT
+                  <div className="w-3 h-3 rounded-sm bg-red-500" /> HOTLIST
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" /> ON LEAVE
+                  <div className="w-3 h-3 rounded-sm bg-[linear-gradient(135deg,#ef4444_50%,#22c55e_50%)]" /> HOTLIST + OT
                 </div>
               </div>
             </div>

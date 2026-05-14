@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns
 // ========== Types ==========
 type WorkerStatus = 'NORMAL' | 'HOTLIST' | 'NO_FINGERPRINT';
 
-type WorkerAttendance = 'PRESENT' | 'ABSENT' | 'ON LEAVE' | 'UNKNOWN';
+type WorkerAttendance = 'PRESENT' | 'ABSENT' | 'OVERTIME' | 'UNKNOWN';
 
 interface WorkerRow {
   id: number;
@@ -55,6 +55,35 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
     fingerprint,
     profilePictureUrl: p.profilePictureUrl,
   };
+};
+
+// Unified reusable status square to prevent dual badge rendering
+const UnifiedStatusSquare = ({ hotlist, overtime, present }: { hotlist: boolean, overtime: boolean, present: boolean }) => {
+  let bgClass = 'bg-slate-200 text-slate-600 border border-slate-300';
+  let label = 'ABSENT';
+
+  if (hotlist && overtime) {
+    bgClass = 'bg-[linear-gradient(135deg,#fee2e2_50%,#dcfce7_50%)] text-slate-800 border border-slate-200 shadow-sm';
+    label = 'HOTLIST+OT';
+  } else if (hotlist) {
+    bgClass = 'bg-red-100 text-red-700 border border-red-200';
+    label = 'HOTLIST';
+  } else if (overtime) {
+    bgClass = 'bg-green-100 text-green-700 border border-green-200';
+    label = 'OVERTIME';
+  } else if (present) {
+    bgClass = 'bg-blue-100 text-blue-700 border border-blue-200';
+    label = 'PRESENT';
+  }
+
+  return (
+    <div 
+      className={`flex items-center justify-center mx-auto px-2 min-w-[84px] h-8 rounded-md ${bgClass}`}
+      title={hotlist && overtime ? 'Hotlist + Overtime' : label}
+    >
+      <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+    </div>
+  );
 };
 
 export default function WorkersPage() {
@@ -506,23 +535,22 @@ export default function WorkersPage() {
                   <th className="px-6 py-4 border-r border-slate-100 w-16 text-center">Pic</th>
                   <th className="px-6 py-4 border-r border-slate-100">Name</th>
                   <th className="px-6 py-4 border-r border-slate-100">Assigned Team</th>
-                  <th className="px-6 py-4 border-r border-slate-100">Attendance</th>
                   <th className="px-6 py-4 border-r border-slate-100">Assigned Engineer</th>
                   <th className="px-6 py-4 border-r border-slate-100 text-center">Last Admitted</th>
-                  <th className="px-6 py-4 border-r border-slate-100 text-center">Status</th>
+                  <th className="px-6 py-4 border-r border-slate-100 text-center">Overall Status</th>
                   <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
                       Loading workers…
                     </td>
                   </tr>
                 ) : filteredWorkers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
                       No workers found.
                     </td>
                   </tr>
@@ -550,39 +578,22 @@ export default function WorkersPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold uppercase">{worker.team}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-sm ${worker.attendance === 'PRESENT'
-                              ? 'text-green-600 bg-green-50'
-                              : worker.attendance === 'ABSENT'
-                                ? 'text-red-600 bg-red-50'
-                                : worker.attendance === 'ON LEAVE'
-                                  ? 'text-orange-600 bg-orange-50'
-                                  : 'text-slate-600 bg-slate-100'
-                              }`}
-                          >
-                            {worker.attendance}
-                          </span>
-                        </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-bold">{worker.engineer}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{worker.lastAdmitted}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`text-[10px] font-black tracking-widest ${worker.status === 'HOTLIST'
-                              ? 'text-red-500'
-                              : worker.status === 'NO_FINGERPRINT'
-                                ? 'text-amber-500'
-                                : 'text-green-600'
-                            }`}>
-                            {worker.status}
-                          </span>
+                          <UnifiedStatusSquare 
+                            hotlist={worker.status === 'HOTLIST'} 
+                            overtime={worker.attendance === 'OVERTIME'} 
+                            present={worker.attendance === 'PRESENT'}
+                          />
 
                           {worker.fingerprint ? (
-                            <span className="block text-green-600 text-xs mt-1 font-bold">
-                              ID: {worker.fingerprint}
+                            <span className="block text-green-600 text-[9px] mt-1 font-bold uppercase">
+                              FP: {worker.fingerprint}
                             </span>
                           ) : (
-                            <span className="block text-red-500 text-xs mt-1">
-                              No Fingerprint
+                            <span className="block text-amber-500 text-[9px] mt-1 font-bold uppercase">
+                              No FP
                             </span>
                           )}
                         </td>

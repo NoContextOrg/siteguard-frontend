@@ -84,7 +84,6 @@ const AdminDashboard = () => {
           name: t.name,
           present: t.present,
           absent: t.absent,
-          on_leave: t.leave,
           overtime: 0,
         }));
         setTeamAttendanceData(tdArray as any);
@@ -568,7 +567,6 @@ const AdminDashboard = () => {
                     name: `Team ${i + 1}`,
                     present: t.present,
                     absent: t.absent,
-                    leave: t.on_leave,
                   }))}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
@@ -577,7 +575,6 @@ const AdminDashboard = () => {
                       <Legend iconType="rect" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase'}} />
                       <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
                       <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
-                      <Bar dataKey="leave" stackId="a" fill="#2dd4bf" name="On Leave" />
                   </BarChart>
               </ResponsiveContainer>
             </ChartContainer>

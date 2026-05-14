@@ -16,7 +16,51 @@ export interface AttendanceLog {
   matchScore?: number;
   confidence?: number;
   totalResponseTimeMs?: number;
+  scanTime?: number;
+  verificationTime?: number;
+  processingTime?: number;
+  notificationTime?: number;
+  totalResponseTime?: number;
   rawPayload?: string;
+}
+
+/**
+ * Backend-aligned Attendance Export DTOs.
+ * Note: Status is explicitly computed by the backend (PRESENT, ABSENT, ACTIVE, NO_LOGOUT).
+ * The UI must refer strictly to this 'status' field and no longer calculate 'LATE'.
+ */
+export interface WorkerAttendanceExportDTO {
+  workerName: string;
+  employeeId: string;
+  teamId?: number | null;
+  teamName?: string | null;
+  loginTime?: string | null;
+  logoutTime?: string | null;
+  totalHours?: number;
+  status: string;
+  overtime?: boolean;
+  hotlisted?: boolean;
+  isActive?: boolean;
+}
+
+export interface TeamAttendanceExportDTO {
+  teamName: string;
+  workers: WorkerAttendanceExportDTO[];
+}
+
+export interface AttendanceExportSummary {
+  totalWorkers: number;
+  present: number;
+  absent: number;
+  overtime: number;
+  hotlisted: number;
+}
+
+export interface AttendanceExportResponseDTO {
+  date: string;
+  generatedAt: string;
+  teams: TeamAttendanceExportDTO[];
+  summary: AttendanceExportSummary;
 }
 
 export interface AttendanceSummary {
@@ -38,6 +82,11 @@ export interface AvailableBiometric {
   biometricId: number;
   enrolledAt?: string;
   totalResponseTimeMs?: number;
+  scanTime?: number;
+  verificationTime?: number;
+  processingTime?: number;
+  notificationTime?: number;
+  totalResponseTime?: number;
 }
 
 const buildQuery = (params: Record<string, string | undefined>) => {

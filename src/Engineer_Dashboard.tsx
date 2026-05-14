@@ -86,7 +86,6 @@ import { useState, useEffect, useRef } from 'react';
             name: t.name,
             present: t.present,
             absent: t.absent,
-            leave: t.leave,
           }));
           setTeamAttendanceData(tdArray as any);
 
@@ -431,14 +430,12 @@ import { useState, useEffect, useRef } from 'react';
                     name: `Team ${i + 1}`,
                     present: t.present,
                     absent: t.absent,
-                    leave: t.leave,
                   }))}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="present" stackId="a" fill="#818cf8" />
                     <Bar dataKey="absent" stackId="a" fill="#f472b6" />
-                    <Bar dataKey="leave" stackId="a" fill="#2dd4bf" />
                   </BarChart>
                 </ResponsiveContainer>
               </motion.div>
