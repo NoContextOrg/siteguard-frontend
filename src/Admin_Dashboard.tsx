@@ -10,7 +10,7 @@ import {
   makeExportFilename,
   type DashboardTimeFilterState,
 } from './api/analytics';
-import { getActiveAlerts } from './api/alert';
+import { getActiveAlerts, getAllAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
@@ -217,6 +217,36 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleExportAlertsCsv = async () => {
+    try {
+      setExporting(true);
+      const alerts = await getAllAlerts();
+      if (!alerts.length) { alert('No alerts to export'); return; }
+      const headers = ['Alert ID', 'Type', 'Description', 'Created', 'Status'];
+      const rows = alerts.map(a => [
+        `"${a.id ?? ''}"`,
+        `"${(a.alertType || '').replace(/"/g, '""')}"`,
+        `"${(a.alertMessage || '').replace(/"/g, '""')}"`,
+        `"${a.createdAt ? new Date(a.createdAt).toLocaleString() : ''}"`,
+        `"${a.isAcknowledged ? 'Acknowledged' : 'Active'}"`,
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `alerts-report_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const filteredAlerts = useMemo(() => {
     if (alertsFilter.key === '7_DAYS' || alertsFilter.key === 'CUSTOM') return activeAlerts;
     const hours = alertsFilter.key === '3_HOURS' ? 3 : alertsFilter.key === '6_HOURS' ? 6 : alertsFilter.key === '12_HOURS' ? 12 : alertsFilter.key === '24_HOURS' ? 24 : 24 * 7;
@@ -378,7 +408,7 @@ const AdminDashboard = () => {
                   <button
                     type="button"
                     disabled={exporting}
-                    onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
+                    onClick={() => handleExportAlertsCsv()}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
                     <Download size={16} /> Export

@@ -81,6 +81,20 @@ export const getActiveAlerts = async (): Promise<AlertDTO[]> => {
 };
 
 /**
+ * Get all alerts (active + acknowledged)
+ */
+export const getAllAlerts = async (): Promise<AlertDTO[]> => {
+  try {
+    const res = await safeFetch(`${API_BASE_URL}/alerts/all`);
+    const data = (await res.json()) as AlertDTO[];
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('❌ getAllAlerts:', error);
+    return [];
+  }
+};
+
+/**
  * Acknowledge alert
  */
 export const acknowledgeAlert = async (alertId: number): Promise<void> => {
