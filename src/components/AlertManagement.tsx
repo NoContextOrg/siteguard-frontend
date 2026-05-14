@@ -73,7 +73,7 @@ const AlertManagement: React.FC = () => {
   useEffect(() => {
     let ws: WebSocket;
     let reconnectTimeout: number;
-    const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+    const WS_BASE_URL = 'wss://siteguardph.duckdns.org/ws/alerts';
 
     const connectWebSocket = () => {
       ws = new WebSocket(WS_BASE_URL);

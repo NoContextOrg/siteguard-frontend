@@ -3,7 +3,7 @@
  * Handles all auth-related API calls to the backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'https://siteguardph.duckdns.org/api';
 
 export interface LoginRequest {
   email: string;

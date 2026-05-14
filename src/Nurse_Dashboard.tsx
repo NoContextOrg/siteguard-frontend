@@ -17,7 +17,7 @@ import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://siteguardph.duckdns.org/ws/alerts';
+const WS_BASE_URL = 'wss://siteguardph.duckdns.org/ws/alerts';
 
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 

@@ -8,7 +8,7 @@ import { authenticatedFetch, safeReadErrorMessage } from './fetch';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://siteguardph.duckdns.org/api';
+const API_BASE_URL = 'https://siteguardph.duckdns.org/api';
 
 // ===== shared helpers (required by trends + exports) =====
 const buildQuery = (params: Record<string, string | number | boolean | undefined | null>) => {
