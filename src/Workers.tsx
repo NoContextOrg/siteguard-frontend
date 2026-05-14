@@ -22,6 +22,8 @@ interface WorkerRow {
   lastAdmitted: string;
   status: WorkerStatus;
 
+  overtimeCount?: number;
+  overtimeStatus?: string;
   fingerprint?: number | null;
   profilePictureUrl?: string;
 }
@@ -52,6 +54,8 @@ const toWorkerRow = (p: PersonResponse): WorkerRow => {
     engineer: p.assignedEngineerName || 'N/A',
     lastAdmitted: lastAdmittedFormatted,
     status,
+    overtimeCount: (p as any).overtimeCount ?? 0,
+    overtimeStatus: (p as any).overtimeStatus ?? 'N/A',
     fingerprint,
     profilePictureUrl: p.profilePictureUrl,
   };
@@ -538,19 +542,20 @@ export default function WorkersPage() {
                   <th className="px-6 py-4 border-r border-slate-100">Assigned Engineer</th>
                   <th className="px-6 py-4 border-r border-slate-100 text-center">Last Admitted</th>
                   <th className="px-6 py-4 border-r border-slate-100 text-center">Overall Status</th>
+                  <th className="px-6 py-4 border-r border-slate-100 text-center">Overtime</th>
                   <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
                       Loading workers…
                     </td>
                   </tr>
                 ) : filteredWorkers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm">
+                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
                       No workers found.
                     </td>
                   </tr>
@@ -596,6 +601,18 @@ export default function WorkersPage() {
                               No FP
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="block text-slate-700 text-sm font-bold">
+                            {worker.overtimeCount}
+                          </span>
+                          <span className={`block text-[10px] mt-1 font-bold uppercase ${
+                            worker.overtimeStatus?.toUpperCase().includes('OVERTIME') ? 'text-orange-600' :
+                            worker.overtimeStatus?.toUpperCase() === 'NORMAL' ? 'text-green-600' :
+                            'text-slate-400'
+                          }`}>
+                            {worker.overtimeStatus}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-center space-x-2">
                           <Link

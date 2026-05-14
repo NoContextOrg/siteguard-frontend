@@ -381,6 +381,21 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
                   setEditData({ ...editData, position: e.target.value })
                 }
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <EditableField
+                  label="Overtime Count"
+                  name="overtimeCount"
+                  value={workerProfile?.person?.overtimeCount ?? '0'}
+                  isEditing={false}
+                />
+                <EditableField
+                  label="Overtime Status"
+                  name="overtimeStatus"
+                  value={workerProfile?.person?.overtimeStatus ?? 'N/A'}
+                  isEditing={false}
+                />
+              </div>
             </div>
 
             {/* Attendance */}
