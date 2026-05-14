@@ -647,11 +647,11 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
     
     // ===== Header =====
     doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Overall Attendance Overview', 14, 20);
     
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(`Report Date: ${reportDate}`, 14, 28);
     if (data.generatedAt) {
       doc.text(`Generated At: ${new Date(data.generatedAt).toLocaleString()}`, 14, 33);
@@ -662,7 +662,7 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
     // ===== Summary Statistics =====
     if (data.summary) {
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Summary Statistics', 14, startY);
       startY += 7;
       
@@ -688,7 +688,7 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
     // ===== Attendance by Team and Worker Details =====
     if (data.teams && data.teams.length > 0) {
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Attendance by Team', 14, startY);
       startY += 7;
 
@@ -721,7 +721,7 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
 
       // ===== Detailed Workers per Team =====
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Worker Details by Team', 14, startY);
       startY += 7;
 
@@ -740,7 +740,7 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
 
         // Team header
         doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(71, 85, 105);
         doc.text(`${team.teamName || 'Unassigned'} (${workers.length} workers)`, 14, startY);
         doc.setTextColor(0, 0, 0);

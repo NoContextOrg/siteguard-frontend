@@ -875,11 +875,11 @@ const WorkerProfile = () => {
                   <span className="text-xs font-black text-blue-900 uppercase">Overtime:</span>
                   <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="overtime" value="true" checked={formData.overtime === true} onChange={(e) => setFormData(prev => ({...prev, overtime: true}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                      <input type="radio" name="overtime" value="true" checked={formData.overtime === true} onChange={() => setFormData(prev => ({...prev, overtime: true}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                       <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">Yes</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" name="overtime" value="false" checked={formData.overtime === false || formData.overtime === undefined} onChange={(e) => setFormData(prev => ({...prev, overtime: false}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                      <input type="radio" name="overtime" value="false" checked={formData.overtime === false || formData.overtime === undefined} onChange={() => setFormData(prev => ({...prev, overtime: false}))} className="w-4 h-4 border-2 border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                       <span className="text-xs font-bold text-slate-700 uppercase group-hover:text-blue-600 transition">No</span>
                       </label>
                   </div>
