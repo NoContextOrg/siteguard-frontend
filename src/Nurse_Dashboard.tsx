@@ -3,6 +3,7 @@ import { UserX, Filter, Bell, BellRing, Clock, ShieldAlert, Download } from 'luc
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
+import { SkeletonCard, SkeletonRow, SkeletonChart, SkeletonListItem, SkeletonPie } from './components/Skeletons';
 import type { 
   HotlistOverview,
   AlertsOverview,
@@ -225,7 +226,7 @@ const NurseDashboard = () => {
         {/* ========== TOP STAT CARDS ========== */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {loading ? (
-            <div className="col-span-full text-center py-8">Loading...</div>
+            Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
           ) : (
             <>
               <StatCard label="Active Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" onClick={() => navigate('/alerts')} />
@@ -270,7 +271,7 @@ const NurseDashboard = () => {
                       ))}
                       <button
                         type="button"
-                        disabled={exporting}
+                        disabled={loading || exporting}
                         onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
                         className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                       >
@@ -298,13 +299,7 @@ const NurseDashboard = () => {
                       </thead>
                       <tbody className="font-semibold text-slate-600">
                           {alertsLoading ? (
-                            <tr>
-                              <td className="px-6 py-10" colSpan={5}>
-                                <div className="flex items-center justify-center">
-                                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-                                </div>
-                              </td>
-                            </tr>
+                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
                           ) : filteredAlerts.length === 0 ? (
                             <tr>
                               <td className="px-6 py-6 text-slate-400" colSpan={5}>
@@ -364,7 +359,7 @@ const NurseDashboard = () => {
                     ))}
                     <button
                       type="button"
-                      disabled={exporting}
+                      disabled={loading || exporting}
                       onClick={() => handleExport('WORKER_ANALYTICS', 'staff-efficiency-report', staffFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -375,6 +370,7 @@ const NurseDashboard = () => {
               }
               subtitle={null}
             >
+              {loading ? <SkeletonChart /> : (
               <ResponsiveContainer width="100%" height={250} minWidth={0}>
                   <BarChart data={staffEfficiency}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -385,6 +381,7 @@ const NurseDashboard = () => {
                       <Bar dataKey="checkups_completed" name="Checkups" fill="#8884d8" barSize={30} radius={[4, 4, 0, 0]} />
                   </BarChart>
               </ResponsiveContainer>
+              )}
             </ChartContainer>
 
           </div>
@@ -405,7 +402,7 @@ const NurseDashboard = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          disabled={exporting}
+                          disabled={loading || exporting}
                           onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                           className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                         >
@@ -414,7 +411,9 @@ const NurseDashboard = () => {
                       </div>
                   </div>
                   <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                      {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                      {loading ? (
+                        Array.from({ length: 6 }).map((_, i) => <SkeletonListItem key={i} />)
+                      ) : hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
                         hotlistOverview.list.map((alert: any, i: number) => (
                           <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition group">
                               <div className="flex items-center gap-3">
@@ -447,42 +446,46 @@ const NurseDashboard = () => {
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Alert Type Breakdown</h3>
                   
-                  <div className="h-64 relative">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                          <PieChart>
-                              <Pie 
-                                  data={alertsBreakdownPie} 
-                                  innerRadius={60} 
-                                  outerRadius={80} 
-                                  paddingAngle={5} 
-                                  dataKey="value"
-                              >
-                                  {alertsBreakdownPie.map((_, index) => (
-                                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                  ))}
-                              </Pie>
-                              <Tooltip />
-                          </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-3xl font-black text-slate-800">
-                            {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
-                          </span>
-                          <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
-                      </div>
-                  </div>
+                  {loading ? <SkeletonPie /> : (
+                  <>
+                    <div className="h-64 relative">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                            <PieChart>
+                                <Pie 
+                                    data={alertsBreakdownPie} 
+                                    innerRadius={60} 
+                                    outerRadius={80} 
+                                    paddingAngle={5} 
+                                    dataKey="value"
+                                >
+                                    {alertsBreakdownPie.map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-3xl font-black text-slate-800">
+                              {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
+                            </span>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
+                        </div>
+                    </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                      {alertsBreakdownPie.map((item, index) => (
-                          <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
-                              <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
-                                  <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
-                              </div>
-                              <span className="text-[12px] font-black text-slate-700">{item.value}</span>
-                          </div>
-                      ))}
-                  </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                        {alertsBreakdownPie.map((item, index) => (
+                            <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                                    <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
+                                </div>
+                                <span className="text-[12px] font-black text-slate-700">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                  </>
+                  )}
               </div>
           </div>
         </div>

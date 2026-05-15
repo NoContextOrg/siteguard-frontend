@@ -22,6 +22,7 @@ import { useState, useEffect, useRef } from 'react';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
   import { useNavigate } from 'react-router-dom';
+  import { SkeletonCard, SkeletonRow, SkeletonChart, SkeletonListItem } from './components/Skeletons';
   import { type Dayjs } from 'dayjs';
   import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
   import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -234,7 +235,7 @@ import { useState, useEffect, useRef } from 'react';
           {/* ========== STAT CARDS ========== */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             {loading ? (
-              <div className="col-span-full text-center py-8">Loading...</div>
+              Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
                 <StatCard label="Total Workers" value={(systemStats?.workers ?? 0).toString()} color="border-l-blue-400" icon={<Users size={28}/>} onClick={() => navigate('/engineer_team')} />
@@ -267,7 +268,9 @@ import { useState, useEffect, useRef } from 'react';
                     </thead>
 
                     <tbody>
-                      {persons.slice(0, 5).map((p, i) => (
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                      ) : persons.slice(0, 5).map((p, i) => (
                         <tr key={i} className="border-b hover:bg-blue-50">
                           <td className="px-6 py-4">{p.name}</td>
                           <td className="px-6 py-4">{(p as any).role ?? 'WORKER'}</td>
@@ -298,7 +301,9 @@ import { useState, useEffect, useRef } from 'react';
                     </thead>
 
                     <tbody>
-                      {alerts.slice(0, 5).map((a, i) => (
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                      ) : alerts.slice(0, 5).map((a, i) => (
                         <tr key={i} className="border-b hover:bg-blue-50">
                           <td className="px-6 py-4">{a.personName || 'N/A'}</td>
                           <td className="px-6 py-4 text-orange-500">{a.alertType}</td>
@@ -336,7 +341,7 @@ import { useState, useEffect, useRef } from 'react';
                     ))}
                     <button
                       type="button"
-                      disabled={exporting}
+                      disabled={loading || exporting}
                       onClick={() => handleExport('TEAMS', 'team-attendance-report', teamAttendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -345,6 +350,7 @@ import { useState, useEffect, useRef } from 'react';
                   </div>
                 </div>
 
+                {loading ? <SkeletonChart /> : (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={(teamAttendanceData || []).slice(0, 5).map((t, i) => ({
                     name: `Team ${i + 1}`,
@@ -358,6 +364,7 @@ import { useState, useEffect, useRef } from 'react';
                     <Bar dataKey="absent" stackId="a" fill="#f472b6" />
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </motion.div>
             </div>
 
@@ -373,7 +380,7 @@ import { useState, useEffect, useRef } from 'react';
                 <div className="space-y-4">
                   <button
                     onClick={() => handleDownloadDailyPdf()}
-                    disabled={exporting}
+                    disabled={loading || exporting}
                     className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Today's Attendance
@@ -404,7 +411,7 @@ import { useState, useEffect, useRef } from 'react';
                         }
                         handleDownloadDailyPdf(dateVal);
                       }}
-                      disabled={exporting}
+                      disabled={loading || exporting}
                       className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                       <Download size={16} /> Export Selected Day
@@ -422,7 +429,7 @@ import { useState, useEffect, useRef } from 'react';
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled={exporting}
+                        disabled={loading || exporting}
                         onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                         className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                       >
@@ -439,7 +446,9 @@ import { useState, useEffect, useRef } from 'react';
                   </div>
 
                   <div className="p-4 space-y-3">
-                    {hotlistOverview.list?.slice(0, 5).map((alert: any, i: number) => (
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => <SkeletonListItem key={i} />)
+                    ) : hotlistOverview.list?.slice(0, 5).map((alert: any, i: number) => (
                       <div key={alert.personCode ?? i} className="p-3 border rounded-lg">
                         <p className="font-bold text-sm">{alert.name}</p>
                         <p className="text-xs text-slate-500">{alert.role}</p>

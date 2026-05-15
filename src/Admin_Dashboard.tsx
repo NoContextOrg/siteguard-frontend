@@ -14,6 +14,7 @@ import { getActiveAlerts, getAllAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
+import { SkeletonCard, SkeletonRow, SkeletonChart, SkeletonListItem, SkeletonPie } from './components/Skeletons';
 
 import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -287,92 +288,63 @@ const AdminDashboard = () => {
         <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Admin Dashboard</h2>
 
         {/* ========== TOP STAT CARDS ========== */}
-        {loading && (
-          <div className="flex items-center justify-center py-4">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-          </div>
-        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard
-            label="Workers"
-            value={(systemStats?.workers ?? 0).toLocaleString()}
-            icon={<Users className="text-blue-400" size={28} />}
-            borderColor="border-l-blue-500"
-            onClick={() => navigate('/admin_team')}
-          />
-          <StatCard
-            label="Site Engineers"
-            value={(systemStats?.engineers ?? 0).toLocaleString()}
-            icon={<HardHat className="text-blue-300" size={28} />}
-            borderColor="border-l-blue-300"
-            onClick={() => navigate('/admin_team')}
-          />
-          <StatCard
-            label="Nurses"
-            value={(systemStats?.nurses ?? 0).toLocaleString()}
-            icon={<UserX className="text-red-400" size={28} />}
-            borderColor="border-l-red-500"
-            onClick={() => navigate('/admin_team')}
-          />
-          <StatCard
-            label="Admins"
-            value={(systemStats?.admins ?? 0).toLocaleString()}
-            icon={<UserCheck className="text-teal-400" size={28} />}
-            borderColor="border-l-teal-500"
-            onClick={() => navigate('/admin_team')}
-          />
-          <StatCard
-            label="Staff"
-            value={(systemStats?.staff ?? 0).toLocaleString()}
-            icon={<Users size={28} />}
-            borderColor="border-l-purple-500"
-            onClick={() => navigate('/admin_team')}
-          />
-          <StatCard
-            label="Total Persons"
-            value={(systemStats?.total_persons ?? 0).toLocaleString()}
-            icon={<HardHat size={28} />}
-            borderColor="border-l-indigo-500"
-            onClick={() => navigate('/admin_team')}
-          />
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : (
+            <>
+              <StatCard label="Workers" value={(systemStats?.workers ?? 0).toLocaleString()} icon={<Users className="text-blue-400" size={28} />} borderColor="border-l-blue-500" onClick={() => navigate('/admin_team')} />
+              <StatCard label="Site Engineers" value={(systemStats?.engineers ?? 0).toLocaleString()} icon={<HardHat className="text-blue-300" size={28} />} borderColor="border-l-blue-300" onClick={() => navigate('/admin_team')} />
+              <StatCard label="Nurses" value={(systemStats?.nurses ?? 0).toLocaleString()} icon={<UserX className="text-red-400" size={28} />} borderColor="border-l-red-500" onClick={() => navigate('/admin_team')} />
+              <StatCard label="Admins" value={(systemStats?.admins ?? 0).toLocaleString()} icon={<UserCheck className="text-teal-400" size={28} />} borderColor="border-l-teal-500" onClick={() => navigate('/admin_team')} />
+              <StatCard label="Staff" value={(systemStats?.staff ?? 0).toLocaleString()} icon={<Users size={28} />} borderColor="border-l-purple-500" onClick={() => navigate('/admin_team')} />
+              <StatCard label="Total Persons" value={(systemStats?.total_persons ?? 0).toLocaleString()} icon={<HardHat size={28} />} borderColor="border-l-indigo-500" onClick={() => navigate('/admin_team')} />
+            </>
+          )}
         </div>
 
         {/* Bottom stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div 
-            onClick={() => navigate('/admin_team')}
-            className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
-          >
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Teams</p>
-              <div className="flex items-center gap-3 mt-2">
-                <Users2 size={32} />
-                <span className="text-4xl font-black">{dashboardOverview?.totalTeams || 0}</span>
+          {loading ? (
+            Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : (
+            <>
+              <div 
+                onClick={() => navigate('/admin_team')}
+                className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
+              >
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Teams</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <Users2 size={32} />
+                    <span className="text-4xl font-black">{dashboardOverview?.totalTeams || 0}</span>
+                  </div>
+                </div>
+                <ArrowUpRight size={24} className="text-slate-300" />
               </div>
-            </div>
-            <ArrowUpRight size={24} className="text-slate-300" />
-          </div>
-          <div 
-            onClick={() => navigate('/attendance')}
-            className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
-          >
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Attendance</p>
-              <div className="flex items-center gap-3 mt-2">
-                <Users size={32} className="text-orange-400" />
-                <span className="text-4xl font-black text-orange-400">
-                  {dashboardOverview?.onsitePersonsToday || 0}
-                </span>
+              <div 
+                onClick={() => navigate('/attendance')}
+                className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
+              >
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Attendance</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <Users size={32} className="text-orange-400" />
+                    <span className="text-4xl font-black text-orange-400">
+                      {dashboardOverview?.onsitePersonsToday || 0}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1 text-[12px] font-bold">
+                    <ArrowUpRight size={12} className="text-green-500" />{' '}
+                    {dashboardOverview?.hotlistWorkers || 0}
+                  </div>
+                  <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Today's Alerts</p>
+                </div>
               </div>
-            </div>
-            <div className="text-right">
-              <div className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1 text-[12px] font-bold">
-                <ArrowUpRight size={12} className="text-green-500" />{' '}
-                {dashboardOverview?.hotlistWorkers || 0}
-              </div>
-              <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Today's Alerts</p>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* ========== MAIN GRID SECTION ========== */}
@@ -407,7 +379,7 @@ const AdminDashboard = () => {
                   ))}
                   <button
                     type="button"
-                    disabled={exporting}
+                    disabled={loading || exporting}
                     onClick={() => handleExportAlertsCsv()}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
@@ -438,13 +410,7 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="font-semibold text-slate-600">
                     {alertsLoading ? (
-                      <tr>
-                        <td className="px-6 py-10" colSpan={5}>
-                          <div className="flex items-center justify-center">
-                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-                          </div>
-                        </td>
-                      </tr>
+                      Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
                     ) : filteredAlerts.length === 0 ? (
                       <tr>
                         <td className="px-6 py-6 text-slate-400" colSpan={5}>
@@ -505,7 +471,7 @@ const AdminDashboard = () => {
                     ))}
                     <button
                       type="button"
-                      disabled={exporting}
+                      disabled={loading || exporting}
                       onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report', attendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -516,6 +482,7 @@ const AdminDashboard = () => {
               }
               subtitle={null}
             >
+              {loading ? <SkeletonChart /> : (
               <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={filteredAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -528,10 +495,12 @@ const AdminDashboard = () => {
                       <Bar dataKey="Engineers" stackId="a" fill="#2dd4bf" barSize={30} radius={[4, 4, 0, 0]} />
                   </BarChart>
               </ResponsiveContainer>
+              )}
             </ChartContainer>
 
             {/* Hotlist Attendance Overview Chart */}
             <ChartContainer title="Hotlist Attendance Overview" subtitle="This bar graph shows recent hotlist alerts by team.">
+              {loading ? <SkeletonChart /> : (
               <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={(Array.isArray(teamAttendanceData) ? teamAttendanceData : []).slice(0, 5).map((t, i) => ({
                     name: `Team ${i + 1}`,
@@ -547,10 +516,12 @@ const AdminDashboard = () => {
                       <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
                   </BarChart>
               </ResponsiveContainer>
+              )}
             </ChartContainer>
 
             {/* Attendance Trend (Line Chart) */}
             <ChartContainer title="Attendance Overview" subtitle="This bar graph shows how many hotlist per team is present.">
+              {loading ? <SkeletonChart /> : (
               <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={filteredAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -563,6 +534,7 @@ const AdminDashboard = () => {
                       <Line type="monotone" dataKey="Engineers" stroke="#2dd4bf" strokeWidth={3} dot={{r: 4}} />
                   </LineChart>
               </ResponsiveContainer>
+              )}
             </ChartContainer>
 
           </div>
@@ -579,7 +551,7 @@ const AdminDashboard = () => {
               <div className="space-y-4">
                 <button
                   onClick={() => handleDownloadDailyPdf()}
-                  disabled={exporting}
+                  disabled={loading || exporting}
                   className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   <Download size={16} /> Export Today's Attendance
@@ -609,7 +581,7 @@ const AdminDashboard = () => {
                       }
                       handleDownloadDailyPdf(dateVal);
                     }}
-                    disabled={exporting}
+                    disabled={loading || exporting}
                     className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Selected Day
@@ -627,7 +599,7 @@ const AdminDashboard = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={exporting}
+                    disabled={loading || exporting}
                     onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
@@ -637,7 +609,9 @@ const AdminDashboard = () => {
               </div>
 
               <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                {hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => <SkeletonListItem key={i} />)
+                ) : hotlistOverview?.list && hotlistOverview.list.length > 0 ? (
                   hotlistOverview.list.map((alert: any, i: number) => (
                     <div key={alert.personCode ?? i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition group">
                       <div className="flex items-center gap-3">
@@ -666,41 +640,45 @@ const AdminDashboard = () => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Team Attendance</h3>
                   
-                  <div className="h-64 relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                              <Pie 
-                                  data={teamAttendancePie} 
-                                  innerRadius={60} 
-                                  outerRadius={80} 
-                                  paddingAngle={5} 
-                                  dataKey="value"
-                              >
-                                  {teamAttendancePie.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.color} />
-                                  ))}
-                              </Pie>
-                              <Tooltip />
-                          </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-3xl font-black text-slate-800">
-                            {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
-                          </span>
-                      </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {teamAttendancePie.map((item) => (
-                        <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
-                            </div>
-                            <span className="text-[12px] font-black text-slate-700">{item.value}</span>
+                  {loading ? <SkeletonPie /> : (
+                  <>
+                    <div className="h-64 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie 
+                                    data={teamAttendancePie} 
+                                    innerRadius={60} 
+                                    outerRadius={80} 
+                                    paddingAngle={5} 
+                                    dataKey="value"
+                                >
+                                    {teamAttendancePie.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-3xl font-black text-slate-800">
+                              {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
+                            </span>
                         </div>
-                    ))}
-                  </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      {teamAttendancePie.map((item) => (
+                          <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
+                              <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                                  <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
+                              </div>
+                              <span className="text-[12px] font-black text-slate-700">{item.value}</span>
+                          </div>
+                      ))}
+                    </div>
+                  </>
+                  )}
               </div>
 
           </div>
