@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, getPersonsByTeam, getFallbackAvatar, type PersonResponse } from './api/person';
+
 import { assignWorkersToTeam, createTeam, deleteTeam, getAllTeams, updateTeam, type Team, type TeamResponse } from './api/team';
 import { createPersonUi, deletePersonById, updatePersonUi, uploadProfilePicture } from './api/person';
 import { authenticatedFetch } from './api/fetch';
@@ -130,6 +131,29 @@ const SkeletonCell = () => (
   </td>
 );
 
+const SkeletonAccountCard = () => (
+  <div className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-slate-200 h-44 animate-pulse">
+    <div className="h-3 bg-slate-100 rounded w-24 mb-6" />
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-8 h-8 bg-slate-100 rounded" />
+      <div className="h-8 bg-slate-100 rounded w-16" />
+    </div>
+    <div className="h-3 bg-slate-100 rounded w-20 ml-auto" />
+  </div>
+);
+
+const SkeletonTeamCard = () => (
+  <div className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-slate-200 h-52 animate-pulse">
+    <div className="h-4 bg-slate-100 rounded w-32 mb-2" />
+    <div className="h-2 bg-slate-100 rounded w-24 mb-6" />
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-8 h-8 bg-slate-100 rounded" />
+      <div className="h-8 bg-slate-100 rounded w-12" />
+    </div>
+    <div className="h-3 bg-slate-100 rounded w-20 ml-auto" />
+  </div>
+);
+
 // ========== Main Page Component ========== //
 
 const AdminTeam = () => {
@@ -141,7 +165,6 @@ const AdminTeam = () => {
 
   const [persons, setPersons] = useState<PersonResponse[]>([]);
   const [teams, setTeams] = useState<TeamResponse[]>([]);
-  const [teamCounts, setTeamCounts] = useState<Record<number, number>>({});
 
   // Modal form state
   const [newTeamName, setNewTeamName] = useState('');
@@ -227,22 +250,9 @@ const AdminTeam = () => {
     try {
       setLoading(true);
       setError(null);
-
       const [teamsData, personsData] = await Promise.all([getAllTeams(), getAllPersons()]);
       setTeams(teamsData);
       setPersons(personsData);
-
-      const pairs = await Promise.all(
-        teamsData.map(async (t) => {
-          try {
-            const members = await getPersonsByTeam(t.id);
-            return [t.id, Array.isArray(members) ? members.length : 0] as const;
-          } catch {
-            return [t.id, 0] as const;
-          }
-        })
-      );
-      setTeamCounts(Object.fromEntries(pairs));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load team data');
     } finally {
@@ -741,21 +751,31 @@ const AdminTeam = () => {
         <section className="mt-8">
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">ACCOUNTS</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <AccountCard title="Workers" count={loading ? '—' : workerCount.toLocaleString()} onAdd={() => {
-              setEditingPerson(null);
-              setNewAccountRole('WORKER');
-              setModalType('account');
-            }} />
-            <AccountCard title="Site Engineers" count={loading ? '—' : engineerCount.toLocaleString()} onAdd={() => {
-              setEditingPerson(null);
-              setNewAccountRole('ENGINEER');
-              setModalType('account');
-            }} />
-            <AccountCard title="Nurses" count={loading ? '—' : nurseCount.toLocaleString()} onAdd={() => {
-              setEditingPerson(null);
-              setNewAccountRole('NURSE');
-              setModalType('account');
-            }} />
+            {loading ? (
+              <>
+                <SkeletonAccountCard />
+                <SkeletonAccountCard />
+                <SkeletonAccountCard />
+              </>
+            ) : (
+              <>
+                <AccountCard title="Workers" count={workerCount.toLocaleString()} onAdd={() => {
+                  setEditingPerson(null);
+                  setNewAccountRole('WORKER');
+                  setModalType('account');
+                }} />
+                <AccountCard title="Site Engineers" count={engineerCount.toLocaleString()} onAdd={() => {
+                  setEditingPerson(null);
+                  setNewAccountRole('ENGINEER');
+                  setModalType('account');
+                }} />
+                <AccountCard title="Nurses" count={nurseCount.toLocaleString()} onAdd={() => {
+                  setEditingPerson(null);
+                  setNewAccountRole('NURSE');
+                  setModalType('account');
+                }} />
+              </>
+            )}
           </div>
         </section>
 
@@ -781,7 +801,11 @@ const AdminTeam = () => {
             </div>
 
             {loading ? (
-              <div className="col-span-full text-center py-10 text-slate-400 font-bold">Loading teams…</div>
+              <>
+                <SkeletonTeamCard />
+                <SkeletonTeamCard />
+                <SkeletonTeamCard />
+              </>
             ) : (
               teams.map((t, idx) => (
                 <TeamCard
@@ -792,7 +816,7 @@ const AdminTeam = () => {
                       ? (engineerNameById.get(Number((t as any).siteEngineerId)) ?? 'N/A')
                       : (t as any).siteEngineerName ?? 'N/A'
                   }
-                  count={(teamCounts[t.id] ?? (t as any).members ?? 0).toLocaleString()}
+                  count={(t.members ?? 0).toLocaleString()}
                   borderColor={teamBorderColor(t, idx)}
                   accentGradient={teamAccentBg(idx)}
                   onAddWorker={() => {
@@ -1318,9 +1342,14 @@ const AdminTeam = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teamMembersLoading ? (
-                    <tr>
-                      <td colSpan={4} className="p-6 text-center text-slate-500 font-bold">Loading members…</td>
-                    </tr>
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="p-3"><div className="h-3 bg-slate-100 rounded w-28" /></td>
+                        <td className="p-3"><div className="h-3 bg-slate-100 rounded w-16" /></td>
+                        <td className="p-3"><div className="h-3 bg-slate-100 rounded w-36" /></td>
+                        <td className="p-3"><div className="h-3 bg-slate-100 rounded w-24" /></td>
+                      </tr>
+                    ))
                   ) : teamMembers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-6 text-center text-slate-500 font-bold">No members found.</td>

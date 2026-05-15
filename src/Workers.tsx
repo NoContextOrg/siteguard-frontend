@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, X, Save, Eye, EyeOff } from 'lucide-react';
 import DashboardLayout from './components/DashboardLayout';
 import { getAllPersons, updatePersonUi, setPersonPassword, getAvatarUrl, getFallbackAvatar, type PersonResponse } from './api/person';
-import { getAllAttendance, getBiometricLastId, type AttendanceLog } from './api/attendance';
+import { getBiometricLastId, type AttendanceLog } from './api/attendance';
 import { getAllTeams } from './api/team';
 import { authenticatedFetch } from './api/fetch';
 
@@ -91,6 +91,29 @@ const UnifiedStatusSquare = ({ status }: { status: string }) => {
   );
 };
 
+// Skeleton shimmer for table rows
+const SkeletonRow = () => (
+  <tr className="animate-pulse">
+    <td className="px-6 py-4"><div className="w-10 h-10 rounded-full bg-slate-200 mx-auto" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-32" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-24" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-28" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-20 mx-auto" /></td>
+    <td className="px-6 py-4"><div className="h-7 bg-slate-200 rounded w-20 mx-auto" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-10 mx-auto" /></td>
+    <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-24 mx-auto" /></td>
+  </tr>
+);
+
+// Skeleton shimmer for stat cards
+const SkeletonCard = () => (
+  <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5 animate-pulse">
+    <div className="h-2 bg-slate-200 rounded w-32 mb-3" />
+    <div className="h-7 bg-slate-200 rounded w-16 mb-2" />
+    <div className="h-2 bg-slate-200 rounded w-40" />
+  </div>
+);
+
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<WorkerRow[]>([]);
   const [persons, setPersons] = useState<PersonResponse[]>([]);
@@ -138,44 +161,29 @@ export default function WorkersPage() {
 
   const loadPersons = async (opts?: { silent?: boolean }) => {
     try {
-      if (!opts?.silent) {
-        setLoading(true);
-      }
+      if (!opts?.silent) setLoading(true);
       setError(null);
 
-      const loaded = await getAllPersons();
+      const [loaded, teams] = await Promise.all([
+        getAllPersons(),
+        getAllTeams().catch(() => []),
+      ]);
+
       const onlyWorkers = loaded.filter((p) => String((p as any).role ?? '').toUpperCase() === 'WORKER');
       setPersons(onlyWorkers);
 
-      // Fetch teams for engineer names
-      const teams = await getAllTeams().catch(() => []);
       const teamEngineerMap = new Map<number, string>(teams.map(t => [t.id, t.siteEngineerName ?? 'N/A'] as [number, string]));
 
-      // Build rows with enriched engineer + lastAdmitted
-      const rows = await Promise.all(onlyWorkers.map(async (p) => {
+      // Build rows — lastAdmitted comes directly from PersonResponse (no per-worker fetch)
+      const rows = onlyWorkers.map((p) => {
         const row = toWorkerRow(p);
-
-        // Engineer from team
         if (p.teamId) row.engineer = teamEngineerMap.get(p.teamId) ?? row.engineer;
-
-        // Last admitted from top attendance log
-        if (p.personCode) {
-          try {
-            const res = await authenticatedFetch(`${API_BASE_URL}/attendance/person/${encodeURIComponent(p.personCode)}`);
-            if (res.ok) {
-              const logs: any[] = await res.json();
-              const ts = logs[0]?.eventTimestamp ?? logs[0]?.timestamp;
-              if (ts) row.lastAdmitted = new Date(ts).toLocaleDateString();
-            }
-          } catch { /* non-fatal */ }
-        }
-
         return row;
-      }));
+      });
 
       setWorkers(rows);
 
-      // Fetch current status for each worker
+      // Fetch current status for each worker in parallel (fire-and-forget, updates incrementally)
       const statuses: Record<number, string> = {};
       await Promise.allSettled(
         onlyWorkers.map(async (p) => {
@@ -199,10 +207,10 @@ export default function WorkersPage() {
   const loadAttendance = async (opts?: { silent?: boolean }) => {
     try {
       if (!opts?.silent) setAttendanceLoading(true);
-      const logs = await getAllAttendance();
+      const res = await authenticatedFetch(`${API_BASE_URL}/attendance?limit=10&sort=desc`);
+      const logs = res.ok ? await res.json() : [];
       setAttendanceLogs(Array.isArray(logs) ? logs : []);
     } catch (e) {
-      // Non-fatal for Workers page
       console.warn('Failed to load attendance logs', e);
     } finally {
       if (!opts?.silent) setAttendanceLoading(false);
@@ -511,39 +519,49 @@ export default function WorkersPage() {
 
         {/* Hardware / device status */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
-            <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-              Biometric hardware (lastId)
-            </div>
-            <div className="mt-2 text-2xl font-black text-slate-800">
-              {lastIdLoading ? '…' : (biometricLastId && biometricLastId > 0 ? biometricLastId : 'None')}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              Polled from <span className="font-mono">/api/biometric</span>
-            </div>
-          </div>
+          {loading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            <>
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                  Biometric hardware (lastId)
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-800">
+                  {lastIdLoading ? '…' : (biometricLastId && biometricLastId > 0 ? biometricLastId : 'None')}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Polled from <span className="font-mono">/api/biometric</span>
+                </div>
+              </div>
 
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
-            <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-              Registered fingerprints
-            </div>
-            <div className="mt-2 text-2xl font-black text-slate-800">{registeredFingerprintsCount}</div>
-            <div className="mt-1 text-xs text-slate-500">
-              Derived from persons with fingerprint data
-            </div>
-          </div>
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                  Registered fingerprints
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-800">{registeredFingerprintsCount}</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Derived from persons with fingerprint data
+                </div>
+              </div>
 
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
-            <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-              Master attendance records
-            </div>
-            <div className="mt-2 text-2xl font-black text-slate-800">
-              {attendanceLoading ? '…' : attendanceLogs.length}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              Loaded from <span className="font-mono">/api/attendance</span>
-            </div>
-          </div>
+              <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                  Master attendance records
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-800">
+                  {attendanceLoading ? '…' : attendanceLogs.length}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Loaded from <span className="font-mono">/api/attendance</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {error && (
@@ -601,11 +619,7 @@ export default function WorkersPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
-                      Loading workers…
-                    </td>
-                  </tr>
+                  Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
                 ) : filteredWorkers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-10 text-center text-slate-500 text-sm">
@@ -764,11 +778,13 @@ export default function WorkersPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {attendanceLoading ? (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-slate-500 text-sm">
-                      Loading attendance…
-                    </td>
-                  </tr>
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-28" /></td>
+                      <td className="px-6 py-4"><div className="h-5 bg-slate-200 rounded w-16" /></td>
+                      <td className="px-6 py-4"><div className="h-3 bg-slate-200 rounded w-36" /></td>
+                    </tr>
+                  ))
                 ) : attendanceLogs.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-6 py-8 text-center text-slate-500 text-sm">
