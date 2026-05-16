@@ -29,8 +29,6 @@ export interface AuthError {
  */
 export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> => {
   try {
-    console.log('🔐 Login attempt with email:', loginData.email);
-    
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -38,8 +36,6 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
       },
       body: JSON.stringify(loginData),
     });
-
-    console.log('📡 Login response status:', response.status);
 
     if (!response.ok) {
       let errorMessage = 'Login failed';
@@ -49,25 +45,16 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
       } catch (e) {
         errorMessage = `Server error: ${response.status} ${response.statusText}`;
       }
-      console.error('❌ Login failed:', errorMessage);
       throw new Error(errorMessage);
     }
 
     const data: AuthResponse = await response.json();
-    console.log('✅ Login response received:', {
-      hasToken: !!data.accessToken,
-      username: data.username,
-      roles: data.roles,
-      expiresIn: data.expiresIn,
-      tokenType: data.tokenType
-    });
     
     // Normalize response in case backend returns different field names
     const normalized = normalizeAuthResponse(data);
     
     return normalized;
   } catch (error) {
-    console.error('❌ Login error:', error);
     throw error instanceof Error ? error : new Error('An unexpected error occurred');
   }
 };
@@ -86,7 +73,6 @@ export const verifyToken = async (token: string): Promise<boolean> => {
 
     return response.ok;
   } catch (error) {
-    console.error('Token verification failed:', error);
     return false;
   }
 };
@@ -149,8 +135,6 @@ export const hasRole = (role: string): boolean => {
  */
 export const storeAuthData = (authResponse: AuthResponse, rememberMe: boolean = false): void => {
   try {
-    console.log('💾 [AUTH_STORAGE_START] Storing auth response');
-    
     // Step 1: Validate input
     if (!authResponse?.accessToken) {
       throw new Error('Missing accessToken in response');
@@ -165,11 +149,9 @@ export const storeAuthData = (authResponse: AuthResponse, rememberMe: boolean = 
     if (!verifyToken) {
       throw new Error('Failed to store accessToken');
     }
-    console.log('✅ [TOKEN_STORED] accessToken is now in storage');
 
     // Step 3: Store userEmail
     localStorage.setItem('userEmail', authResponse.username || '');
-    console.log('✅ [EMAIL_STORED] userEmail:', authResponse.username);
 
     // Step 4: Store userRoles
     const rolesJson = JSON.stringify(authResponse.roles);
@@ -178,26 +160,14 @@ export const storeAuthData = (authResponse: AuthResponse, rememberMe: boolean = 
     if (!verifyRoles) {
       throw new Error('Failed to store userRoles');
     }
-    console.log('✅ [ROLES_STORED] userRoles:', authResponse.roles);
 
     // Step 5: Store tokenExpiry
     // Trust the backend's calculated expiresIn, with a safe fallback
     const expirySeconds = authResponse.expiresIn || (rememberMe ? 2592000 : 21600);
     const expiryMs = new Date().getTime() + (expirySeconds * 1000);
     localStorage.setItem('tokenExpiry', expiryMs.toString());
-    console.log('✅ [EXPIRY_STORED] Expires at:', new Date(expiryMs).toLocaleString());
-
-    // Step 6: Final verification
-    const finalState = {
-      token: localStorage.getItem('accessToken') ? '✅ EXISTS' : '❌ MISSING',
-      email: localStorage.getItem('userEmail') ? '✅ EXISTS' : '❌ MISSING',
-      roles: localStorage.getItem('userRoles') ? '✅ EXISTS' : '❌ MISSING',
-      expiry: localStorage.getItem('tokenExpiry') ? '✅ EXISTS' : '❌ MISSING',
-    };
-    console.log('✅ [AUTH_STORAGE_COMPLETE] Final state:', finalState);
 
   } catch (error) {
-    console.error('❌ [AUTH_STORAGE_FAILED]', error);
     throw error;
   }
 };
@@ -258,33 +228,13 @@ export const isTokenValid = (): boolean => {
   const token = getAuthToken();
   const expiry = localStorage.getItem('tokenExpiry');
   
-  console.log('⏰ [TOKEN_CHECK] Validating token:', {
-    hasToken: !!token,
-    hasExpiry: !!expiry,
-    tokenLength: token ? token.length : 0,
-  });
-  
   if (!token || !expiry) {
-    console.warn('⚠️ [TOKEN_INVALID] Missing token or expiry', { 
-      hasToken: !!token, 
-      hasExpiry: !!expiry 
-    });
     return false;
   }
   
   const now = new Date().getTime();
   const expiryTime = parseInt(expiry);
   const isValid = now < expiryTime;
-  
-  const timeRemaining = expiryTime - now;
-  const minutesRemaining = Math.floor(timeRemaining / 1000 / 60);
-  
-  console.log('⏰ [TOKEN_VALIDITY]:', {
-    isValid,
-    minutesRemaining,
-    expiryTime: new Date(expiryTime).toLocaleString(),
-    currentTime: new Date(now).toLocaleString()
-  });
   
   return isValid;
 };
@@ -295,47 +245,20 @@ export const isTokenValid = (): boolean => {
  */
 export const initAuthListener = () => {
   const handleStorageChange = (e: StorageEvent) => {
-    console.log('🔍 Storage change detected:', {
-      key: e.key,
-      oldValue: e.oldValue ? e.oldValue.substring(0, 20) + '...' : 'null',
-      newValue: e.newValue ? e.newValue.substring(0, 20) + '...' : 'null',
-      url: e.url,
-    });
-
     // Only redirect if accessToken is explicitly removed (logout action)
     // Check if value was present and is now null (logout from another tab)
     if (e.key === 'accessToken') {
-      console.log('🔑 AccessToken change:', {
-        hadValue: !!e.oldValue,
-        hasValue: !!e.newValue,
-        isLogout: e.oldValue !== null && e.newValue === null
-      });
-
       if (e.oldValue !== null && e.newValue === null) {
-        // User was logged in and now is logged out from another tab
-        console.log('🚪 Logout detected from another tab');
         window.location.href = '/';
       }
-    }
-
-    // Log tokenExpiry changes
-    if (e.key === 'tokenExpiry') {
-      console.log('⏱️ TokenExpiry change:', {
-        oldValue: e.oldValue,
-        newValue: e.newValue,
-        // Calculate time remaining if new value exists
-        timeRemaining: e.newValue ? new Date(parseInt(e.newValue)).toLocaleString() : 'none'
-      });
     }
   };
 
   window.addEventListener('storage', handleStorageChange);
-  console.log('✅ Auth listener initialized');
 
   // Return cleanup function
   return () => {
     window.removeEventListener('storage', handleStorageChange);
-    console.log('🧹 Auth listener cleaned up');
   };
 };
 
@@ -344,8 +267,6 @@ export const initAuthListener = () => {
  * Backend might return different field names
  */
 export const normalizeAuthResponse = (response: any): AuthResponse => {
-  console.log('🔍 Normalizing auth response:', response);
-  
   // Map possible field names from backend
   const token = response.accessToken || response.token || response.access_token;
   const username = response.username || response.email || response.user || 'Unknown';
@@ -354,7 +275,6 @@ export const normalizeAuthResponse = (response: any): AuthResponse => {
   const tokenType = response.tokenType || response.token_type || 'Bearer';
 
   if (!token) {
-    console.error('❌ No token found in response');
     throw new Error('Invalid login response: no access token');
   }
 
@@ -366,7 +286,6 @@ export const normalizeAuthResponse = (response: any): AuthResponse => {
     tokenType
   };
 
-  console.log('✅ Normalized response:', normalized);
   return normalized;
 };
 
@@ -375,22 +294,12 @@ export const normalizeAuthResponse = (response: any): AuthResponse => {
  * Called on app load
  */
 export const restoreAuthState = (): { isValid: boolean; email?: string; roles?: string[] } => {
-  console.log('🔍 [RESTORE_START] Checking localStorage for auth data...');
-  
   const token = localStorage.getItem('accessToken');
   const email = localStorage.getItem('userEmail');
   const rolesJson = localStorage.getItem('userRoles');
   const expiry = localStorage.getItem('tokenExpiry');
 
-  console.log('📦 [STORED_DATA]:', {
-    token: token ? `✅ (${token.length} chars)` : '❌ MISSING',
-    email: email ? `✅ (${email})` : '❌ MISSING',
-    roles: rolesJson ? `✅ (${rolesJson})` : '❌ MISSING',
-    expiry: expiry ? `✅ (${new Date(parseInt(expiry)).toLocaleString()})` : '❌ MISSING',
-  });
-
   if (!token || !email || !rolesJson || !expiry) {
-    console.warn('⚠️ [RESTORE_INCOMPLETE] Missing required auth data');
     return { isValid: false };
   }
 
@@ -398,17 +307,14 @@ export const restoreAuthState = (): { isValid: boolean; email?: string; roles?: 
   const now = new Date().getTime();
   const expiryTime = parseInt(expiry);
   if (now >= expiryTime) {
-    console.warn('⏰ [TOKEN_EXPIRED] Token has expired');
     clearAuthData();
     return { isValid: false };
   }
 
   try {
     const roles = JSON.parse(rolesJson);
-    console.log('✅ [RESTORE_SUCCESS] Auth state restored from storage');
     return { isValid: true, email, roles };
   } catch (error) {
-    console.error('❌ [RESTORE_ERROR] Failed to parse roles:', error);
     clearAuthData();
     return { isValid: false };
   }
@@ -418,10 +324,8 @@ export const restoreAuthState = (): { isValid: boolean; email?: string; roles?: 
  * Clear all auth data
  */
 export const clearAuthData = (): void => {
-  console.log('🧹 [CLEAR_AUTH] Removing all auth data from localStorage');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('userEmail');
   localStorage.removeItem('userRoles');
   localStorage.removeItem('tokenExpiry');
-  console.log('✅ [CLEARED] Auth data cleared');
 };

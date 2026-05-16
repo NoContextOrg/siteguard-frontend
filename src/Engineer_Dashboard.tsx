@@ -55,7 +55,7 @@ import { useState, useEffect, useRef } from 'react';
 
     // New Async Export Hook
     const exportManager = useExportJob({
-      onSuccess: () => console.log('Export finished successfully'),
+      onSuccess: () => {},
       onError: (err) => console.error('Export failed:', err)
     });
 
@@ -89,10 +89,11 @@ import { useState, useEffect, useRef } from 'react';
             });
           }
 
-          const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t) => ({
+          const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t: any) => ({
             name: t.name,
             present: t.present,
             absent: t.absent,
+            overtime: t.overtime || 0,
           }));
           setTeamAttendanceData(tdArray as any);
 

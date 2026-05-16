@@ -668,8 +668,6 @@ function App() {
 function AppWithAuth() {
   // Initialize auth listener ONCE when component mounts
   React.useEffect(() => {
-    console.log('🚀 App mounted - initializing auth listener');
-    
     const isDev = import.meta.env.DEV;
     if (isDev) {
       initStorageDebugger();
@@ -680,7 +678,6 @@ function AppWithAuth() {
     
     // Cleanup listener only when app unmounts
     return () => {
-      console.log('🛑 App unmounting, cleaning up listeners');
       cleanup();
     };
   }, []); // Empty dependency - run only once on mount

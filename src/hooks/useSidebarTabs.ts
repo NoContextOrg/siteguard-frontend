@@ -17,7 +17,7 @@ export const useSidebarTabs = () => {
   // Listen for storage changes to update sidebar
   useEffect(() => {
     const handleStorageChange = () => {
-      console.log('📱 Storage changed, updating sidebar tabs');
+      // Storage changed, updating sidebar tabs
       setRefreshTrigger(prev => prev + 1);
     };
 
@@ -26,7 +26,7 @@ export const useSidebarTabs = () => {
   }, []);
 
   const sidebarTabs = useMemo(() => {
-    console.log('🔄 Computing sidebar tabs');
+    // Computing sidebar tabs
     return getCurrentUserSidebarTabs();
   }, [refreshTrigger]);
 

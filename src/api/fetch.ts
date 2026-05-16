@@ -36,15 +36,8 @@ export const authenticatedFetch = async (
   } catch {
     roles = rolesRaw;
   }
-  console.log('🧾 [AUTH_FETCH]', {
-    url: urlStr,
-    method: init.method || 'GET',
-    hasToken: !!token,
-    tokenLength: token?.length || 0,
-    hasAuthorizationHeader: !!authHeader,
-    authorizationPrefix: authHeader ? authHeader.split(' ')[0] : null,
-    roles,
-  });
+  // log.debug('🧾 [AUTH_FETCH]', { url: urlStr, method: init.method || 'GET' });
+
 
   const response = await fetch(input, {
     ...init,

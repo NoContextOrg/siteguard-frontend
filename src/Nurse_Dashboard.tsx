@@ -44,7 +44,7 @@ const NurseDashboard = () => {
 
   // New Async Export Hook
   const exportManager = useExportJob({
-    onSuccess: () => console.log('Export finished successfully'),
+    onSuccess: () => {},
     onError: (err) => console.error('Export failed:', err)
   });
 

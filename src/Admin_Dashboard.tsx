@@ -27,6 +27,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws/alerts';
 
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,7 @@ const AdminDashboard = () => {
 
   // New Async Export Hook
   const exportManager = useExportJob({
-    onSuccess: () => console.log('Export finished successfully'),
+    onSuccess: () => {},
     onError: (err) => console.error('Export failed:', err)
   });
 
@@ -87,11 +88,11 @@ const AdminDashboard = () => {
         }));
         setAttendanceData(attArray);
 
-        const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t) => ({
+        const tdArray = (unified.enhancedAttendanceOverview?.teamBreakdown || []).map((t: any) => ({
           name: t.name,
           present: t.present,
           absent: t.absent,
-          overtime: 0,
+          overtime: t.overtime || 0,
         }));
         setTeamAttendanceData(tdArray as any);
 

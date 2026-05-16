@@ -23,11 +23,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, loading } = useAuth();
 
-  console.log('🛡️ ProtectedRoute check:', {
-    isAuthenticated,
-    loading,
-    requiredRoles
-  });
+  // log.debug('🛡️ ProtectedRoute check', { isAuthenticated, loading, requiredRoles });
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -43,13 +39,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Not authenticated - redirect to landing page
   if (!isAuthenticated) {
-    console.warn('⚠️ ProtectedRoute: Not authenticated, redirecting to home');
     return <Navigate to="/" replace />;
   }
 
   // If no roles are required, grant access
   if (!requiredRoles || requiredRoles.length === 0) {
-    console.log('✅ ProtectedRoute: Access granted (no roles required)');
     return <>{children}</>;
   }
 
@@ -60,11 +54,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   );
 
   if (hasRequiredRole) {
-    console.log('✅ ProtectedRoute: Access granted (role match)');
     return <>{children}</>;
   }
 
   // Has role restriction but user doesn't have required role - redirect to their dashboard
-  console.warn('⚠️ ProtectedRoute: User lacks required role, redirecting to dashboard');
   return <Navigate to="/dashboard" replace />;
 };
