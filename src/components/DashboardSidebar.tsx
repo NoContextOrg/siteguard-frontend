@@ -12,6 +12,8 @@ import type { NavItem } from '../config/sidebarConfig.tsx';
 
 interface DashboardSidebarProps {
   navItems: NavItem[];
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 /**
@@ -19,17 +21,26 @@ interface DashboardSidebarProps {
  * Only Link components for navigation
  * Only logout button has onClick handler
  */
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ navItems }) => {
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ navItems, isOpen = false, onClose }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { logout } = useAuth();
   const location = useLocation();
 
   return (
-    <aside
-      className={`fixed left-0 top-0 h-screen bg-slate-900 text-white transition-all duration-300 z-40 ${
-        isCollapsed ? 'w-20' : 'w-64'
-      }`}
-    >
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 h-screen bg-slate-900 text-white transition-all duration-300 z-50 ${
+          isCollapsed ? 'md:w-20' : 'md:w-64'
+        } ${isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}`}
+      >
       {/* Header - collapse button only */}
       <div className="p-6 border-b border-slate-800 flex items-center justify-between">
         {!isCollapsed && <h2 className="text-xl font-bold">SiteGuard</h2>}
@@ -87,5 +98,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ navItems }) 
         </button>
       </div>
     </aside>
+    </>
   );
 };

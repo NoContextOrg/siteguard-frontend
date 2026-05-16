@@ -184,16 +184,16 @@ const AdminTeamDetail = () => {
   return (
     <DashboardLayout title="Team">
       <div className="p-8">
-          <h1 className="text-3xl font-black text-slate-800 mb-8 uppercase tracking-tight">{team?.teamName || 'TEAM'}</h1>
+          <h1 className="text-3xl font-black !text-slate-950 mb-8 uppercase tracking-tight">{team?.teamName || 'TEAM'}</h1>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-black text-slate-800 uppercase">{team?.teamName || ''}</h2>
+                <h2 className="text-xl font-black !text-slate-950 uppercase">{team?.teamName || ''}</h2>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">{team?.siteEngineerName || ''}</p>
                 <div className="grid grid-cols-2 gap-6 mb-8">
                   {/* Hotlist Card */}
                   <div className="border-2 border-slate-100 rounded-2xl p-6 relative">
-                    <h3 className="text-md font-black text-slate-800 uppercase">Hotlist Workers</h3>
+                    <h3 className="text-md font-black !text-slate-950 uppercase">Hotlist Workers</h3>
                     <div className="flex items-center gap-4 mt-2">
                       <Users size={32} className="text-red-400" /><span className="text-4xl font-black text-red-400">{hotlistMembers.length}</span>
                     </div>
@@ -204,7 +204,7 @@ const AdminTeamDetail = () => {
                   </div>
                   {/* Normal Card */}
                   <div className="border-2 border-slate-100 rounded-2xl p-6 relative">
-                    <h3 className="text-md font-black text-slate-800 uppercase">Normal Workers</h3>
+                    <h3 className="text-md font-black !text-slate-950 uppercase">Normal Workers</h3>
                     <div className="flex items-center gap-4 mt-2">
                       <Users size={32} className="text-blue-400" /><span className="text-4xl font-black text-blue-400">{normalMembers.length}</span>
                     </div>
@@ -215,7 +215,7 @@ const AdminTeamDetail = () => {
                   </div>
                 </div>
                 <div className="border-2 border-slate-100 rounded-2xl p-6">
-                  <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Overtime Overview</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase mb-4">Overtime Overview</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={attendance}>
@@ -244,7 +244,7 @@ const AdminTeamDetail = () => {
               </div>
               <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 uppercase mb-4 tracking-tighter">Hotlist Workers</h3>
+                  <h3 className="text-lg font-black !text-slate-950 uppercase mb-4 tracking-tighter">Hotlist Workers</h3>
                   <div className="space-y-2">
                     {hotlistMembers.map(m => (
                       <div key={m.id} className="border border-slate-100 p-4 rounded-xl flex justify-between items-center bg-white shadow-sm">
@@ -255,7 +255,7 @@ const AdminTeamDetail = () => {
                   </div>
                 </section>
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 uppercase mb-4 tracking-tighter">Normal Workers</h3>
+                  <h3 className="text-lg font-black !text-slate-950 uppercase mb-4 tracking-tighter">Normal Workers</h3>
                   <div className="space-y-2">
                     {normalMembers.map(m => (
                       <div key={m.id} className="border border-slate-100 p-4 rounded-xl flex justify-between items-center bg-white shadow-sm">
@@ -276,7 +276,7 @@ const AdminTeamDetail = () => {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setActiveModal(null)}></div>
           <div className="relative bg-white w-full max-w-4xl rounded-[30px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">Full Team List - {team?.teamName || ''}</h2>
+              <h2 className="text-xl font-black !text-slate-950 uppercase tracking-widest">Full Team List - {team?.teamName || ''}</h2>
               <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-slate-200 rounded-full transition"><X size={24}/></button>
             </div>
             <div className="p-6 overflow-x-auto">
@@ -304,7 +304,7 @@ const AdminTeamDetail = () => {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setActiveModal(null)}></div>
           <div className="relative bg-white w-full max-w-md rounded-[30px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">Add Worker to {team?.teamName || ''}</h2>
+              <h2 className="text-xl font-black !text-slate-950 uppercase tracking-widest">Add Worker to {team?.teamName || ''}</h2>
               <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-slate-100 rounded-full transition"><X size={24}/></button>
             </div>
             <form className="p-8 space-y-4" onSubmit={handleAddWorker}>

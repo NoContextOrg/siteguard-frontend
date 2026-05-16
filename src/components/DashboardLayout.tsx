@@ -17,6 +17,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   title = 'Dashboard'
 }) => {
   const { isAuthenticated, loading } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const userRole = getPrimaryRole();
 
   if (loading) {
@@ -45,10 +46,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     : `${title}${userRole ? ' - ' + userRole.charAt(0).toUpperCase() + userRole.slice(1) : ''}`;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      <DashboardSidebar navItems={sidebarItems} />
-      <main className="flex-1 ml-64">
-        <DashboardNavbar title={formattedTitle} />
+    <div className="flex min-h-screen bg-slate-50 font-sans overflow-x-hidden">
+      <DashboardSidebar 
+        navItems={sidebarItems} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+      />
+      <main className="flex-1 md:ml-64 transition-all duration-300 w-full min-w-0">
+        <DashboardNavbar 
+          title={formattedTitle} 
+          onMenuClick={() => setIsSidebarOpen(true)} 
+        />
         {children}
       </main>
     </div>

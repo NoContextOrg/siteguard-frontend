@@ -29,6 +29,9 @@
   @media (max-width: 1024px) {
     font-size: 16px;
   }
+  @media (max-width: 640px) {
+    font-size: 14px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -110,4 +113,33 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+/* Custom Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-panel {
+  background: rgba(22, 23, 29, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.card-hover-effect {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -10px rgba(0, 0, 0, 0.15);
+}
+
+.active-scale {
+  transition: transform 0.1s ease;
+}
+
+.active-scale:active {
+  transform: scale(0.96);
 }

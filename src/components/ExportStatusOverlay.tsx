@@ -42,7 +42,7 @@ export const ExportStatusOverlay: React.FC<ExportStatusOverlayProps> = ({
               state === 'completed' ? 'bg-green-500' : 
               state === 'failed' ? 'bg-red-500' : 'bg-blue-500 animate-pulse'
             }`} />
-            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">{title}</h4>
+            <h4 className="text-[11px] font-black !text-slate-950 uppercase tracking-widest">{title}</h4>
           </div>
           <button 
             onClick={onReset} 

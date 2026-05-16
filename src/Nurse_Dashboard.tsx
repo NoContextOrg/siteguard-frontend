@@ -208,7 +208,7 @@ const NurseDashboard = () => {
 
   return (
     <DashboardLayout title="Nurse Dashboard">
-      <div className="p-8">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto">
         {/* Dashboard-wide time filter removed; controls are now per section */}
 
         {floatingAlert && (
@@ -222,10 +222,10 @@ const NurseDashboard = () => {
           </div>
         )}
 
-        <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
+        <h2 className="text-xl md:text-2xl font-black !text-slate-950 mb-6 uppercase tracking-tight">Nurse Dashboard</h2>
 
         {/* ========== TOP STAT CARDS ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
           ) : (
@@ -250,7 +250,7 @@ const NurseDashboard = () => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 border-b border-slate-100">
                   <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase">Alert Overview</h3>
+                      <h3 className="text-sm font-black !text-slate-950 uppercase">Alert Overview</h3>
                       <p className="text-[12px] text-slate-400 font-medium">List of all hotlist workers that are working overtime or was admitted.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -338,7 +338,7 @@ const NurseDashboard = () => {
               title={
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 w-full">
                   <div>
-                    <div className="text-sm font-black text-slate-800 uppercase">Staff Efficiency</div>
+                    <div className="text-sm font-black !text-slate-950 uppercase">Staff Efficiency</div>
                     <div className="text-[12px] text-slate-400 font-medium">Checkups completed by medical staff.</div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -393,7 +393,7 @@ const NurseDashboard = () => {
               <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                   <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <div>
-                          <h3 className="text-sm font-black text-slate-800 uppercase">Hotlist Overview</h3>
+                          <h3 className="text-sm font-black !text-slate-950 uppercase">Hotlist Overview</h3>
                           <p className="text-[12px] text-slate-400 font-medium">This shows which are the active workers on hotlist.</p>
                           <div className="flex gap-2 mt-4">
                               <button className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 px-2 py-1 rounded"> <Filter size={10}/> By Team</button>
@@ -445,7 +445,7 @@ const NurseDashboard = () => {
 
               {/* Alert Breakdown Donut */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h3 className="text-sm font-black text-slate-800 uppercase mb-4">Alert Type Breakdown</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase mb-4">Alert Type Breakdown</h3>
                   
                   {loading ? <SkeletonPie /> : (
                   <>
@@ -467,7 +467,7 @@ const NurseDashboard = () => {
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-3xl font-black text-slate-800">
+                            <span className="text-3xl font-black !text-slate-950">
                               {alertsBreakdownPie.reduce((sum, item) => sum + item.value, 0)}
                             </span>
                             <span className="text-xs font-bold text-slate-400 uppercase">Total Active</span>
@@ -505,19 +505,19 @@ const NurseDashboard = () => {
 };
 
 const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
-  <div onClick={onClick} className={`bg-white p-6 rounded-xl border-l-8 ${borderColor} shadow-sm flex flex-col justify-between ${onClick ? 'hover:scale-[1.02] cursor-pointer transition' : ''}`}>
+  <div onClick={onClick} className={`bg-white p-4 md:p-6 rounded-xl border-l-[6px] md:border-l-8 ${borderColor} shadow-sm card-hover-effect active-scale cursor-pointer flex flex-col justify-between h-full min-h-[120px]`}>
     <div className="flex items-center justify-between">
-      <div>
-          <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
+      <div className="min-w-0 flex-1">
+          <p className="text-[10px] md:text-[12px] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">
             {label}
           </p>
-          <span className="text-4xl font-black text-slate-800">{value}</span>
+          <span className="text-2xl md:text-4xl font-black !text-slate-950 block truncate">{value}</span>
       </div>
-      <div className="opacity-40">{icon}</div>
+      <div className="opacity-20 md:opacity-40 flex-shrink-0 ml-2">{icon}</div>
     </div>
     {onClick && (
-      <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
-        Click to view →
+      <div className="mt-4 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
+        View details →
       </div>
     )}
   </div>
@@ -528,7 +528,7 @@ const ChartContainer = ({ title, subtitle, children }: any) => (
         <div className="flex justify-between items-center mb-6">
             <div className="min-w-0 flex-1">
                 {typeof title === 'string' ? (
-                  <h3 className="text-sm font-black text-slate-800 uppercase">{title}</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase">{title}</h3>
                 ) : (
                   title
                 )}

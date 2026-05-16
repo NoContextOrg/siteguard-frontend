@@ -197,7 +197,7 @@ const EngineerTeam = () => {
 
         {/* ========== SUMMARY ========== */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
-          <h2 className="text-xl font-black text-slate-800 uppercase">MEPF</h2>
+          <h2 className="text-xl font-black !text-slate-950 uppercase">MEPF</h2>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">
             ENGR. ALBERT SANTOS
           </p>
@@ -208,7 +208,7 @@ const EngineerTeam = () => {
             <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
               <Users size={40} className="text-red-400" />
               <div>
-                <h3 className="text-md font-black text-slate-800 uppercase">Hotlist Workers</h3>
+                <h3 className="text-md font-black !text-slate-950 uppercase">Hotlist Workers</h3>
                 <span className="text-5xl font-black text-red-400">
                   {stats?.hotlistCount ?? activeAlerts}
                 </span>
@@ -229,7 +229,7 @@ const EngineerTeam = () => {
             <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
               <Users size={40} className="text-blue-400" />
               <div>
-                <h3 className="text-md font-black text-slate-800 uppercase">Normal Workers</h3>
+                <h3 className="text-md font-black !text-slate-950 uppercase">Normal Workers</h3>
                 <span className="text-5xl font-black text-blue-400">
                   {stats?.workers ?? persons.length}
                 </span>
@@ -242,7 +242,7 @@ const EngineerTeam = () => {
             <div className="lg:col-span-2 border-2 border-slate-100 rounded-2xl p-8">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="text-sm font-black text-slate-800 uppercase">
+                  <h3 className="text-sm font-black !text-slate-950 uppercase">
                     Overtime Overview
                   </h3>
                 </div>
@@ -265,7 +265,7 @@ const EngineerTeam = () => {
 
             {/* Daily Attendance Report Exporter */}
             <div className="border-2 border-slate-100 rounded-2xl p-8 flex flex-col">
-              <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Daily Attendance Report</h3>
+              <h3 className="text-sm font-black !text-slate-950 uppercase mb-2">Daily Attendance Report</h3>
               <p className="text-[12px] text-slate-400 font-medium mb-6">
                 Export a structured PDF report of team attendance for a specific day.
               </p>
@@ -392,7 +392,7 @@ const EngineerTeam = () => {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)} />
           <div className="relative bg-white p-6 rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center shrink-0 mb-4 pb-4 border-b border-slate-100">
-              <h2 className="font-black text-slate-800 uppercase tracking-tight">
+              <h2 className="font-black !text-slate-950 uppercase tracking-tight">
                 {modalType === 'list' ? 'Worker List' : 'Add Worker'}
               </h2>
               <button onClick={() => setModalType(null)} className="p-1.5 hover:bg-slate-100 rounded-full transition">

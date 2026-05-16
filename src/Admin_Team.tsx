@@ -30,39 +30,38 @@ interface ModalProps {
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose}></div>
-      <div className="relative bg-white w-full max-w-md rounded-[24px] shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-300">
-        <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
-          <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">{title}</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white w-full max-w-md rounded-[24px] shadow-2xl flex flex-col max-h-[95vh] animate-in fade-in zoom-in duration-300">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+          <h2 className="text-base sm:text-lg font-black !text-slate-950 uppercase tracking-tight">{title}</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-full transition"><X size={20} /></button>
         </div>
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
 };
 
 const AccountCard = ({ title, count, onAdd }: { title: string, count: string, onAdd: () => void }) => (
-  <div className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-blue-400 flex flex-col justify-between h-44 relative group hover:shadow-md transition">
+  <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border-l-[6px] border-l-blue-400 flex flex-col justify-between h-full min-h-[160px] relative group card-hover-effect active-scale cursor-pointer">
     <div className="flex justify-between items-start">
-      <span className="text-sm font-black text-slate-800 uppercase tracking-widest">{title}</span>
+      <span className="text-[10px] md:text-sm font-black !text-slate-950 uppercase tracking-widest">{title}</span>
     </div>
-    <div className="flex items-center gap-3">
-      <Users size={32} className="text-blue-200" />
-      <span className="text-4xl font-black text-blue-200">{count}</span>
+    <div className="flex items-center gap-3 my-2">
+      <Users size={24} className="text-blue-200 md:w-8 md:h-8" />
+      <span className="text-2xl md:text-4xl font-black text-blue-200">{count}</span>
     </div>
-    <button onClick={onAdd} className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter">
-      Add Account <span className="text-lg">→</span>
+    <button onClick={(e) => { e.stopPropagation(); onAdd(); }} className="text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter self-end">
+      Add Account <span className="text-sm md:text-lg">→</span>
     </button>
   </div>
 );
 
 const TeamCard = ({ title, engineer, count, borderColor, accentGradient, onAddWorker, onOpen, onEditTeam, onDeleteTeam }: { title: string, engineer: string, count: string, borderColor: string, accentGradient: string, onAddWorker: () => void, onOpen: () => void, onEditTeam: () => void, onDeleteTeam: () => void }) => (
   <div
-    className={`bg-white p-8 rounded-xl shadow-sm border-l-[6px] ${borderColor} flex flex-col justify-between h-52 relative cursor-pointer
-      transition-all duration-200 ease-out
-      hover:-translate-y-1 hover:shadow-xl hover:border-slate-100
+    className={`bg-white p-6 md:p-8 rounded-xl shadow-sm border-l-[6px] ${borderColor} flex flex-col justify-between h-full min-h-[200px] relative cursor-pointer
+      card-hover-effect active-scale
       focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40
       group overflow-hidden`}
     onClick={onOpen}
@@ -73,21 +72,21 @@ const TeamCard = ({ title, engineer, count, borderColor, accentGradient, onAddWo
     }}
   >
     {/* soft glow */}
-    <div className={`pointer-events-none absolute -inset-24 opacity-0 blur-2xl transition-opacity duration-200 group-hover:opacity-70 bg-gradient-to-r ${accentGradient} to-transparent`} />
+    <div className={`pointer-events-none absolute -inset-24 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-70 bg-gradient-to-r ${accentGradient} to-transparent`} />
 
     {/* top-right actions */}
-    <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-[-10px] group-hover:translate-y-0">
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
           onEditTeam();
         }}
-        className="p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-slate-50 shadow-sm"
+        className="p-1.5 md:p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-slate-50 shadow-sm"
         aria-label="Edit team"
         title="Edit team"
       >
-        <Pencil size={16} className="text-slate-700" />
+        <Pencil size={14} className="text-slate-700 md:w-4 md:h-4" />
       </button>
       <button
         type="button"
@@ -95,31 +94,31 @@ const TeamCard = ({ title, engineer, count, borderColor, accentGradient, onAddWo
           e.stopPropagation();
           onDeleteTeam();
         }}
-        className="p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-red-50 shadow-sm"
+        className="p-1.5 md:p-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 hover:bg-red-50 shadow-sm"
         aria-label="Delete team"
         title="Delete team"
       >
-        <Trash2 size={16} className="text-red-700" />
+        <Trash2 size={14} className="text-red-700 md:w-4 md:h-4" />
       </button>
     </div>
 
     <div className="relative">
-      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter transition-colors duration-200 group-hover:text-slate-900">{title}</h3>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 transition-colors duration-200 group-hover:text-slate-500">Engr. {engineer}</p>
+      <h3 className="text-base md:text-lg font-black !text-slate-950 uppercase tracking-tighter transition-colors duration-200 group-hover:text-slate-900 truncate pr-16">{title}</h3>
+      <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 transition-colors duration-200 group-hover:text-slate-500 truncate">Engr. {engineer}</p>
     </div>
-    <div className="relative flex items-center gap-3">
-      <Users size={32} className="text-slate-200 transition-colors duration-200 group-hover:text-slate-300" />
-      <span className="text-4xl font-black text-slate-300 transition-colors duration-200 group-hover:text-slate-400">{count}</span>
+    <div className="relative flex items-center gap-3 my-4">
+      <Users size={24} className="text-slate-200 transition-colors duration-200 group-hover:text-slate-300 md:w-8 md:h-8" />
+      <span className="text-2xl md:text-4xl font-black text-slate-300 transition-colors duration-200 group-hover:text-slate-400">{count}</span>
     </div>
     <button
       onClick={(e) => {
         e.stopPropagation();
         onAddWorker();
       }}
-      className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter"
+      className="text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter self-end"
       type="button"
     >
-      Add Worker <span className="text-lg">→</span>
+      Add Worker <span className="text-sm md:text-lg">→</span>
     </button>
   </div>
 );
@@ -722,7 +721,7 @@ const AdminTeam = () => {
 
   return (
     <DashboardLayout title="Team">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         {error && (
           <div className="mt-6 mb-2 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between">
             <div>
@@ -748,9 +747,9 @@ const AdminTeam = () => {
         )}
 
         {/* ACCOUNTS SECTION */}
-        <section className="mt-8">
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">ACCOUNTS</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="mt-4 md:mt-8">
+          <h2 className="text-lg md:text-xl font-black !text-slate-950 uppercase tracking-widest mb-6">ACCOUNTS</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {loading ? (
               <>
                 <SkeletonAccountCard />
@@ -780,23 +779,23 @@ const AdminTeam = () => {
         </section>
 
         {/* TEAMS SECTION */}
-        <section className="mt-12">
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest mb-6">TEAMS</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="mt-8 md:mt-12">
+          <h2 className="text-lg md:text-xl font-black !text-slate-950 uppercase tracking-widest mb-6">TEAMS</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
 
             {/* Add New Team Trigger */}
             <div
-              className="bg-white p-8 rounded-xl shadow-sm border-l-[6px] border-l-orange-900 flex flex-col justify-center items-center h-52 relative group cursor-pointer"
+              className="bg-white p-6 md:p-8 rounded-xl shadow-sm border-l-[6px] border-l-orange-900 flex flex-col justify-center items-center h-full min-h-[200px] relative group card-hover-effect active-scale cursor-pointer"
               onClick={() => setModalType('team')}
             >
               <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-4">
-                  <span className="text-md font-black text-slate-800 uppercase tracking-tighter">ADD NEW TEAM</span>
-                  <UserPlus size={28} className="text-slate-800" />
+                <div className="flex items-center gap-2 md:gap-4">
+                  <span className="text-sm md:text-md font-black !text-slate-950 uppercase tracking-tighter">ADD NEW TEAM</span>
+                  <UserPlus size={24} className="text-slate-800 md:w-7 md:h-7" />
                 </div>
               </div>
-              <button className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter" type="button">
-                Create Team <span className="text-lg">→</span>
+              <button className="text-[9px] md:text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-1 uppercase tracking-tighter self-end mt-4" type="button">
+                Create Team <span className="text-sm md:text-lg">→</span>
               </button>
             </div>
 
@@ -838,7 +837,7 @@ const AdminTeam = () => {
         {/* GENERAL MANAGEMENT — always visible; rows show skeletons while loading */}
         <section className="mt-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest">GENERAL MANAGEMENT</h2>
+            <h2 className="text-xl font-black !text-slate-950 uppercase tracking-widest">GENERAL MANAGEMENT</h2>
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <input
                 value={userSearch}

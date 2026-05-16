@@ -222,7 +222,7 @@ const canManageHotlist = useMemo(() => {
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-start justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Alerts & Hotlist</h1>
+            <h1 className="text-3xl font-bold !text-slate-950">Alerts & Hotlist</h1>
             <p className="text-sm text-gray-500 mt-1 max-w-lg">
               Hotlist status is a clinical risk flag used during login validation.
             </p>
@@ -370,7 +370,7 @@ const canManageHotlist = useMemo(() => {
       {alertToDelete !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-sm shadow-xl animate-in zoom-in duration-200">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Alert</h3>
+            <h3 className="text-xl font-bold !text-slate-950 mb-2">Delete Alert</h3>
             <p className="text-gray-600 mb-6 text-sm">Are you sure you want to delete this alert? This action cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setAlertToDelete(null)} disabled={actionLoading?.type === 'del'} className="flex-1 py-2 border rounded-md text-gray-600 font-medium hover:bg-gray-50 disabled:opacity-50">
@@ -389,7 +389,7 @@ const canManageHotlist = useMemo(() => {
 
 /* ================= SMALL UI COMPONENTS ================= */
 
-const Stat = ({ label, value, color = 'text-gray-800' }: any) => (
+const Stat = ({ label, value, color = '!text-slate-950' }: any) => (
   <div className="p-4 border rounded bg-white">
     <div className="text-sm text-gray-500">{label}</div>
     <div className={`text-2xl font-bold ${color}`}>{value}</div>

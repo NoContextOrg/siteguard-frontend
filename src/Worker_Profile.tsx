@@ -381,14 +381,14 @@ const WorkerProfile = () => {
   return (
     <DashboardLayout title="Worker Profile">
       <div className="p-8">
-        <h2 className="text-3xl font-black text-slate-800 mb-8 uppercase tracking-tight">Worker Profile</h2>
+        <h2 className="text-3xl font-black !text-slate-950 mb-8 uppercase tracking-tight">Worker Profile</h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* ========== Left Column: Personal_Info ========== */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
+                <h3 className="text-lg font-bold !text-slate-950">Personal Information</h3>
                 {canEditProfile && (
                   isEditing ? (
                     <div className="flex gap-2">
@@ -595,7 +595,7 @@ const WorkerProfile = () => {
           {/* ========== Right Column: Medical_Form ========== */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-fit">
             <div className="p-6 text-center border-b border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Medical Form</h2>
+              <h2 className="text-2xl font-black !text-slate-950 uppercase tracking-tighter">Medical Form</h2>
               {canAddMedicalLog && (
                 <button 
                   onClick={() => { setEditingLogId(null); setFormData({ classification: 'NORMAL' }); setIsModalOpen(true); }}
@@ -651,7 +651,7 @@ const WorkerProfile = () => {
 
           <div className="relative bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-200">
           <div className="relative p-6 flex justify-center items-center border-b border-slate-100">
-              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Medical Form'}</h2>
+              <h2 className="text-2xl font-black !text-slate-950 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Medical Form'}</h2>
               <button 
               onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({ classification: 'NORMAL' }); }}
               className="absolute right-8 top-6 p-2 hover:bg-slate-100 rounded-full transition"
@@ -880,7 +880,7 @@ const WorkerProfile = () => {
       {logToDelete !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-[30px] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black text-slate-800 uppercase mb-2">Delete Record</h3>
+            <h3 className="text-xl font-black !text-slate-950 uppercase mb-2">Delete Record</h3>
             <p className="text-slate-600 mb-6 text-sm">Are you sure you want to delete this medical record? This action cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setLogToDelete(null)} className="flex-1 py-3 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase hover:bg-slate-50">Cancel</button>

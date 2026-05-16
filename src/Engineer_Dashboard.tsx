@@ -209,7 +209,7 @@ import { useState, useEffect, useRef } from 'react';
       <DashboardLayout title="Engineer Dashboard">
         {/* Dashboard-wide time filter removed; controls are now per section */}
 
-        <motion.div className="p-8" variants={containerVars} initial="hidden" animate="show">
+        <motion.div className="p-4 md:p-8 max-w-7xl mx-auto" variants={containerVars} initial="hidden" animate="show">
           {floatingAlert && (
             <div className="fixed top-6 right-6 z-50 bg-yellow-50 border border-yellow-300 shadow-lg rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in">
               <Bell className="text-yellow-500" size={28} />
@@ -222,13 +222,13 @@ import { useState, useEffect, useRef } from 'react';
           )}
 
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">
+            <h1 className="text-xl md:text-3xl font-black !text-slate-950 uppercase tracking-tight">
               Engineer Dashboard
             </h1>
           </div>
 
           {/* ========== STAT CARDS ========== */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
@@ -248,7 +248,7 @@ import { useState, useEffect, useRef } from 'react';
               {/* ========== RECENT ADMITTED (NOW BACKEND) ========== */}
               <motion.div variants={itemVars} className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <div className="p-5 flex justify-between items-center border-b bg-slate-50/50">
-                  <h3 className="text-sm font-black uppercase">Recent Admitted Workers</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase">Recent Admitted Workers</h3>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -281,7 +281,7 @@ import { useState, useEffect, useRef } from 'react';
               {/* ========== ALERT OVERVIEW (NOW BACKEND) ========== */}
               <motion.div variants={itemVars} className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <div className="p-5 flex justify-between items-center border-b">
-                  <h3 className="text-sm font-black uppercase">Alert Overview</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase">Alert Overview</h3>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -316,7 +316,7 @@ import { useState, useEffect, useRef } from 'react';
               {/* CHARTS (UNCHANGED) */}
               <motion.div variants={itemVars} className="bg-white p-6 rounded-xl shadow-sm border">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-                  <h3 className="text-sm font-black uppercase">Team Attendance Overview</h3>
+                  <h3 className="text-sm font-black !text-slate-950 uppercase">Team Attendance Overview</h3>
                   <div className="flex flex-wrap items-center gap-2">
                     {([
                       { k: '3_HOURS', label: '3H' },
@@ -367,7 +367,7 @@ import { useState, useEffect, useRef } from 'react';
 
               {/* Daily Attendance Report Exporter */}
               <div className="bg-white rounded-xl shadow-sm border overflow-hidden p-6">
-                <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Daily Attendance Report</h3>
+                <h3 className="text-sm font-black !text-slate-950 uppercase mb-2">Daily Attendance Report</h3>
                 <p className="text-[12px] text-slate-400 font-medium mb-6">
                   Export a structured PDF report of your team's attendance for a specific day.
                 </p>
@@ -419,7 +419,7 @@ import { useState, useEffect, useRef } from 'react';
               {hotlistOverview && (
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                   <div className="p-5 border-b flex justify-between items-center">
-                    <h3 className="text-sm font-black uppercase">Recent Hotlist Alerts</h3>
+                    <h3 className="text-sm font-black !text-slate-950 uppercase">Recent Hotlist Alerts</h3>
 
                     <div className="flex items-center gap-2">
                       <button
@@ -483,17 +483,17 @@ import { useState, useEffect, useRef } from 'react';
   };
 
   const StatCard = ({ label, value, color, icon, onClick }: any) => (
-    <div onClick={onClick} className={`bg-white p-6 border-l-8 ${color} rounded-xl flex flex-col justify-between shadow-sm ${onClick ? 'hover:scale-[1.02] cursor-pointer transition' : ''}`}>
+    <div onClick={onClick} className={`bg-white p-4 md:p-6 border-l-[6px] md:border-l-8 ${color} rounded-xl flex flex-col justify-between shadow-sm card-hover-effect active-scale cursor-pointer h-full min-h-[120px]`}>
       <div className="flex justify-between items-start">
-        <div>
-          <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
-          <p className="text-3xl font-black text-slate-800">{value}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] md:text-xs font-bold uppercase text-slate-500 truncate">{label}</p>
+          <p className="text-2xl md:text-3xl font-black !text-slate-950 block truncate">{value}</p>
         </div>
-        <div className="opacity-40">{icon}</div>
+        <div className="opacity-20 md:opacity-40 flex-shrink-0 ml-2">{icon}</div>
       </div>
       {onClick && (
-        <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
-          Click to view →
+        <div className="mt-4 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors w-full">
+          View details →
         </div>
       )}
     </div>

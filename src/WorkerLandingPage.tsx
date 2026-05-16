@@ -194,7 +194,7 @@ const WorkerLandingPage: React.FC = () => {
             <div className="w-24 h-24 rounded-full border-4 border-slate-100 overflow-hidden mb-3 bg-slate-50 flex items-center justify-center">
               <img src={getAvatarUrl(workerDetails?.name || auth.userEmail, workerDetails?.profilePictureUrl)} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = getFallbackAvatar(workerDetails?.name || auth.userEmail); }} />
             </div>
-            <div className="text-sm font-black text-slate-800 text-center break-words">{workerDetails?.name || auth.userEmail}</div>
+            <div className="text-sm font-black !text-slate-950 text-center break-words">{workerDetails?.name || auth.userEmail}</div>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{workerDetails?.role || 'WORKER'}</div>
           </div>
 
@@ -267,7 +267,7 @@ const WorkerLandingPage: React.FC = () => {
         <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
           {activeTab === 'dashboard' && (
             <div className="max-w-5xl mx-auto">
-              <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-8">My Dashboard</h2>
+              <h2 className="text-3xl font-black !text-slate-950 uppercase tracking-tight mb-8">My Dashboard</h2>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
@@ -276,11 +276,11 @@ const WorkerLandingPage: React.FC = () => {
                 <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
               ) : (
                 <>
-                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">Site Overview</h3>
+                  <h3 className="text-lg font-black !text-slate-950 uppercase tracking-widest mb-4">Site Overview</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
                       <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Onsite Today</div>
-                      <div className="text-4xl font-black text-slate-800">{unifiedData?.dashboardOverview?.onsitePersonsToday ?? '—'}</div>
+                      <div className="text-4xl font-black !text-slate-950">{unifiedData?.dashboardOverview?.onsitePersonsToday ?? '—'}</div>
                     </div>
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
                       <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Site Attendance Rate</div>
@@ -292,7 +292,7 @@ const WorkerLandingPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Attendance</h3>
+                  <h3 className="text-lg font-black !text-slate-950 uppercase tracking-widest mb-4">My Attendance</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
                       <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Total Days Present</div>
@@ -310,7 +310,7 @@ const WorkerLandingPage: React.FC = () => {
 
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <div className="text-sm font-black text-slate-800 uppercase tracking-widest">Recent Attendance Logs</div>
+                      <div className="text-sm font-black !text-slate-950 uppercase tracking-widest">Recent Attendance Logs</div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -350,7 +350,7 @@ const WorkerLandingPage: React.FC = () => {
 
                   {/* Worker Trends Section */}
                   <div className="mt-8">
-                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest mb-4">My Trends</h3>
+                    <h3 className="text-lg font-black !text-slate-950 uppercase tracking-widest mb-4">My Trends</h3>
                     {loading ? (
                       <div className="flex items-center justify-center py-12">
                         <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
@@ -367,7 +367,7 @@ const WorkerLandingPage: React.FC = () => {
                             {workerTrend.timeline.map((trend: any, idx: number) => (
                               <div key={idx} className="p-4 bg-slate-50 rounded-lg shadow-inner">
                                 <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">{trend.label || trend.date || trend.timestamp}</div>
-                                <div className="text-2xl font-black text-slate-800">{trend.value}</div>
+                                <div className="text-2xl font-black !text-slate-950">{trend.value}</div>
                               </div>
                             ))}
                           </div>

@@ -351,7 +351,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
 
   return (
     <>
-      <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-8">My Profile</h2>
+      <h2 className="text-3xl font-black !text-slate-950 uppercase tracking-tight mb-8">My Profile</h2>
       
       {error && <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex justify-between animate-in fade-in"><span>{error}</span><button onClick={() => setError(null)}><X size={16}/></button></div>}
       {success && <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 flex justify-between animate-in fade-in"><span>{success}</span><button onClick={() => setSuccess(null)}><X size={16}/></button></div>}
@@ -362,7 +362,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
+              <h3 className="text-lg font-bold !text-slate-950">Personal Information</h3>
 
               {canEditProfile && (
                 isEditing ? (
@@ -521,7 +521,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
         {/* MEDICAL */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-fit">
           <div className="p-6 text-center border-b border-slate-100">
-            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Medical Form</h2>
+            <h2 className="text-2xl font-black !text-slate-950 uppercase tracking-tighter">Medical Form</h2>
             {canAddMedicalLog && (
               <button 
                 onClick={() => { setEditingLogId(null); setFormData({ classification: 'NORMAL' }); setIsModalOpen(true); }}
@@ -565,7 +565,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
             className="relative bg-white w-full max-w-md rounded-[30px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300"
           >
             <div className="p-6 flex justify-between items-center border-b border-slate-100">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Add Medical Log'}</h2>
+              <h2 className="text-xl font-black !text-slate-950 uppercase tracking-tight">{editingLogId ? 'Edit Medical Log' : 'Add Medical Log'}</h2>
               <button type="button" onClick={() => { setIsModalOpen(false); setEditingLogId(null); setFormData({ classification: 'NORMAL' }); }} className="p-2 hover:bg-slate-100 rounded-full transition">
                 <X size={24} className="text-slate-800" />
               </button>
@@ -676,7 +676,7 @@ const WorkerProfileContent = ({ workerId }: WorkerProfileContentProps) => {
       {logToDelete !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-[30px] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black text-slate-800 uppercase mb-2">Delete Record</h3>
+            <h3 className="text-xl font-black !text-slate-950 uppercase mb-2">Delete Record</h3>
             <p className="text-slate-600 mb-6 text-sm">Are you sure you want to delete this medical record? This action cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setLogToDelete(null)} className="flex-1 py-3 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase hover:bg-slate-50">Cancel</button>

@@ -419,7 +419,7 @@ export default function WorkersPage() {
     <DashboardLayout title="Workers">
       <div className="p-10 space-y-8">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-4xl font-black text-gray-800 tracking-tight">WORKERS</h2>
+          <h2 className="text-4xl font-black !text-slate-950 tracking-tight">WORKERS</h2>
           <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             {loading ? 'Loading…' : `${filteredWorkers.length} shown / ${workers.length} total`}
           </div>
@@ -531,7 +531,7 @@ export default function WorkersPage() {
                 <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
                   Biometric hardware (lastId)
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-800">
+                <div className="mt-2 text-2xl font-black !text-slate-950">
                   {lastIdLoading ? '…' : (biometricLastId && biometricLastId > 0 ? biometricLastId : 'None')}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
@@ -543,7 +543,7 @@ export default function WorkersPage() {
                 <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
                   Registered fingerprints
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-800">{registeredFingerprintsCount}</div>
+                <div className="mt-2 text-2xl font-black !text-slate-950">{registeredFingerprintsCount}</div>
                 <div className="mt-1 text-xs text-slate-500">
                   Derived from persons with fingerprint data
                 </div>
@@ -553,7 +553,7 @@ export default function WorkersPage() {
                 <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
                   Master attendance records
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-800">
+                <div className="mt-2 text-2xl font-black !text-slate-950">
                   {attendanceLoading ? '…' : attendanceLogs.length}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">

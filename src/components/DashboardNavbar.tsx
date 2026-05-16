@@ -4,13 +4,14 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Search, Bell, ChevronDown, User, LogOut } from 'lucide-react';
+import { Search, Bell, ChevronDown, User, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAuthToken, getPrimaryRole, getStoredUserEmail, logoutUser } from '../api/auth';
 
 interface DashboardNavbarProps {
   title: string;
+  onMenuClick?: () => void;
   /** Optional overrides; if omitted, navbar uses stored login data */
   userName?: string;
   userEmail?: string;
@@ -43,6 +44,7 @@ const safeDecodeJwtPayload = (token: string | null): JwtPayloadLike | null => {
 
 export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
   title,
+  onMenuClick,
   userName,
   userEmail,
   userAvatar = 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100',
@@ -101,16 +103,27 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
   const userRole = getPrimaryRole();
 
   return (
-    <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-8 sticky top-0 z-30 shadow-lg">
-      <div className="flex items-center gap-2">
-        <div className="bg-white/10 p-1.5 rounded-lg border border-white/20">
-          <Search size={20} />
+    <header className="bg-[#1e3a8a] text-white h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 shadow-lg">
+      <div className="flex items-center gap-3">
+        {onMenuClick && (
+          <button 
+            onClick={onMenuClick}
+            className="md:hidden p-2 hover:bg-white/10 rounded-lg transition"
+            type="button"
+          >
+            <Menu size={24} />
+          </button>
+        )}
+        <div className="hidden sm:flex items-center gap-2">
+          <div className="bg-white/10 p-1.5 rounded-lg border border-white/20">
+            <Search size={20} />
+          </div>
         </div>
-        <span className="text-xl font-bold uppercase tracking-widest">{title}</span>
+        <span className="text-lg md:text-xl font-bold uppercase tracking-widest truncate max-w-[150px] md:max-w-none">{title}</span>
       </div>
 
-      <div className="flex items-center gap-6">
-        <button className="hover:bg-white/10 p-2 rounded-lg transition" type="button">
+      <div className="flex items-center gap-2 md:gap-6">
+        <button className="hidden md:block hover:bg-white/10 p-2 rounded-lg transition" type="button">
           <Bell size={20} className="cursor-pointer" />
         </button>
 
@@ -118,11 +131,11 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
           <button
             type="button"
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-3 border-l border-white/20 pl-6 hover:bg-white/5 px-3 py-2 rounded-lg transition"
+            className="flex items-center gap-2 md:gap-3 border-l border-white/20 pl-4 md:pl-6 hover:bg-white/5 px-2 md:px-3 py-2 rounded-lg transition"
           >
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-white">{displayName}</p>
-              <p className="text-[12px] opacity-70">{displayEmail}</p>
+              <p className="text-[10px] md:text-[12px] opacity-70">{displayEmail}</p>
             </div>
             <div className="w-10 h-10 bg-slate-300 rounded-full overflow-hidden border-2 border-white/50">
               <img src={userAvatar} alt={displayName} className="w-full h-full object-cover" />
