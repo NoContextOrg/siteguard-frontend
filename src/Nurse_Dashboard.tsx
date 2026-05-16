@@ -10,10 +10,13 @@ import type {
 } from './api/analytics';
 import { 
   getUnifiedDashboard,
-  exportAnalyticsExcel,
-  makeExportFilename,
   type DashboardTimeFilterState,
 } from './api/analytics';
+import { 
+  startAnalyticsExport 
+} from './api/export';
+import { useExportJob } from './hooks/useExportJob';
+import { ExportStatusOverlay } from './components/ExportStatusOverlay';
 import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
@@ -39,7 +42,11 @@ const NurseDashboard = () => {
   const [alertsFilter, setAlertsFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
   const [staffFilter, setStaffFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
-  const [exporting, setExporting] = useState(false);
+  // New Async Export Hook
+  const exportManager = useExportJob({
+    onSuccess: () => console.log('Export finished successfully'),
+    onError: (err) => console.error('Export failed:', err)
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -177,22 +184,16 @@ const NurseDashboard = () => {
     };
   }, []);
 
-  const handleExport = async (exportType: string, prefix: string, filterState?: DashboardTimeFilterState) => {
-    try {
-      setExporting(true);
-      await exportAnalyticsExcel({
-        exportType,
-        filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
-        startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
-        endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
-        filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
-      });
-    } catch (e) {
-      console.error(e);
-      alert(e instanceof Error ? e.message : 'Export failed');
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = async (exportType: string, _prefix: string, filterState?: DashboardTimeFilterState) => {
+    const params = {
+      exportType,
+      filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
+      startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
+      endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
+      format: 'EXCEL'
+    };
+
+    exportManager.startJob(() => startAnalyticsExport(params));
   };
 
   const filteredAlerts = useMemo(() => {
@@ -271,7 +272,7 @@ const NurseDashboard = () => {
                       ))}
                       <button
                         type="button"
-                        disabled={loading || exporting}
+                        disabled={loading || exportManager.isExporting}
                         onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
                         className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                       >
@@ -359,7 +360,7 @@ const NurseDashboard = () => {
                     ))}
                     <button
                       type="button"
-                      disabled={loading || exporting}
+                      disabled={loading || exportManager.isExporting}
                       onClick={() => handleExport('WORKER_ANALYTICS', 'staff-efficiency-report', staffFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -402,7 +403,7 @@ const NurseDashboard = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          disabled={loading || exporting}
+                          disabled={loading || exportManager.isExporting}
                           onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                           className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                         >
@@ -490,6 +491,15 @@ const NurseDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Export Status Notification Overlay */}
+      <ExportStatusOverlay 
+        state={exportManager.state}
+        progress={exportManager.progress}
+        error={exportManager.error}
+        onReset={exportManager.reset}
+        onDownloadAgain={exportManager.downloadAgain}
+      />
     </DashboardLayout>
   );
 };

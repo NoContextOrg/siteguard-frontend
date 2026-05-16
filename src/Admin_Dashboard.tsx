@@ -4,13 +4,17 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import {
-  getUnifiedDashboard,
-  exportAnalyticsExcel,
-  makeExportFilename,
-  type DashboardTimeFilterState,
+import { 
+  getUnifiedDashboard, 
+  type DashboardTimeFilterState 
 } from './api/analytics';
-import { getActiveAlerts, getAllAlerts } from './api/alert';
+import { 
+  startAttendanceExport, 
+  startAnalyticsExport 
+} from './api/export';
+import { useExportJob } from './hooks/useExportJob';
+import { ExportStatusOverlay } from './components/ExportStatusOverlay';
+import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
@@ -42,8 +46,13 @@ const AdminDashboard = () => {
   const [alertsFilter, setAlertsFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
   const [attendanceFilter, setAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
-  const [exporting, setExporting] = useState(false);
   const [exportDate, setExportDate] = useState<Dayjs | null>(null);
+
+  // New Async Export Hook
+  const exportManager = useExportJob({
+    onSuccess: () => console.log('Export finished successfully'),
+    onError: (err) => console.error('Export failed:', err)
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -186,66 +195,28 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  const handleExport = async (exportType: string, prefix: string, filterState?: DashboardTimeFilterState) => {
-    try {
-      setExporting(true);
-      await exportAnalyticsExcel({
-        exportType,
-        filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
-        startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
-        endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
-        filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
-      });
-    } catch (e) {
-      console.error(e);
-      alert(e instanceof Error ? e.message : 'Export failed');
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = async (exportType: string, _prefix: string, filterState?: DashboardTimeFilterState) => {
+    const params = {
+      exportType,
+      filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
+      startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
+      endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
+      format: 'EXCEL'
+    };
+
+    exportManager.startJob(() => startAnalyticsExport(params));
   };
 
   const handleDownloadDailyPdf = async (dateVal?: string | null) => {
-    try {
-      setExporting(true);
-      // Import the proper function from analytics API
-      const { downloadDailyAttendancePdf } = await import('./api/analytics');
-      await downloadDailyAttendancePdf(dateVal || undefined);
-    } catch (e) {
-      console.error(e);
-      alert(e instanceof Error ? e.message : 'Export failed');
-    } finally {
-      setExporting(false);
-    }
+    exportManager.startJob(() => startAttendanceExport(dateVal || undefined, 'PDF'));
   };
 
   const handleExportAlertsCsv = async () => {
-    try {
-      setExporting(true);
-      const alerts = await getAllAlerts();
-      if (!alerts.length) { alert('No alerts to export'); return; }
-      const headers = ['Alert ID', 'Type', 'Description', 'Created', 'Status'];
-      const rows = alerts.map(a => [
-        `"${a.id ?? ''}"`,
-        `"${(a.alertType || '').replace(/"/g, '""')}"`,
-        `"${(a.alertMessage || '').replace(/"/g, '""')}"`,
-        `"${a.createdAt ? new Date(a.createdAt).toLocaleString() : ''}"`,
-        `"${a.isAcknowledged ? 'Acknowledged' : 'Active'}"`,
-      ]);
-      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `alerts-report_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Export failed');
-    } finally {
-      setExporting(false);
-    }
+    const params = {
+      exportType: 'ALERTS',
+      format: 'CSV'
+    };
+    exportManager.startJob(() => startAnalyticsExport(params));
   };
 
   const filteredAlerts = useMemo(() => {
@@ -379,7 +350,7 @@ const AdminDashboard = () => {
                   ))}
                   <button
                     type="button"
-                    disabled={loading || exporting}
+                    disabled={loading || exportManager.isExporting}
                     onClick={() => handleExportAlertsCsv()}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
@@ -471,7 +442,7 @@ const AdminDashboard = () => {
                     ))}
                     <button
                       type="button"
-                      disabled={loading || exporting}
+                      disabled={loading || exportManager.isExporting}
                       onClick={() => handleExport('ATTENDANCE_TRENDS', 'attendance-report', attendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -551,7 +522,7 @@ const AdminDashboard = () => {
               <div className="space-y-4">
                 <button
                   onClick={() => handleDownloadDailyPdf()}
-                  disabled={loading || exporting}
+                  disabled={loading || exportManager.isExporting}
                   className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   <Download size={16} /> Export Today's Attendance
@@ -581,7 +552,7 @@ const AdminDashboard = () => {
                       }
                       handleDownloadDailyPdf(dateVal);
                     }}
-                    disabled={loading || exporting}
+                    disabled={loading || exportManager.isExporting}
                     className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Selected Day
@@ -599,7 +570,7 @@ const AdminDashboard = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={loading || exporting}
+                    disabled={loading || exportManager.isExporting}
                     onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                     className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                   >
@@ -684,6 +655,15 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Export Status Notification Overlay */}
+      <ExportStatusOverlay 
+        state={exportManager.state}
+        progress={exportManager.progress}
+        error={exportManager.error}
+        onReset={exportManager.reset}
+        onDownloadAgain={exportManager.downloadAgain}
+      />
     </DashboardLayout>
   );
 };

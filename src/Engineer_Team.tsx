@@ -15,7 +15,13 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
 import type { PersonResponse } from './api/person';
-import { getOvertimeOverview, getUnifiedDashboard, downloadDailyAttendancePdf } from './api/analytics';
+import { 
+  getOvertimeOverview, 
+  getUnifiedDashboard, 
+} from './api/analytics';
+import { startAttendanceExport } from './api/export';
+import { useExportJob } from './hooks/useExportJob';
+import { ExportStatusOverlay } from './components/ExportStatusOverlay';
 import { getActiveAlertCount } from './api/alert';
 import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -40,7 +46,13 @@ const EngineerTeam = () => {
   const [stats, setStats] = useState<any>(null);
   const [activeAlerts, setActiveAlerts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [exportingReport, setExportingReport] = useState(false);
+  
+  // New Async Export Hook
+  const exportManager = useExportJob({
+    onSuccess: () => console.log('Export finished successfully'),
+    onError: (err) => console.error('Export failed:', err)
+  });
+
   const [exportDate, setExportDate] = useState<Dayjs | null>(null);
 
   const [newWorkerName, setNewWorkerName] = useState('');
@@ -260,17 +272,8 @@ const EngineerTeam = () => {
               
               <div className="space-y-4 mt-auto">
                 <button
-                  onClick={async () => {
-                    try {
-                      setExportingReport(true);
-                      await downloadDailyAttendancePdf();
-                    } catch (e) {
-                      alert(e instanceof Error ? e.message : 'Export failed');
-                    } finally {
-                      setExportingReport(false);
-                    }
-                  }}
-                  disabled={exportingReport}
+                  onClick={() => exportManager.startJob(() => startAttendanceExport(undefined, 'PDF'))}
+                  disabled={exportManager.isExporting}
                   className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   <Download size={16} /> Export Today's Attendance
@@ -292,22 +295,15 @@ const EngineerTeam = () => {
                     />
                   </LocalizationProvider>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
                       if (!dateVal) {
                         alert('Please select a date');
                         return;
                       }
-                      try {
-                        setExportingReport(true);
-                        await downloadDailyAttendancePdf(dateVal);
-                      } catch (e) {
-                        alert(e instanceof Error ? e.message : 'Export failed');
-                      } finally {
-                        setExportingReport(false);
-                      }
+                      exportManager.startJob(() => startAttendanceExport(dateVal, 'PDF'));
                     }}
-                    disabled={exportingReport}
+                    disabled={exportManager.isExporting}
                     className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Selected Day
@@ -451,6 +447,15 @@ const EngineerTeam = () => {
           </div>
         </div>
       )}
+
+      {/* Export Status Notification Overlay */}
+      <ExportStatusOverlay 
+        state={exportManager.state}
+        progress={exportManager.progress}
+        error={exportManager.error}
+        onReset={exportManager.reset}
+        onDownloadAgain={exportManager.downloadAgain}
+      />
     </DashboardLayout>
   );
 };

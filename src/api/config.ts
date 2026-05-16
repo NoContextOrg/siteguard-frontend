@@ -42,6 +42,15 @@ export const API_ENDPOINTS = {
     list: `${API_BASE_URL}/teams`,
     by_id: (id: number) => `${API_BASE_URL}/teams/${id}`,
   },
+  // Export Jobs (Async)
+  exports: {
+    start: `${API_BASE_URL}/export/attendance/start`,
+    teamStart: `${API_BASE_URL}/export/attendance/team/start`,
+    analyticsStart: `${API_BASE_URL}/analytics/export/start`,
+    workerAnalyticsStart: (personCode: string) => `${API_BASE_URL}/analytics/export/worker/${personCode}/start`,
+    status: (jobId: number) => `${API_BASE_URL}/export/status/${jobId}`,
+    download: (jobId: number) => `${API_BASE_URL}/export/download/${jobId}`,
+  },
 };
 
 // ===== Derived WebSocket Endpoints =====

@@ -14,10 +14,14 @@ import { useState, useEffect, useRef } from 'react';
   } from './api/analytics';
   import {
     getUnifiedDashboard,
-    exportAnalyticsExcel,
-    makeExportFilename,
     type DashboardTimeFilterState,
   } from './api/analytics';
+  import { 
+    startAnalyticsExport, 
+    startAttendanceExport 
+  } from './api/export';
+  import { useExportJob } from './hooks/useExportJob';
+  import { ExportStatusOverlay } from './components/ExportStatusOverlay';
   import { getAllPersons, type PersonResponse } from './api/person';
   import { getActiveAlerts, type AlertDTO } from './api/alert';
   import DashboardLayout from './components/DashboardLayout';
@@ -49,7 +53,12 @@ import { useState, useEffect, useRef } from 'react';
 
     const [teamAttendanceFilter, setTeamAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
-    const [exporting, setExporting] = useState(false);
+    // New Async Export Hook
+    const exportManager = useExportJob({
+      onSuccess: () => console.log('Export finished successfully'),
+      onError: (err) => console.error('Export failed:', err)
+    });
+
     const [exportDate, setExportDate] = useState<Dayjs | null>(null);
 
     useEffect(() => {
@@ -170,35 +179,20 @@ import { useState, useEffect, useRef } from 'react';
       };
     }, []);
 
-    const handleExport = async (exportType: string, prefix: string, filterState?: DashboardTimeFilterState) => {
-      try {
-        setExporting(true);
-        await exportAnalyticsExcel({
-          exportType,
-          filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
-          startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
-          endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
-          filename: filterState ? makeExportFilename(prefix, filterState) : `${prefix}.xlsx`,
-        });
-      } catch (e) {
-        console.error(e);
-        alert(e instanceof Error ? e.message : 'Export failed');
-      } finally {
-        setExporting(false);
-      }
+    const handleExport = async (exportType: string, _prefix: string, filterState?: DashboardTimeFilterState) => {
+      const params = {
+        exportType,
+        filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
+        startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
+        endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
+        format: 'EXCEL'
+      };
+
+      exportManager.startJob(() => startAnalyticsExport(params));
     };
 
     const handleDownloadDailyPdf = async (dateVal?: string | null) => {
-      try {
-        setExporting(true);
-        const { downloadDailyAttendancePdf } = await import('./api/analytics');
-        await downloadDailyAttendancePdf(dateVal || undefined);
-      } catch (e) {
-        console.error(e);
-        alert(e instanceof Error ? e.message : 'Export failed');
-      } finally {
-        setExporting(false);
-      }
+      exportManager.startJob(() => startAttendanceExport(dateVal || undefined, 'PDF'));
     };
 
     const containerVars = {
@@ -341,7 +335,7 @@ import { useState, useEffect, useRef } from 'react';
                     ))}
                     <button
                       type="button"
-                      disabled={loading || exporting}
+                      disabled={loading || exportManager.isExporting}
                       onClick={() => handleExport('TEAMS', 'team-attendance-report', teamAttendanceFilter)}
                       className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                     >
@@ -380,7 +374,7 @@ import { useState, useEffect, useRef } from 'react';
                 <div className="space-y-4">
                   <button
                     onClick={() => handleDownloadDailyPdf()}
-                    disabled={loading || exporting}
+                    disabled={loading || exportManager.isExporting}
                     className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Today's Attendance
@@ -411,7 +405,7 @@ import { useState, useEffect, useRef } from 'react';
                         }
                         handleDownloadDailyPdf(dateVal);
                       }}
-                      disabled={loading || exporting}
+                      disabled={loading || exportManager.isExporting}
                       className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                       <Download size={16} /> Export Selected Day
@@ -429,7 +423,7 @@ import { useState, useEffect, useRef } from 'react';
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled={loading || exporting}
+                        disabled={loading || exportManager.isExporting}
                         onClick={() => handleExport('HOTLIST', 'hotlist-report')}
                         className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
                       >
@@ -461,6 +455,15 @@ import { useState, useEffect, useRef } from 'react';
             </div>
           </div>
         </motion.div>
+
+        {/* Export Status Notification Overlay */}
+        <ExportStatusOverlay 
+          state={exportManager.state}
+          progress={exportManager.progress}
+          error={exportManager.error}
+          onReset={exportManager.reset}
+          onDownloadAgain={exportManager.downloadAgain}
+        />
 
         {/* MODAL (UNCHANGED) */}
         <AnimatePresence>
