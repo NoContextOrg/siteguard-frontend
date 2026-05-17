@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Users, Bell, Download } from 'lucide-react';
 import { BarChart, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { getEngineerDashboardSummary, startEngineerAttendanceExport } from './api/engineer';
+import { getEngineerDashboardSummary, getEngineerAlerts, startEngineerAttendanceExport } from './api/engineer';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
+import { SkeletonCard, SkeletonRow, SkeletonListItem } from './components/Skeletons';
 import DashboardLayout from './components/DashboardLayout';
 import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -22,6 +23,7 @@ const EngineerDashboard = () => {
 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const [alerts, setAlerts] = useState<any[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -45,7 +47,25 @@ const EngineerDashboard = () => {
       const data = await getEngineerDashboardSummary(controller.signal);
       
       if (data && !controller.signal.aborted) {
-        setDashboardData(data);
+        // Safe Normalization Layer
+        const normalized = {
+          ...data,
+          workers: Array.isArray(data.workers) ? data.workers : [],
+          hotlists: Array.isArray(data.hotlists) ? data.hotlists : [],
+          team: {
+             ...data.team,
+             workerCount: typeof data.team?.workerCount === 'number' ? data.team.workerCount : 0
+          },
+          overtime: {
+             ...data.overtime,
+             count: typeof data.overtime?.count === 'number' ? data.overtime.count : 0
+          },
+          attendance: {
+             ...data.attendance,
+             attendanceRate: data.attendance?.attendanceRate || '0.0%'
+          }
+        };
+        setDashboardData(normalized);
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -71,6 +91,33 @@ const EngineerDashboard = () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+    };
+  }, []);
+
+  const fetchAlerts = async (isBackground = false) => {
+    try {
+      if (!isBackground && alerts.length === 0) setAlertsLoading(true);
+      const data = await getEngineerAlerts();
+      if (data) {
+        setAlerts(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch alerts:', err);
+    } finally {
+      if (!isBackground) setAlertsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts(false);
+    
+    // Stable Alerts Polling
+    const interval = setInterval(() => {
+      fetchAlerts(true);
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
     };
   }, []);
 
@@ -111,39 +158,45 @@ const EngineerDashboard = () => {
             {dashboardData?.team?.teamName || 'Team Dashboard'}
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
-              <Users size={30} className="text-blue-400 mb-2" />
-              <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Total Workers</h3>
-              <span className="text-3xl font-black text-blue-400">
-                {dashboardData?.team?.workerCount ?? 0}
-              </span>
-            </div>
-            
-            <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
-              <Users size={30} className="text-amber-400 mb-2" />
-              <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Overtime Count</h3>
-              <span className="text-3xl font-black text-amber-400">
-                {dashboardData?.overtime?.count ?? 0}
-              </span>
-            </div>
+          {loading && !dashboardData ? (
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+               {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+              <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
+                <Users size={30} className="text-blue-400 mb-2" />
+                <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Total Workers</h3>
+                <span className="text-3xl font-black text-blue-400">
+                  {dashboardData?.team?.workerCount ?? 0}
+                </span>
+              </div>
+              
+              <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
+                <Users size={30} className="text-amber-400 mb-2" />
+                <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Overtime Count</h3>
+                <span className="text-3xl font-black text-amber-400">
+                  {dashboardData?.overtime?.count ?? 0}
+                </span>
+              </div>
 
-            <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
-              <Users size={30} className="text-red-400 mb-2" />
-              <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Hotlist Count</h3>
-              <span className="text-3xl font-black text-red-400">
-                {dashboardData?.hotlists?.length ?? 0}
-              </span>
-            </div>
+              <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
+                <Users size={30} className="text-red-400 mb-2" />
+                <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Hotlist Count</h3>
+                <span className="text-3xl font-black text-red-400">
+                  {dashboardData?.hotlists?.length ?? 0}
+                </span>
+              </div>
 
-            <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
-              <Users size={30} className="text-green-400 mb-2" />
-              <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Today's Attendance</h3>
-              <span className="text-3xl font-black text-green-400">
-                {dashboardData?.attendance?.attendanceRate ?? '0.0%'}
-              </span>
+              <div className="border-2 border-slate-100 rounded-2xl p-6 flex flex-col items-center">
+                <Users size={30} className="text-green-400 mb-2" />
+                <h3 className="text-xs font-black !text-slate-950 uppercase text-center">Today's Attendance</h3>
+                <span className="text-3xl font-black text-green-400">
+                  {dashboardData?.attendance?.attendanceRate ?? '0.0%'}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 border-2 border-slate-100 rounded-2xl p-8">
@@ -158,21 +211,24 @@ const EngineerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboardData?.workers?.map((w: any) => {
-                      const normalizedName = (w.name && w.name.trim() !== '') ? w.name.trim() : 'Unknown Worker';
-                      return (
-                        <tr key={w.id || w.personCode || Math.random().toString()} className="border-b hover:bg-slate-50">
-                          <td className="p-4 text-slate-900">{normalizedName}</td>
-                          <td>{w.email || '-'}</td>
-                          <td>
-                            <Link to={`/worker-profile?id=${w.id}`} className="text-blue-500 hover:underline">
-                              View
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {(!dashboardData?.workers || dashboardData.workers.length === 0) && !loading && (
+                    {loading && !dashboardData ? (
+                       Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={3} />)
+                    ) : dashboardData?.workers?.length > 0 ? (
+                      dashboardData.workers.map((w: any) => {
+                        const normalizedName = (w.name && w.name.trim() !== '') ? w.name.trim() : 'Unknown Worker';
+                        return (
+                          <tr key={w.id || w.personCode || Math.random().toString()} className="border-b hover:bg-slate-50">
+                            <td className="p-4 text-slate-900">{normalizedName}</td>
+                            <td>{w.email || '-'}</td>
+                            <td>
+                              <Link to={`/worker-profile?id=${w.id}`} className="text-blue-500 hover:underline">
+                                View
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
                       <tr><td colSpan={3} className="p-4 text-slate-400">No recent workers</td></tr>
                     )}
                   </tbody>
@@ -190,7 +246,7 @@ const EngineerDashboard = () => {
                 {canExport ? (
                   <button
                     onClick={() => exportManager.startJob(() => startEngineerAttendanceExport())}
-                    disabled={exportManager.isExporting}
+                    disabled={loading || !dashboardData || exportManager.isExporting}
                     className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Today's Attendance
@@ -226,7 +282,7 @@ const EngineerDashboard = () => {
                         }
                         exportManager.startJob(() => startEngineerAttendanceExport(dateVal));
                       }}
-                      disabled={exportManager.isExporting}
+                      disabled={loading || !dashboardData || exportManager.isExporting}
                       className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                       <Download size={16} /> Export Selected Day
@@ -251,7 +307,9 @@ const EngineerDashboard = () => {
           </div>
           
           <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-            {alerts.length === 0 ? (
+            {alertsLoading && alerts.length === 0 ? (
+               Array.from({ length: 5 }).map((_, i) => <SkeletonListItem key={i} />)
+            ) : alerts.length === 0 ? (
               <div className="text-center p-8 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold uppercase text-xs tracking-widest">
                 No active alerts
               </div>

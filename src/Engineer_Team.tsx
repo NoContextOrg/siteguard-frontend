@@ -12,6 +12,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts';
+import { SkeletonCard, SkeletonRow, SkeletonChart } from './components/Skeletons';
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
@@ -84,8 +85,20 @@ const EngineerTeam = () => {
       const data = await getEngineerTeamDashboard(controller.signal);
       
       if (data && !controller.signal.aborted) {
-        // Enforce valid team-scoped data, preserving state to avoid empty 0 renders
-        setDashboard(data);
+        // Normalize Data Layer
+        const normalized = {
+          ...data,
+          normalWorkers: Array.isArray(data.normalWorkers) ? data.normalWorkers : [],
+          hotlistWorkers: Array.isArray(data.hotlistWorkers) ? data.hotlistWorkers : [],
+          unassignedWorkers: Array.isArray(data.unassignedWorkers) ? data.unassignedWorkers : [],
+          hotlistWorkersCount: typeof data.hotlistWorkersCount === 'number' ? data.hotlistWorkersCount : 0,
+          normalWorkersCount: typeof data.normalWorkersCount === 'number' ? data.normalWorkersCount : 0,
+          overtimeOverview: {
+             ...data.overtimeOverview,
+             timeSeries: Array.isArray(data.overtimeOverview?.timeSeries) ? data.overtimeOverview.timeSeries : []
+          }
+        };
+        setDashboard(normalized);
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -177,56 +190,62 @@ const EngineerTeam = () => {
             {userEmail || 'Engineer'}
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-            {/* HOTLIST */}
-            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
-              <Users size={40} className="text-red-400" />
-              <div>
-                <h3 className="text-md font-black !text-slate-950 uppercase">Hotlist Workers</h3>
-                <span className="text-5xl font-black text-red-400">
-                  {dashboard?.hotlistWorkersCount ?? 0}
-                </span>
-              </div>
-              <div className="absolute bottom-4 right-6 text-right space-y-1">
-                <button onClick={() => setModalType('hotlist')}
-                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
-                  See List →
-                </button>
-                <button onClick={() => setModalType('add')}
-                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
-                  Add Worker →
-                </button>
-              </div>
+          {loading && !dashboard ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+              {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+              {/* HOTLIST */}
+              <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+                <Users size={40} className="text-red-400" />
+                <div>
+                  <h3 className="text-md font-black !text-slate-950 uppercase">Hotlist Workers</h3>
+                  <span className="text-5xl font-black text-red-400">
+                    {dashboard?.hotlistWorkersCount ?? 0}
+                  </span>
+                </div>
+                <div className="absolute bottom-4 right-6 text-right space-y-1">
+                  <button onClick={() => setModalType('hotlist')}
+                    className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                    See List →
+                  </button>
+                  <button onClick={() => setModalType('add')}
+                    className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                    Add Worker →
+                  </button>
+                </div>
+              </div>
 
-            {/* NORMAL */}
-            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
-              <Users size={40} className="text-blue-400" />
-              <div>
-                <h3 className="text-md font-black !text-slate-950 uppercase">Normal Workers</h3>
-                <span className="text-5xl font-black text-blue-400">
-                  {dashboard?.normalWorkersCount ?? 0}
-                </span>
+              {/* NORMAL */}
+              <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+                <Users size={40} className="text-blue-400" />
+                <div>
+                  <h3 className="text-md font-black !text-slate-950 uppercase">Normal Workers</h3>
+                  <span className="text-5xl font-black text-blue-400">
+                    {dashboard?.normalWorkersCount ?? 0}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* UNASSIGNED */}
-            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
-              <UserX size={40} className="text-amber-400" />
-              <div>
-                <h3 className="text-md font-black !text-slate-950 uppercase">Unassigned</h3>
-                <span className="text-5xl font-black text-amber-400">
-                  {dashboard?.unassignedWorkers?.length ?? 0}
-                </span>
-              </div>
-              <div className="absolute bottom-4 right-6 text-right space-y-1">
-                <button onClick={() => setModalType('unassigned')}
-                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
-                  See List →
-                </button>
+              {/* UNASSIGNED */}
+              <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+                <UserX size={40} className="text-amber-400" />
+                <div>
+                  <h3 className="text-md font-black !text-slate-950 uppercase">Unassigned</h3>
+                  <span className="text-5xl font-black text-amber-400">
+                    {dashboard?.unassignedWorkers?.length ?? 0}
+                  </span>
+                </div>
+                <div className="absolute bottom-4 right-6 text-right space-y-1">
+                  <button onClick={() => setModalType('unassigned')}
+                    className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                    See List →
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* ========== CHART ========== */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -240,17 +259,19 @@ const EngineerTeam = () => {
               </div>
 
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dashboard?.overtimeOverview?.timeSeries || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Area dataKey="Workers" stroke="#818cf8" fill="#818cf8" />
-                    <Area dataKey="Hotlist" stroke="#f87171" fill="#f87171" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {loading && !dashboard ? <SkeletonChart /> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dashboard?.overtimeOverview?.timeSeries || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Area dataKey="Workers" stroke="#818cf8" fill="#818cf8" />
+                      <Area dataKey="Hotlist" stroke="#f87171" fill="#f87171" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -265,7 +286,7 @@ const EngineerTeam = () => {
                 {canExport ? (
                   <button
                     onClick={() => exportManager.startJob(() => startEngineerTeamExport())}
-                    disabled={exportManager.isExporting}
+                    disabled={loading || !dashboard || exportManager.isExporting}
                     className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     <Download size={16} /> Export Today's Attendance
@@ -301,7 +322,7 @@ const EngineerTeam = () => {
                         }
                         exportManager.startJob(() => startEngineerTeamExport(dateVal));
                       }}
-                      disabled={exportManager.isExporting}
+                      disabled={loading || !dashboard || exportManager.isExporting}
                       className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                       <Download size={16} /> Export Selected Day
@@ -338,12 +359,8 @@ const EngineerTeam = () => {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={3} className="p-6 text-slate-400">
-                      Loading...
-                    </td>
-                  </tr>
+                {loading && !dashboard ? (
+                  Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={3} />)
                 ) : displayedWorkers.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="p-6 text-slate-400">
@@ -351,17 +368,20 @@ const EngineerTeam = () => {
                     </td>
                   </tr>
                 ) : (
-                  displayedWorkers.map((p) => (
-                    <tr key={p.id} className="border-b hover:bg-slate-50">
-                      <td className="p-4 text-slate-900">{p.name}</td>
-                      <td>{(p as any).role || 'WORKER'}</td>
-                      <td>
-                        <Link to={`/worker-profile?id=${p.id}`} className="text-blue-500">
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
+                  displayedWorkers.map((p) => {
+                    const normalizedName = (p.name && p.name.trim() !== '') ? p.name.trim() : 'Unknown Worker';
+                    return (
+                      <tr key={p.id || p.personCode || Math.random().toString()} className="border-b hover:bg-slate-50">
+                        <td className="p-4 text-slate-900">{normalizedName}</td>
+                        <td>{(p as any).role || 'WORKER'}</td>
+                        <td>
+                          <Link to={`/worker-profile?id=${p.id}`} className="text-blue-500 hover:underline">
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

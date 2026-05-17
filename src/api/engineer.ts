@@ -16,6 +16,20 @@ export const getEngineerDashboardSummary = async (signal?: AbortSignal) => {
     return response.json();
 };
 
+export const getEngineerAlerts = async (signal?: AbortSignal) => {
+    const response = await fetch(`${API_BASE_URL}/engineer/dashboard/alerts`, {
+        signal,
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+        },
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch alerts');
+    }
+    return response.json();
+};
+
 export const startEngineerAttendanceExport = async (date?: string) => {
     let url = `${API_BASE_URL}/engineer/dashboard/export/attendance?`;
     if (date) url += `date=${date}`;
