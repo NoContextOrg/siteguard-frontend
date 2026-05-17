@@ -26,7 +26,7 @@ export const getEngineerTeamDashboard = async (signal?: AbortSignal): Promise<En
   return response.json();
 };
 
-export const startEngineerTeamExport = async (date?: string): Promise<{ jobId: string, status: string }> => {
+export const startEngineerTeamExport = async (date?: string): Promise<{ jobId: number, status: string }> => {
   const url = date 
     ? `${API_BASE_URL}/engineer/team/attendance/export?date=${date}`
     : `${API_BASE_URL}/engineer/team/attendance/export`;

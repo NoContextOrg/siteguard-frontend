@@ -16,7 +16,7 @@ import { SkeletonCard, SkeletonRow, SkeletonChart } from './components/Skeletons
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
-import { getEngineerTeamDashboard, type EngineerTeamOverview } from './api/engineerTeam';
+import { getEngineerTeamDashboard, startEngineerTeamExport, type EngineerTeamOverview } from './api/engineerTeam';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
 import { type Dayjs } from 'dayjs';
@@ -27,12 +27,11 @@ import { useAuth } from './context/AuthContext';
 
 // ================= COMPONENT ================= //
 const EngineerTeam = () => {
-  const { roles, personCode, userEmail } = useAuth();
+  const { roles, userEmail } = useAuth();
   const isAdmin = roles.includes('ROLE_ADMIN');
   const isEngineer = roles.includes('ROLE_ENGINEER');
   const canExport = isAdmin || isEngineer;
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('ALL');
   const [modalType, setModalType] = useState<'hotlist' | 'unassigned' | 'add' | null>(null);
 
   const [dashboard, setDashboard] = useState<EngineerTeamOverview | null>(null);
@@ -171,11 +170,10 @@ const EngineerTeam = () => {
     let list = dashboard.normalWorkers || [];
     list = list.filter(p => {
       const matchesSearch = (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = roleFilter === 'ALL' || (p.role || 'WORKER').toUpperCase() === roleFilter.toUpperCase();
-      return matchesSearch && matchesRole;
+      return matchesSearch;
     });
     return list;
-  }, [dashboard, searchTerm, roleFilter]);
+  }, [dashboard, searchTerm]);
 
   // ================= UI ================= //
   return (

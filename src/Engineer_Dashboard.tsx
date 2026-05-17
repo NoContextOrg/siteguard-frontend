@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Users, Bell, Download } from 'lucide-react';
-import { BarChart, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { getEngineerDashboardSummary, getEngineerAlerts, startEngineerAttendanceExport } from './api/engineer';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
@@ -16,7 +15,7 @@ import { Link } from 'react-router-dom';
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws/alerts';
 
 const EngineerDashboard = () => {
-  const { roles, userEmail } = useAuth();
+  const { roles } = useAuth();
   const isAdmin = roles.includes('ROLE_ADMIN');
   const isEngineer = roles.includes('ROLE_ENGINEER');
   const canExport = isAdmin || isEngineer;
