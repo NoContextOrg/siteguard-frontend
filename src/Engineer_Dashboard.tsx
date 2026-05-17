@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Users, Bell, Download } from 'lucide-react';
+import { Users, Bell, Download, FileText } from 'lucide-react';
 import { getEngineerDashboardSummary, getEngineerAlerts, startEngineerAttendanceExport } from './api/engineer';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
+import { RecentExportsModal } from './components/RecentExportsModal';
 import { SkeletonCard, SkeletonRow, SkeletonListItem } from './components/Skeletons';
 import DashboardLayout from './components/DashboardLayout';
 import { type Dayjs } from 'dayjs';
@@ -33,6 +34,7 @@ const EngineerDashboard = () => {
   });
 
   const [exportDate, setExportDate] = useState<Dayjs | null>(null);
+  const [showRecentExports, setShowRecentExports] = useState(false);
 
   const fetchDashboard = async (isBackground = false) => {
     if (abortControllerRef.current) {
@@ -288,6 +290,13 @@ const EngineerDashboard = () => {
                     </button>
                   )}
                 </div>
+
+                <button
+                  onClick={() => setShowRecentExports(true)}
+                  className="w-full border-2 border-slate-200 text-slate-600 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-50 transition flex justify-center items-center gap-2 mt-4"
+                >
+                  <FileText size={16} /> View Recent Exports
+                </button>
               </div>
             </div>
           </div>
@@ -336,6 +345,10 @@ const EngineerDashboard = () => {
         onReset={exportManager.reset}
         onDownloadAgain={exportManager.downloadAgain}
       />
+
+      {showRecentExports && (
+        <RecentExportsModal onClose={() => setShowRecentExports(false)} />
+      )}
     </DashboardLayout>
   );
 };

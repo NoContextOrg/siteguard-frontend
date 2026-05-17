@@ -6,7 +6,8 @@ import {
   Eye,
   EyeOff,
   Download,
-  UserX
+  UserX,
+  FileText
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -19,6 +20,7 @@ import { createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/p
 import { getEngineerTeamDashboard, startEngineerTeamExport, type EngineerTeamOverview } from './api/engineerTeam';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
+import { RecentExportsModal } from './components/RecentExportsModal';
 import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -44,6 +46,7 @@ const EngineerTeam = () => {
   });
 
   const [exportDate, setExportDate] = useState<Dayjs | null>(null);
+  const [showRecentExports, setShowRecentExports] = useState(false);
 
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerEmail, setNewWorkerEmail] = useState('');
@@ -327,6 +330,13 @@ const EngineerTeam = () => {
                     </button>
                   )}
                 </div>
+
+                <button
+                  onClick={() => setShowRecentExports(true)}
+                  className="w-full border-2 border-slate-200 text-slate-600 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-50 transition flex justify-center items-center gap-2 mt-4"
+                >
+                  <FileText size={16} /> View Recent Exports
+                </button>
               </div>
             </div>
           </div>
@@ -491,6 +501,10 @@ const EngineerTeam = () => {
         onReset={exportManager.reset}
         onDownloadAgain={exportManager.downloadAgain}
       />
+
+      {showRecentExports && (
+        <RecentExportsModal onClose={() => setShowRecentExports(false)} />
+      )}
     </DashboardLayout>
   );
 };

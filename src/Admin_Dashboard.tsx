@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download } from 'lucide-react';
+import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import {
   getUnifiedDashboard,
@@ -14,6 +14,7 @@ import {
 } from './api/export';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
+import { RecentExportsModal } from './components/RecentExportsModal';
 import { getActiveAlerts } from './api/alert';
 import type { SystemStats, DashboardOverview, HotlistOverview } from './api/analytics';
 import type { AlertDTO } from './api/alert';
@@ -48,6 +49,7 @@ const AdminDashboard = () => {
   const [attendanceFilter, setAttendanceFilter] = useState<DashboardTimeFilterState>({ key: '7_DAYS' });
 
   const [exportDate, setExportDate] = useState<Dayjs | null>(null);
+  const [showRecentExports, setShowRecentExports] = useState(false);
 
   // New Async Export Hook
   const exportManager = useExportJob({
@@ -559,6 +561,13 @@ const AdminDashboard = () => {
                     <Download size={16} /> Export Selected Day
                   </button>
                 </div>
+                
+                <button
+                  onClick={() => setShowRecentExports(true)}
+                  className="w-full border-2 border-slate-200 text-slate-600 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-50 transition flex justify-center items-center gap-2 mt-4"
+                >
+                  <FileText size={16} /> View Recent Exports
+                </button>
               </div>
             </div>
 
@@ -665,6 +674,10 @@ const AdminDashboard = () => {
         onReset={exportManager.reset}
         onDownloadAgain={exportManager.downloadAgain}
       />
+
+      {showRecentExports && (
+        <RecentExportsModal onClose={() => setShowRecentExports(false)} />
+      )}
     </DashboardLayout>
   );
 };

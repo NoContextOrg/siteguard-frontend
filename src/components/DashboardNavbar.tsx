@@ -180,6 +180,21 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
 
               <div className="border-t border-slate-700" />
 
+              {/* Recent Exports */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  setShowRecentExports(true);
+                }}
+                className="w-full flex items-center gap-2 text-slate-200 hover:text-white p-3 hover:bg-slate-800"
+              >
+                <FileText size={16} />
+                <span className="text-sm font-medium">Recent Exports</span>
+              </button>
+
+              <div className="border-t border-slate-700" />
+
               {/* Logout */}
               <button
                 type="button"
