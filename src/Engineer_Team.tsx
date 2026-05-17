@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Users,
   X,
   Search,
   Eye,
   EyeOff,
-  Download
+  Download,
+  UserX
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,28 +14,15 @@ import {
 } from 'recharts';
 import DashboardLayout from './components/DashboardLayout';
 import { Link } from 'react-router-dom';
-import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
-import type { PersonResponse } from './api/person';
-import { 
-  getOvertimeOverview, 
-  getEngineerUnifiedDashboard, 
-} from './api/analytics';
-import { startEngineerAttendanceExport } from './api/export';
+import { createPersonUi, uploadProfilePicture, getFallbackAvatar } from './api/person';
+import { getEngineerTeamDashboard, type EngineerTeamOverview } from './api/engineerTeam';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
-import { getActiveAlertCount } from './api/alert';
 import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useAuth } from './context/AuthContext';
-
-// ================= TYPES ================= //
-type OvertimePoint = {
-  name: string;
-  Hotlist: number;
-  Workers: number;
-};
 
 // ================= COMPONENT ================= //
 const EngineerTeam = () => {
@@ -44,12 +32,9 @@ const EngineerTeam = () => {
   const canExport = isAdmin || isEngineer;
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
-  const [modalType, setModalType] = useState<'list' | 'add' | null>(null);
+  const [modalType, setModalType] = useState<'hotlist' | 'unassigned' | 'add' | null>(null);
 
-  const [persons, setPersons] = useState<PersonResponse[]>([]);
-  const [overtimeData, setOvertimeData] = useState<OvertimePoint[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [activeAlerts, setActiveAlerts] = useState<number>(0);
+  const [dashboard, setDashboard] = useState<EngineerTeamOverview | null>(null);
   const [loading, setLoading] = useState(true);
   
   // New Async Export Hook
@@ -85,6 +70,49 @@ const EngineerTeam = () => {
     }
   };
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchDashboard = async (isBackground = false) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      if (!isBackground && !dashboard) setLoading(true);
+      const data = await getEngineerTeamDashboard(controller.signal);
+      
+      if (data && !controller.signal.aborted) {
+        // Enforce valid team-scoped data, preserving state to avoid empty 0 renders
+        setDashboard(data);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to fetch team dashboard data:', err);
+      }
+    } finally {
+      if (!isBackground && !controller.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard(false);
+    
+    const interval = setInterval(() => {
+      fetchDashboard(true);
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleAddWorker = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -117,8 +145,7 @@ const EngineerTeam = () => {
       setSelectedFile(null);
       setPreviewUrl(null);
       
-      const personsData = await getAllPersons();
-      setPersons(personsData || []);
+      await fetchDashboard();
     } catch (err: any) {
       alert(err.message || 'Failed to add worker');
     } finally {
@@ -126,111 +153,47 @@ const EngineerTeam = () => {
     }
   };
 
-  // ================= FETCH DATA ================= //
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        const [personsData, , unifiedData, alertsJson] = await Promise.all([
-          getAllPersons(),
-          getOvertimeOverview(),
-          getEngineerUnifiedDashboard(),
-          getActiveAlertCount(),
-        ]);
-
-        setPersons(personsData || []);
-        
-        const attArray = (unifiedData?.enhancedAttendanceOverview?.timeSeries || []).map((t: any) => ({
-          name: t.date,
-          Workers: t.count,
-          Hotlist: 0,
-        }));
-        setOvertimeData(attArray);
-        setStats({
-          ...unifiedData?.systemStats,
-          hotlistCount: unifiedData?.enhancedHotlistOverview?.totalHotlisted || unifiedData?.dashboardOverview?.hotlistWorkers
-        });
-        setActiveAlerts((alertsJson as any)?.activeAlertCount || 0);
-
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // ================= FILTER ================= //
-  const authUser = useMemo(() => {
-    return persons.find(p => p.personCode === personCode || p.email === userEmail);
-  }, [persons, personCode, userEmail]);
-
-  const filteredWorkers = useMemo(() => {
-    return persons.filter(p => {
+  const displayedWorkers = useMemo(() => {
+    if (!dashboard) return [];
+    let list = dashboard.normalWorkers || [];
+    list = list.filter(p => {
       const matchesSearch = (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'ALL' || (p.role || 'WORKER').toUpperCase() === roleFilter.toUpperCase();
       return matchesSearch && matchesRole;
     });
-  }, [persons, searchTerm, roleFilter]);
-
-  const handleExport = () => {
-    if (filteredWorkers.length === 0) {
-      alert('No data to export');
-      return;
-    }
-    const headers = ['Name', 'Role'];
-    const csvRows = filteredWorkers.map(p => [
-      `"${(p.name || '').replace(/"/g, '""')}"`,
-      `"${(p.role || 'WORKER').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `team_export_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    return list;
+  }, [dashboard, searchTerm, roleFilter]);
 
   // ================= UI ================= //
   return (
     <DashboardLayout title="Team">
       <div className="p-10">
-
         {/* ========== SUMMARY ========== */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
           <h2 className="text-xl font-black !text-slate-950 uppercase">
-            {authUser?.teamId ? `Team ${authUser.teamId}` : (authUser as any)?.teamName || 'Unassigned Team'}
+            Team Overview
           </h2>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">
-            {authUser?.name || userEmail || 'Unknown User'}
+            {userEmail || 'Engineer'}
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
             {/* HOTLIST */}
             <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
               <Users size={40} className="text-red-400" />
               <div>
                 <h3 className="text-md font-black !text-slate-950 uppercase">Hotlist Workers</h3>
                 <span className="text-5xl font-black text-red-400">
-                  {stats?.hotlistCount ?? activeAlerts}
+                  {dashboard?.hotlistWorkersCount ?? 0}
                 </span>
               </div>
               <div className="absolute bottom-4 right-6 text-right space-y-1">
-                <button onClick={() => setModalType('list')}
-                  className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                <button onClick={() => setModalType('hotlist')}
+                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
                   See List →
                 </button>
                 <button onClick={() => setModalType('add')}
-                  className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
                   Add Worker →
                 </button>
               </div>
@@ -242,8 +205,25 @@ const EngineerTeam = () => {
               <div>
                 <h3 className="text-md font-black !text-slate-950 uppercase">Normal Workers</h3>
                 <span className="text-5xl font-black text-blue-400">
-                  {stats?.workers ?? persons.length}
+                  {dashboard?.normalWorkersCount ?? 0}
                 </span>
+              </div>
+            </div>
+
+            {/* UNASSIGNED */}
+            <div className="border-2 border-slate-100 rounded-2xl p-8 relative flex items-center gap-6">
+              <UserX size={40} className="text-amber-400" />
+              <div>
+                <h3 className="text-md font-black !text-slate-950 uppercase">Unassigned</h3>
+                <span className="text-5xl font-black text-amber-400">
+                  {dashboard?.unassignedWorkers?.length ?? 0}
+                </span>
+              </div>
+              <div className="absolute bottom-4 right-6 text-right space-y-1">
+                <button onClick={() => setModalType('unassigned')}
+                  className="block w-full text-right text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase">
+                  See List →
+                </button>
               </div>
             </div>
           </div>
@@ -261,9 +241,9 @@ const EngineerTeam = () => {
 
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={overtimeData}>
+                  <AreaChart data={dashboard?.overtimeOverview?.timeSeries || []}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis dataKey="date" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
@@ -284,7 +264,7 @@ const EngineerTeam = () => {
               <div className="space-y-4 mt-auto">
                 {canExport ? (
                   <button
-                    onClick={() => exportManager.startJob(() => startEngineerAttendanceExport(undefined, 'PDF'))}
+                    onClick={() => exportManager.startJob(() => startEngineerTeamExport())}
                     disabled={exportManager.isExporting}
                     className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
                   >
@@ -314,12 +294,12 @@ const EngineerTeam = () => {
                   {canExport && (
                     <button
                       onClick={() => {
-                        const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
+                        const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : undefined;
                         if (!dateVal) {
                           alert('Please select a date');
                           return;
                         }
-                        exportManager.startJob(() => startEngineerAttendanceExport(dateVal, 'PDF'));
+                        exportManager.startJob(() => startEngineerTeamExport(dateVal));
                       }}
                       disabled={exportManager.isExporting}
                       className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
@@ -335,37 +315,16 @@ const EngineerTeam = () => {
 
         {/* ========== TABLE ========== */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-
           <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
+            <h3 className="font-black !text-slate-950 uppercase tracking-tight">Normal Workers List</h3>
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Search workers..."
+                placeholder="Search normal workers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase w-full sm:w-auto cursor-pointer"
-              >
-                <option value="ALL">All Roles</option>
-                <option value="WORKER">Worker</option>
-                <option value="ENGINEER">Engineer</option>
-                <option value="NURSE">Nurse</option>
-                <option value="STAFF">Staff</option>
-              </select>
-              {canExport && (
-                <button
-                  onClick={handleExport}
-                  className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-full font-black text-xs uppercase hover:bg-blue-100 transition shadow-sm whitespace-nowrap shrink-0"
-                >
-                  Export CSV
-                </button>
-              )}
             </div>
           </div>
 
@@ -378,7 +337,6 @@ const EngineerTeam = () => {
                   <th>Action</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loading ? (
                   <tr>
@@ -386,12 +344,16 @@ const EngineerTeam = () => {
                       Loading...
                     </td>
                   </tr>
+                ) : displayedWorkers.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-6 text-slate-400">
+                      No normal workers found
+                    </td>
+                  </tr>
                 ) : (
-                  filteredWorkers.map((p) => (
+                  displayedWorkers.map((p) => (
                     <tr key={p.id} className="border-b hover:bg-slate-50">
-                      <td className="p-4 text-slate-900">
-                        {p.name}
-                      </td>
+                      <td className="p-4 text-slate-900">{p.name}</td>
                       <td>{(p as any).role || 'WORKER'}</td>
                       <td>
                         <Link to={`/worker-profile?id=${p.id}`} className="text-blue-500">
@@ -407,28 +369,62 @@ const EngineerTeam = () => {
         </div>
       </div>
 
-      {/* ========== MODAL ========== */}
+      {/* ========== MODALS ========== */}
       {modalType && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)} />
-          <div className="relative bg-white p-6 rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="relative bg-white p-6 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center shrink-0 mb-4 pb-4 border-b border-slate-100">
               <h2 className="font-black !text-slate-950 uppercase tracking-tight">
-                {modalType === 'list' ? 'Worker List' : 'Add Worker'}
+                {modalType === 'hotlist' ? 'Hotlist Workers' : 
+                 modalType === 'unassigned' ? 'Unassigned Workers' : 'Add Worker'}
               </h2>
               <button onClick={() => setModalType(null)} className="p-1.5 hover:bg-slate-100 rounded-full transition">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="overflow-y-auto px-1 -mx-1">
-            {modalType === 'list' ? (
-              <div className="text-sm text-slate-500 pb-4">
-                Worker list placeholder
+            <div className="overflow-y-auto px-1 -mx-1 flex-1">
+            {modalType === 'hotlist' && (
+              <div className="space-y-3">
+                {dashboard?.hotlistWorkers?.map(w => (
+                  <div key={w.id} className="p-3 border rounded-lg bg-red-50 border-red-100 flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-slate-900">{w.name}</h4>
+                      <span className="text-xs text-red-500 font-bold uppercase">{w.personCode}</span>
+                    </div>
+                    <Link to={`/worker-profile?id=${w.id}`} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-full font-bold uppercase hover:bg-red-700">
+                      View Profile
+                    </Link>
+                  </div>
+                ))}
+                {(!dashboard?.hotlistWorkers || dashboard.hotlistWorkers.length === 0) && (
+                  <p className="text-center text-slate-400 text-sm">No hotlist workers</p>
+                )}
               </div>
-            ) : (
+            )}
+            
+            {modalType === 'unassigned' && (
+              <div className="space-y-3">
+                {dashboard?.unassignedWorkers?.map(w => (
+                  <div key={w.id} className="p-3 border rounded-lg bg-amber-50 border-amber-100 flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-slate-900">{w.name}</h4>
+                      <span className="text-xs text-amber-600 font-bold uppercase">{w.personCode}</span>
+                    </div>
+                    <Link to={`/worker-profile?id=${w.id}`} className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-full font-bold uppercase hover:bg-amber-700">
+                      View Profile
+                    </Link>
+                  </div>
+                ))}
+                {(!dashboard?.unassignedWorkers || dashboard.unassignedWorkers.length === 0) && (
+                  <p className="text-center text-slate-400 text-sm">No unassigned workers</p>
+                )}
+              </div>
+            )}
+
+            {modalType === 'add' && (
               <form onSubmit={handleAddWorker} className="space-y-3 pb-2">
-                {/* Profile Picture Upload Section */}
                 <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
                   <div className="h-14 w-14 shrink-0 rounded-full border-2 border-dashed border-slate-300 overflow-hidden flex items-center justify-center bg-white">
                     <img src={previewUrl || getFallbackAvatar(newWorkerName)} alt="Preview" className={`h-full w-full object-cover ${!previewUrl && 'opacity-60'}`} onError={(e) => { e.currentTarget.src = getFallbackAvatar(newWorkerName); }} />
