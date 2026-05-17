@@ -17,9 +17,9 @@ import { getAllPersons, createPersonUi, uploadProfilePicture, getFallbackAvatar 
 import type { PersonResponse } from './api/person';
 import { 
   getOvertimeOverview, 
-  getUnifiedDashboard, 
+  getEngineerUnifiedDashboard, 
 } from './api/analytics';
-import { startAttendanceExport } from './api/export';
+import { startEngineerAttendanceExport } from './api/export';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
 import { getActiveAlertCount } from './api/alert';
@@ -27,6 +27,7 @@ import { type Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { useAuth } from './context/AuthContext';
 
 // ================= TYPES ================= //
 type OvertimePoint = {
@@ -37,6 +38,10 @@ type OvertimePoint = {
 
 // ================= COMPONENT ================= //
 const EngineerTeam = () => {
+  const { roles, personCode, userEmail } = useAuth();
+  const isAdmin = roles.includes('ROLE_ADMIN');
+  const isEngineer = roles.includes('ROLE_ENGINEER');
+  const canExport = isAdmin || isEngineer;
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [modalType, setModalType] = useState<'list' | 'add' | null>(null);
@@ -130,7 +135,7 @@ const EngineerTeam = () => {
         const [personsData, , unifiedData, alertsJson] = await Promise.all([
           getAllPersons(),
           getOvertimeOverview(),
-          getUnifiedDashboard(),
+          getEngineerUnifiedDashboard(),
           getActiveAlertCount(),
         ]);
 
@@ -159,6 +164,10 @@ const EngineerTeam = () => {
   }, []);
 
   // ================= FILTER ================= //
+  const authUser = useMemo(() => {
+    return persons.find(p => p.personCode === personCode || p.email === userEmail);
+  }, [persons, personCode, userEmail]);
+
   const filteredWorkers = useMemo(() => {
     return persons.filter(p => {
       const matchesSearch = (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -197,9 +206,11 @@ const EngineerTeam = () => {
 
         {/* ========== SUMMARY ========== */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
-          <h2 className="text-xl font-black !text-slate-950 uppercase">MEPF</h2>
+          <h2 className="text-xl font-black !text-slate-950 uppercase">
+            {authUser?.teamId ? `Team ${authUser.teamId}` : (authUser as any)?.teamName || 'Unassigned Team'}
+          </h2>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">
-            ENGR. ALBERT SANTOS
+            {authUser?.name || userEmail || 'Unknown User'}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
@@ -256,8 +267,8 @@ const EngineerTeam = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Area dataKey="Hotlist" stroke="#818cf8" fill="#818cf8" />
-                    <Area dataKey="Workers" stroke="#f87171" fill="#f87171" />
+                    <Area dataKey="Workers" stroke="#818cf8" fill="#818cf8" />
+                    <Area dataKey="Hotlist" stroke="#f87171" fill="#f87171" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -271,13 +282,19 @@ const EngineerTeam = () => {
               </p>
               
               <div className="space-y-4 mt-auto">
-                <button
-                  onClick={() => exportManager.startJob(() => startAttendanceExport(undefined, 'PDF'))}
-                  disabled={exportManager.isExporting}
-                  className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
-                >
-                  <Download size={16} /> Export Today's Attendance
-                </button>
+                {canExport ? (
+                  <button
+                    onClick={() => exportManager.startJob(() => startEngineerAttendanceExport(undefined, 'PDF'))}
+                    disabled={exportManager.isExporting}
+                    className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
+                  >
+                    <Download size={16} /> Export Today's Attendance
+                  </button>
+                ) : (
+                  <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest text-center py-2">
+                    Admin access required to export
+                  </div>
+                )}
 
                 <div className="relative flex items-center py-2">
                   <div className="flex-grow border-t border-slate-100"></div>
@@ -294,20 +311,22 @@ const EngineerTeam = () => {
                       slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
                   </LocalizationProvider>
-                  <button
-                    onClick={() => {
-                      const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
-                      if (!dateVal) {
-                        alert('Please select a date');
-                        return;
-                      }
-                      exportManager.startJob(() => startAttendanceExport(dateVal, 'PDF'));
-                    }}
-                    disabled={exportManager.isExporting}
-                    className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
-                  >
-                    <Download size={16} /> Export Selected Day
-                  </button>
+                  {canExport && (
+                    <button
+                      onClick={() => {
+                        const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
+                        if (!dateVal) {
+                          alert('Please select a date');
+                          return;
+                        }
+                        exportManager.startJob(() => startEngineerAttendanceExport(dateVal, 'PDF'));
+                      }}
+                      disabled={exportManager.isExporting}
+                      className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
+                    >
+                      <Download size={16} /> Export Selected Day
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -339,12 +358,14 @@ const EngineerTeam = () => {
                 <option value="NURSE">Nurse</option>
                 <option value="STAFF">Staff</option>
               </select>
-              <button
-                onClick={handleExport}
-                className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-full font-black text-xs uppercase hover:bg-blue-100 transition shadow-sm whitespace-nowrap shrink-0"
-              >
-                Export CSV
-              </button>
+              {canExport && (
+                <button
+                  onClick={handleExport}
+                  className="bg-blue-50 text-blue-600 px-5 py-2.5 rounded-full font-black text-xs uppercase hover:bg-blue-100 transition shadow-sm whitespace-nowrap shrink-0"
+                >
+                  Export CSV
+                </button>
+              )}
             </div>
           </div>
 

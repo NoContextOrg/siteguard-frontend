@@ -77,6 +77,39 @@ export const startAnalyticsExport = async (params: Record<string, any>): Promise
 };
 
 /**
+ * Initiates an engineer analytics export job
+ */
+export const startEngineerAnalyticsExport = async (params: Record<string, any>): Promise<StartExportResponse> => {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, value.toString());
+    }
+  });
+
+  const res = await authenticatedFetch(`${API_ENDPOINTS.engineerExports.analyticsStart}?${queryParams.toString()}`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Failed to start engineer analytics export');
+  return res.json();
+};
+
+/**
+ * Initiates an engineer attendance export job
+ */
+export const startEngineerAttendanceExport = async (date?: string, format: string = 'CSV'): Promise<StartExportResponse> => {
+  const params = new URLSearchParams();
+  if (date) params.append('date', date);
+  params.append('format', format);
+
+  const res = await authenticatedFetch(`${API_ENDPOINTS.engineerExports.start}?${params.toString()}`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Failed to start engineer attendance export');
+  return res.json();
+};
+
+/**
  * Initiates a worker-specific analytics export job
  */
 export const startWorkerAnalyticsExport = async (personCode: string, params: Record<string, any> = {}): Promise<StartExportResponse> => {
@@ -134,4 +167,13 @@ export const downloadExportFile = async (jobId: number, filename?: string): Prom
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+};
+
+/**
+ * Fetches the recent export history for the current user
+ */
+export const getExportHistory = async (): Promise<ExportJob[]> => {
+  const res = await authenticatedFetch(API_ENDPOINTS.exports.history);
+  if (!res.ok) throw new Error('Failed to fetch export history');
+  return res.json();
 };

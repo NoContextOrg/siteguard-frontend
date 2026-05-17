@@ -8,6 +8,8 @@ import { Search, Bell, ChevronDown, User, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getAuthToken, getPrimaryRole, getStoredUserEmail, logoutUser } from '../api/auth';
+import { RecentExportsModal } from './RecentExportsModal';
+import { FileText } from 'lucide-react';
 
 interface DashboardNavbarProps {
   title: string;
@@ -51,6 +53,7 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
 }) => {
   const { logout, userEmail: authEmail } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showRecentExports, setShowRecentExports] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -123,6 +126,15 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
       </div>
 
       <div className="flex items-center gap-2 md:gap-6">
+        <button 
+          className="hidden md:flex hover:bg-white/10 p-2 rounded-lg transition items-center justify-center relative" 
+          type="button"
+          onClick={() => setShowRecentExports(true)}
+          title="Recent Exports"
+        >
+          <FileText size={20} className="cursor-pointer" />
+        </button>
+
         <button className="hidden md:block hover:bg-white/10 p-2 rounded-lg transition" type="button">
           <Bell size={20} className="cursor-pointer" />
         </button>
@@ -185,6 +197,11 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
       {/* Overlay to close menu */}
       {showUserMenu && (
         <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)}></div>
+      )}
+
+      {/* Recent Exports Modal */}
+      {showRecentExports && (
+        <RecentExportsModal onClose={() => setShowRecentExports(false)} />
       )}
     </header>
   );

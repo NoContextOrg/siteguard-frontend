@@ -50,6 +50,16 @@ export const API_ENDPOINTS = {
     workerAnalyticsStart: (personCode: string) => `${API_BASE_URL}/analytics/export/worker/${personCode}/start`,
     status: (jobId: number) => `${API_BASE_URL}/export/status/${jobId}`,
     download: (jobId: number) => `${API_BASE_URL}/export/download/${jobId}`,
+    history: `${API_BASE_URL}/export/history`,
+  },
+  // Engineer Analytics
+  engineerAnalytics: {
+    dashboard: `${API_BASE_URL}/engineer/analytics/dashboard`,
+  },
+  // Engineer Exports
+  engineerExports: {
+    start: `${API_BASE_URL}/engineer/export/attendance/start`,
+    analyticsStart: `${API_BASE_URL}/engineer/export/analytics/start`,
   },
 };
 

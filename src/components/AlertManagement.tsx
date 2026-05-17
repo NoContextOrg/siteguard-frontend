@@ -10,6 +10,7 @@ import {
   type AlertDTO,
   type HealthProfile,
 } from '../api/alert';
+import { getAllPersons, type PersonResponse } from '../api/person';
 
 interface FormData {
   personCode: string;
@@ -20,6 +21,7 @@ interface FormData {
 const AlertManagement: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
   const [hotlistedPersons, setHotlistedPersons] = useState<HealthProfile[]>([]);
+  const [persons, setPersons] = useState<PersonResponse[]>([]);
 
   const lastAlertIdRef = useRef<number | null>(null);
 
@@ -48,13 +50,15 @@ const AlertManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [alertsResult, hotlistResult] = await Promise.all([
+      const [alertsResult, hotlistResult, personsResult] = await Promise.all([
         getActiveAlerts().catch(() => []),
         getAllHotlistedPersons().catch(() => []),
+        getAllPersons().catch(() => []),
       ]);
 
       setAlerts(alertsResult || []);
       setHotlistedPersons(hotlistResult || []);
+      setPersons(personsResult || []);
       if (alertsResult && alertsResult.length > 0) {
         lastAlertIdRef.current = alertsResult[0].id ?? null;
       }
@@ -324,12 +328,17 @@ const canManageHotlist = useMemo(() => {
           <Empty message="No hotlisted persons found" />
         ) : (
           <div className="space-y-2">
-            {filteredHotlistedPersons.map(p => (
-              <div key={p.id ?? p.personCode} className="border p-3 rounded">
-                <div className="font-medium">{p.personCode}</div>
-                <div className="text-sm text-gray-500">{p.reason ?? '—'}</div>
-              </div>
-            ))}
+            {filteredHotlistedPersons.map(p => {
+              const person = persons.find(x => x.personCode === p.personCode);
+              const displayName = person?.name && person.name.trim() !== '' ? person.name : 'Unknown Name';
+              return (
+                <div key={p.id ?? p.personCode} className="border p-3 rounded">
+                  <div className="font-bold text-sm">{displayName}</div>
+                  <div className="text-xs font-medium text-slate-500 mb-1">{p.personCode} • {person?.role ?? '—'}</div>
+                  <div className="text-sm text-gray-700">{p.reason ?? '—'}</div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

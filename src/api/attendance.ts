@@ -41,6 +41,7 @@ export interface WorkerAttendanceExportDTO {
   overtime?: boolean;
   hotlisted?: boolean;
   isActive?: boolean;
+  hasLoggedOut?: boolean;
 }
 
 export interface TeamAttendanceExportDTO {

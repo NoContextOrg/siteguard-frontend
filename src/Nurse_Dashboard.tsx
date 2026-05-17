@@ -20,12 +20,15 @@ import { ExportStatusOverlay } from './components/ExportStatusOverlay';
 import { getActiveAlerts } from './api/alert';
 import type { AlertDTO } from './api/alert';
 import { getAvatarUrl, getFallbackAvatar } from './api/person';
+import { useAuth } from './context/AuthContext';
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws/alerts';
 
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const NurseDashboard = () => {
+  const { roles } = useAuth();
+  const isAdmin = roles.includes('ROLE_ADMIN');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [alertsLoading, setAlertsLoading] = useState(true);
@@ -231,7 +234,7 @@ const NurseDashboard = () => {
           ) : (
             <>
               <StatCard label="Active Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<Bell className="text-red-400" size={28}/>} borderColor="border-l-red-500" onClick={() => navigate('/alerts')} />
-              <StatCard label="Today's Alerts" value={((alertsOverview as any)?.totalActive ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" onClick={() => navigate('/alerts')} />
+              <StatCard label="Today's Alerts" value={(alertsOverview?.todaysAlerts ?? 0).toString()} icon={<BellRing className="text-orange-400" size={28}/>} borderColor="border-l-orange-500" onClick={() => navigate('/alerts')} />
               <StatCard label="Hotlisted Persons" value={(hotlistOverview?.count ?? 0).toString()} icon={<UserX className="text-yellow-400" size={28}/>} borderColor="border-l-yellow-500" onClick={() => navigate('/alerts')} />
               <StatCard label="Overtime Alerts" value={((alertsOverview as any)?.overtimeAlerts ?? 0).toString()} icon={<Clock className="text-indigo-400" size={28}/>} borderColor="border-l-indigo-500" onClick={() => navigate('/alerts')} />
               <StatCard label="Hotlist Login Alerts" value={((alertsOverview as any)?.hotlistAlerts ?? 0).toString()} icon={<UserX className="text-pink-400" size={28}/>} borderColor="border-l-pink-500" onClick={() => navigate('/alerts')} />
@@ -270,14 +273,16 @@ const NurseDashboard = () => {
                           {opt.label}
                         </button>
                       ))}
-                      <button
-                        type="button"
-                        disabled={loading || exportManager.isExporting}
-                        onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
-                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
-                      >
-                        <Download size={16} /> Export
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          disabled={loading || exportManager.isExporting}
+                          onClick={() => handleExport('ALERTS', 'alerts-report', alertsFilter)}
+                          className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                        >
+                          <Download size={16} /> Export
+                        </button>
+                      )}
                   </div>
               </div>
 
@@ -358,14 +363,16 @@ const NurseDashboard = () => {
                         {opt.label}
                       </button>
                     ))}
-                    <button
-                      type="button"
-                      disabled={loading || exportManager.isExporting}
-                      onClick={() => handleExport('WORKER_ANALYTICS', 'staff-efficiency-report', staffFilter)}
-                      className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
-                    >
-                      <Download size={16} /> Export
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        disabled={loading || exportManager.isExporting}
+                        onClick={() => handleExport('WORKER_ANALYTICS', 'staff-efficiency-report', staffFilter)}
+                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                      >
+                        <Download size={16} /> Export
+                      </button>
+                    )}
                   </div>
                 </div>
               }
@@ -401,14 +408,16 @@ const NurseDashboard = () => {
                           </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={loading || exportManager.isExporting}
-                          onClick={() => handleExport('HOTLIST', 'hotlist-report')}
-                          className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
-                        >
-                          <Download size={16} /> Export
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            disabled={loading || exportManager.isExporting}
+                            onClick={() => handleExport('HOTLIST', 'hotlist-report')}
+                            className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                          >
+                            <Download size={16} /> Export
+                          </button>
+                        )}
                       </div>
                   </div>
                   <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">

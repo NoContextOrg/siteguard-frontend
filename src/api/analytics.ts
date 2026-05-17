@@ -4,6 +4,7 @@
  */
 
 import { authenticatedFetch, safeReadErrorMessage } from './fetch';
+import { API_ENDPOINTS } from './config';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -194,6 +195,7 @@ export interface OvertimeData {
 
 export interface AlertsOverview {
   totalActive: number;
+  todaysAlerts?: number;
   hotlistAlerts: number;
   overtimeAlerts: number;
   medicalAlerts: number;
@@ -331,6 +333,7 @@ export interface ComprehensiveAttendanceExportWorkerDTO extends BiometricTimingM
   overtime?: boolean;
   hotlisted?: boolean;
   isActive?: boolean;
+  hasLoggedOut?: boolean;
 }
 
 export interface ComprehensiveAttendanceExportSummaryDTO {
@@ -359,6 +362,7 @@ export interface TeamAttendanceResponseWorkerDTO extends BiometricTimingMetrics 
   overtime?: boolean;
   hotlisted?: boolean;
   isActive?: boolean;
+  hasLoggedOut?: boolean;
 }
 
 export interface TeamAttendanceSummaryDTO {
@@ -449,6 +453,34 @@ export const getUnifiedDashboard = async (
     return await response.json();
   } catch (error) {
     console.error('Error fetching unified dashboard:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get unified dashboard data scoped strictly to the Engineer's team
+ * GET /api/engineer/analytics/dashboard
+ */
+export const getEngineerUnifiedDashboard = async (
+  date?: string
+): Promise<UnifiedAnalyticsResponse> => {
+  try {
+    let url = API_ENDPOINTS.engineerAnalytics.dashboard;
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await authenticatedFetch(url);
+    if (!response.ok) {
+      const msg = await safeReadErrorMessage(response);
+      throw new Error(msg || `Failed to fetch engineer unified dashboard: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching engineer unified dashboard:', error);
     throw error;
   }
 };
@@ -753,7 +785,7 @@ export const downloadDailyAttendancePdf = async (date?: string): Promise<void> =
             w.employeeId || '-',
             w.loginTime ? w.loginTime.slice(0, 5) : '-',
             w.logoutTime ? w.logoutTime.slice(0, 5) : '-',
-            w.totalHours ? w.totalHours.toFixed(1) : '-',
+            w.hasLoggedOut === false ? 'No logout yet' : (w.totalHours ? w.totalHours.toFixed(1) : '-'),
             w.status || '-',
             w.overtime ? 'Yes' : 'No',
             w.hotlisted ? 'Yes' : 'No'

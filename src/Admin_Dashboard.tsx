@@ -4,13 +4,13 @@ import DashboardLayout from './components/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserCheck, UserX, HardHat, ArrowUpRight, Bell, Users, Users2, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { 
-  getUnifiedDashboard, 
-  type DashboardTimeFilterState 
+import {
+  getUnifiedDashboard,
+  type DashboardTimeFilterState
 } from './api/analytics';
-import { 
-  startAttendanceExport, 
-  startAnalyticsExport 
+import {
+  startAttendanceExport,
+  startAnalyticsExport
 } from './api/export';
 import { useExportJob } from './hooks/useExportJob';
 import { ExportStatusOverlay } from './components/ExportStatusOverlay';
@@ -51,7 +51,7 @@ const AdminDashboard = () => {
 
   // New Async Export Hook
   const exportManager = useExportJob({
-    onSuccess: () => {},
+    onSuccess: () => { },
     onError: (err) => console.error('Export failed:', err)
   });
 
@@ -165,7 +165,7 @@ const AdminDashboard = () => {
         try {
           const data = JSON.parse(event.data);
           const latest = data.alert || data;
-          
+
           if (latest && latest.id && lastAlertIdRef.current !== latest.id) {
             setFloatingAlert(latest);
             setTimeout(() => setFloatingAlert(null), 7000);
@@ -281,7 +281,7 @@ const AdminDashboard = () => {
             Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)
           ) : (
             <>
-              <div 
+              <div
                 onClick={() => navigate('/admin_team')}
                 className="bg-white p-6 rounded-xl border-l-8 border-l-red-900 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
               >
@@ -294,7 +294,7 @@ const AdminDashboard = () => {
                 </div>
                 <ArrowUpRight size={24} className="text-slate-300" />
               </div>
-              <div 
+              <div
                 onClick={() => navigate('/attendance')}
                 className="bg-white p-6 rounded-xl border-l-8 border-l-orange-400 shadow-sm flex justify-between items-center hover:scale-[1.02] transition cursor-pointer"
               >
@@ -321,10 +321,10 @@ const AdminDashboard = () => {
 
         {/* ========== MAIN GRID SECTION ========== */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* LEFT: Tables & Graphs */}
           <div className="lg:col-span-2 space-y-8">
-            
+
             {/* Alert Overview Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 border-b border-slate-100">
@@ -455,57 +455,57 @@ const AdminDashboard = () => {
               subtitle={null}
             >
               {loading ? <SkeletonChart /> : (
-              <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={filteredAttendanceData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <Tooltip cursor={{fill: '#f8fafc'}} />
-                      <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                      <Bar dataKey="Workers" stackId="a" fill="#818cf8" barSize={30} radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="Hotlist" stackId="a" fill="#f87171" barSize={30} />
-                      <Bar dataKey="Engineers" stackId="a" fill="#2dd4bf" barSize={30} radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                    <Bar dataKey="Workers" stackId="a" fill="#818cf8" barSize={30} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Hotlist" stackId="a" fill="#f87171" barSize={30} />
+                    <Bar dataKey="Engineers" stackId="a" fill="#2dd4bf" barSize={30} radius={[4, 4, 0, 0]} />
                   </BarChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>
               )}
             </ChartContainer>
 
             {/* Hotlist Attendance Overview Chart */}
             <ChartContainer title="Hotlist Attendance Overview" subtitle="This bar graph shows recent hotlist alerts by team.">
               {loading ? <SkeletonChart /> : (
-              <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={(Array.isArray(teamAttendanceData) ? teamAttendanceData : []).slice(0, 5).map((t, i) => ({
                     name: `Team ${i + 1}`,
                     present: t.present,
                     absent: t.absent,
                   }))}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <Tooltip />
-                      <Legend iconType="rect" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                      <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
-                      <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <Tooltip />
+                    <Legend iconType="rect" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                    <Bar dataKey="present" stackId="a" fill="#818cf8" name="Present" />
+                    <Bar dataKey="absent" stackId="a" fill="#f472b6" name="Absent" />
                   </BarChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>
               )}
             </ChartContainer>
 
             {/* Attendance Trend (Line Chart) */}
             <ChartContainer title="Attendance Overview" subtitle="This bar graph shows how many hotlist per team is present.">
               {loading ? <SkeletonChart /> : (
-              <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={filteredAttendanceData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                      <Tooltip />
-                      <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold'}} />
-                      <Line type="monotone" dataKey="Hotlist" stroke="#818cf8" strokeWidth={3} dot={{r: 4}} />
-                      <Line type="monotone" dataKey="Workers" stroke="#f87171" strokeWidth={3} dot={{r: 4}} />
-                      <Line type="monotone" dataKey="Engineers" stroke="#2dd4bf" strokeWidth={3} dot={{r: 4}} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <Tooltip />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
+                    <Line type="monotone" dataKey="Hotlist" stroke="#818cf8" strokeWidth={3} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="Workers" stroke="#f87171" strokeWidth={3} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="Engineers" stroke="#2dd4bf" strokeWidth={3} dot={{ r: 4 }} />
                   </LineChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>
               )}
             </ChartContainer>
 
@@ -519,7 +519,7 @@ const AdminDashboard = () => {
               <p className="text-[12px] text-slate-400 font-medium mb-6">
                 Export a structured PDF report of all worker attendance for a specific day.
               </p>
-              
+
               <div className="space-y-4">
                 <button
                   onClick={() => handleDownloadDailyPdf()}
@@ -610,55 +610,55 @@ const AdminDashboard = () => {
 
             {/* Team Attendance Donut */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h3 className="text-sm font-black !text-slate-950 uppercase mb-4">Team Attendance</h3>
-                  
-                  {loading ? <SkeletonPie /> : (
-                  <>
-                    <div className="h-64 relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie 
-                                    data={teamAttendancePie} 
-                                    innerRadius={60} 
-                                    outerRadius={80} 
-                                    paddingAngle={5} 
-                                    dataKey="value"
-                                >
-                                    {teamAttendancePie.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-3xl font-black !text-slate-950">
-                              {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
-                            </span>
-                        </div>
-                    </div>
+              <h3 className="text-sm font-black !text-slate-950 uppercase mb-4">Team Attendance</h3>
 
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      {teamAttendancePie.map((item) => (
-                          <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
-                              <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                  <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
-                              </div>
-                              <span className="text-[12px] font-black text-slate-700">{item.value}</span>
-                          </div>
-                      ))}
+              {loading ? <SkeletonPie /> : (
+                <>
+                  <div className="h-64 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={teamAttendancePie}
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {teamAttendancePie.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-3xl font-black !text-slate-950">
+                        {teamAttendancePie.reduce((sum, item) => sum + item.value, 0)}
+                      </span>
                     </div>
-                  </>
-                  )}
-              </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {teamAttendancePie.map((item) => (
+                      <div key={item.name} className="flex items-center justify-between border-b border-slate-50 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="text-[12px] font-bold text-slate-400 uppercase">{item.name}</span>
+                        </div>
+                        <span className="text-[12px] font-black text-slate-700">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
           </div>
         </div>
       </div>
-      
+
       {/* Export Status Notification Overlay */}
-      <ExportStatusOverlay 
+      <ExportStatusOverlay
         state={exportManager.state}
         progress={exportManager.progress}
         error={exportManager.error}
@@ -690,25 +690,25 @@ const StatCard = ({ label, value, icon, borderColor, onClick }: any) => (
 );
 
 const ChartContainer = ({ title, subtitle, children }: any) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex justify-between items-center mb-6">
-            <div className="min-w-0 flex-1">
-                {typeof title === 'string' ? (
-                  <h3 className="text-sm font-black !text-slate-950 uppercase">{title}</h3>
-                ) : (
-                  title
-                )}
-                {subtitle ? (
-                  typeof subtitle === 'string' ? (
-                    <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
-                  ) : (
-                    subtitle
-                  )
-                ) : null}
-            </div>
-        </div>
-        {children}
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+    <div className="flex justify-between items-center mb-6">
+      <div className="min-w-0 flex-1">
+        {typeof title === 'string' ? (
+          <h3 className="text-sm font-black !text-slate-950 uppercase">{title}</h3>
+        ) : (
+          title
+        )}
+        {subtitle ? (
+          typeof subtitle === 'string' ? (
+            <p className="text-[12px] text-slate-400 font-medium">{subtitle}</p>
+          ) : (
+            subtitle
+          )
+        ) : null}
+      </div>
     </div>
+    {children}
+  </div>
 )
 
 export default AdminDashboard;

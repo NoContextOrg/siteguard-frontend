@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
   import { motion, AnimatePresence } from 'framer-motion';
   import {
     UserCheck, UserX, UserPlus, Users, Bell, Download
@@ -31,10 +31,17 @@ import { useState, useEffect, useRef } from 'react';
   import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
   import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
   import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+  import { useAuth } from './context/AuthContext';
 
   const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://siteguardph.duckdns.org/ws/alerts';
 
   const EngineerDashboard = () => {
+    const { roles, userEmail, personCode } = useAuth();
+    const isAdmin = roles.includes('ROLE_ADMIN');
+    const isEngineer = roles.includes('ROLE_ENGINEER');
+    const isNurse = roles.includes('ROLE_NURSE');
+    const canViewHotlist = isAdmin || isNurse;
+    const canExport = isAdmin || isEngineer;
     const navigate = useNavigate();
     const [modalType, setModalType] = useState<'hotlist' | 'normal' | null>(null);
     const [loading, setLoading] = useState(true);
@@ -180,14 +187,23 @@ import { useState, useEffect, useRef } from 'react';
       };
     }, []);
 
+    const authUser = useMemo(() => {
+      return persons.find(p => p.personCode === personCode || p.email === userEmail);
+    }, [persons, personCode, userEmail]);
+
+
     const handleExport = async (exportType: string, _prefix: string, filterState?: DashboardTimeFilterState) => {
-      const params = {
+      const params: Record<string, any> = {
         exportType,
         filter: filterState?.key === 'CUSTOM' ? undefined : (filterState?.key === '7_DAYS' ? '1_WEEK' : filterState?.key),
         startDate: filterState?.key === 'CUSTOM' ? filterState.start : undefined,
         endDate: filterState?.key === 'CUSTOM' ? filterState.end : undefined,
         format: 'EXCEL'
       };
+
+      if (exportType === 'WORKERS' && authUser?.teamId) {
+        params.teamId = authUser.teamId;
+      }
 
       exportManager.startJob(() => startAnalyticsExport(params));
     };
@@ -334,14 +350,16 @@ import { useState, useEffect, useRef } from 'react';
                         {opt.label}
                       </button>
                     ))}
-                    <button
-                      type="button"
-                      disabled={loading || exportManager.isExporting}
-                      onClick={() => handleExport('TEAMS', 'team-attendance-report', teamAttendanceFilter)}
-                      className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
-                    >
-                      Export
-                    </button>
+                    {canExport && (
+                      <button
+                        type="button"
+                        disabled={loading || exportManager.isExporting}
+                        onClick={() => handleExport('WORKERS', 'team-attendance-report', teamAttendanceFilter)}
+                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                      >
+                        Export
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -373,13 +391,19 @@ import { useState, useEffect, useRef } from 'react';
                 </p>
                 
                 <div className="space-y-4">
-                  <button
-                    onClick={() => handleDownloadDailyPdf()}
-                    disabled={loading || exportManager.isExporting}
-                    className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
-                  >
-                    <Download size={16} /> Export Today's Attendance
-                  </button>
+                  {canExport ? (
+                    <button
+                      onClick={() => handleDownloadDailyPdf()}
+                      disabled={loading || exportManager.isExporting}
+                      className="w-full bg-[#1a2e5a] text-white py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-[#132142] transition disabled:opacity-50 flex justify-center items-center gap-2"
+                    >
+                      <Download size={16} /> Export Today's Attendance
+                    </button>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest text-center py-2">
+                      Admin access required to export
+                    </div>
+                  )}
 
                   <div className="relative flex items-center py-2">
                     <div className="flex-grow border-t border-slate-100"></div>
@@ -397,39 +421,43 @@ import { useState, useEffect, useRef } from 'react';
                         slotProps={{ textField: { size: 'small', fullWidth: true } }}
                       />
                     </LocalizationProvider>
-                    <button
-                      onClick={() => {
-                        const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
-                        if (!dateVal) {
-                          alert('Please select a date');
-                          return;
-                        }
-                        handleDownloadDailyPdf(dateVal);
-                      }}
-                      disabled={loading || exportManager.isExporting}
-                      className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
-                    >
-                      <Download size={16} /> Export Selected Day
-                    </button>
+                    {canExport && (
+                      <button
+                        onClick={() => {
+                          const dateVal = exportDate ? exportDate.format('YYYY-MM-DD') : null;
+                          if (!dateVal) {
+                            alert('Please select a date');
+                            return;
+                          }
+                          handleDownloadDailyPdf(dateVal);
+                        }}
+                        disabled={loading || exportManager.isExporting}
+                        className="w-full bg-slate-100 text-slate-700 py-3 rounded-lg font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition disabled:opacity-50 flex justify-center items-center gap-2"
+                      >
+                        <Download size={16} /> Export Selected Day
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* HOTLIST SIDEBAR */}
-              {hotlistOverview && (
+              {canViewHotlist && hotlistOverview && (
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                   <div className="p-5 border-b flex justify-between items-center">
                     <h3 className="text-sm font-black !text-slate-950 uppercase">Recent Hotlist Alerts</h3>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={loading || exportManager.isExporting}
-                        onClick={() => handleExport('HOTLIST', 'hotlist-report')}
-                        className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
-                      >
-                        <Download size={14} /> Export
-                      </button>
+                      {canExport && (
+                        <button
+                          type="button"
+                          disabled={loading || exportManager.isExporting}
+                          onClick={() => handleExport('HOTLIST', 'hotlist-report')}
+                          className="ml-1 flex items-center gap-2 bg-slate-900 text-white px-3 py-2 rounded-lg text-[12px] font-black disabled:opacity-60"
+                        >
+                          <Download size={14} /> Export
+                        </button>
+                      )}
                       {/* FIXED BUTTON */}
                       <button
                         onClick={() => setModalType('hotlist')}
